@@ -1,0 +1,21 @@
+{
+  "name": "atelier-stephan-hamache",
+  "version": "1.0.0",
+  "description": "Application interne de gestion - Atelier Stéphan Hamache",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start -H 0.0.0.0",
+    "init-db": "node scripts/init-db.mjs",
+    "first-run": "npm install && npm run init-db && npm run build && npm start"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "lucide-react": "^0.460.0",
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "xlsx": "^0.18.5"
+  }
+}
