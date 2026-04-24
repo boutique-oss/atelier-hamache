@@ -5,7 +5,14 @@ export async function PUT(request, { params }) {
   const id = parseInt(params.id);
   const body = await request.json();
   const db = getDb();
-  
+
+  // Merge avec l'existant pour les mises à jour partielles (ex: kanban → date_planifiee seule)
+  const existing = db.prepare('SELECT * FROM dossiers WHERE id = ?').get(id);
+  if (!existing) return NextResponse.json({ error: 'not found' }, { status: 404 });
+
+  const merged = { ...existing, ...body };
+  const e = merged.etapes || {};
+
   const stmt = db.prepare(`
     UPDATE dossiers SET
       nom_dossier = ?, client_nom = ?, statut = ?, flags = ?,
@@ -19,16 +26,23 @@ export async function PUT(request, { params }) {
     WHERE id = ?
   `);
 
-  const e = body.etapes || {};
   stmt.run(
-    body.nom_dossier, body.client_nom || body.nom_dossier, body.statut,
-    JSON.stringify(body.flags || []), body.type_intervention || 'Autre',
-    body.date_ouverture || null,
-    e.devis ? 1 : 0, e.cmde ? 1 : 0, e.atelier ? 1 : 0, e.print ? 1 : 0, e.realise ? 1 : 0,
-    body.lien || '', body.comm || '',
-    body.adresse || '', body.telephone || '', body.email || '',
-    parseFloat(body.heures_a_realiser) || 0,
-    body.date_planifiee !== undefined ? body.date_planifiee : (db.prepare('SELECT date_planifiee FROM dossiers WHERE id=?').get(id)?.date_planifiee ?? null),
+    merged.nom_dossier,
+    merged.client_nom || merged.nom_dossier,
+    merged.statut,
+    typeof merged.flags === 'string' ? merged.flags : JSON.stringify(merged.flags || []),
+    merged.type_intervention || 'Autre',
+    merged.date_ouverture || null,
+    e.devis ? 1 : (merged.etape_devis ?? 0),
+    e.cmde  ? 1 : (merged.etape_cmde  ?? 0),
+    e.atelier ? 1 : (merged.etape_atelier ?? 0),
+    e.print ? 1 : (merged.etape_print ?? 0),
+    e.realise ? 1 : (merged.etape_realise ?? 0),
+    merged.lien || merged.lien_dossier_externe || '',
+    merged.comm || merged.commentaires || '',
+    merged.adresse || '', merged.telephone || '', merged.email || '',
+    parseFloat(merged.heures_a_realiser) || 0,
+    'date_planifiee' in body ? body.date_planifiee : existing.date_planifiee,
     id
   );
   
