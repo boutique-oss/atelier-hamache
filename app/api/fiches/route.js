@@ -106,7 +106,7 @@ export async function GET(request) {
 
     if (!dossierId) {
       const all = db.prepare(`
-        SELECT f.*, d.nom_client, d.ref_dossier
+        SELECT f.*, d.client_nom AS nom_client, ('DE' || printf('%08d', d.id)) AS ref_dossier
         FROM fiches_atelier f
         LEFT JOIN dossiers d ON f.dossier_id = d.id
         ORDER BY f.updated_at DESC
@@ -115,8 +115,8 @@ export async function GET(request) {
     }
 
     const fiche = db.prepare(`
-      SELECT f.*, d.nom_client, d.ref_dossier, d.type_intervention, d.statut,
-        d.heures_a_realiser, d.montant_ht
+      SELECT f.*, d.client_nom AS nom_client, ('DE' || printf('%08d', d.id)) AS ref_dossier,
+        d.type_intervention, d.statut, d.heures_a_realiser
       FROM fiches_atelier f
       LEFT JOIN dossiers d ON f.dossier_id = d.id
       WHERE f.dossier_id = ?
