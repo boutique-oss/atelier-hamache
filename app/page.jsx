@@ -1,10 +1,14 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Pencil, Trash2, X, Pause, Wrench, Zap, Package, Archive, LayoutGrid, ExternalLink, Truck, Check, Clock, BarChart2, Download, FileText } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, X, Pause, Wrench, Zap, Package, Archive, LayoutGrid, ExternalLink, Truck, Check, Clock, BarChart2, Download, FileText, ClipboardList, Layers, Calculator } from 'lucide-react';
+import Link from 'next/link';
 import HeuresModule from '../components/HeuresModule';
 import ImportExportPanel from '../components/ImportExportPanel';
 import ReportsPanel from '../components/ReportsPanel';
+import FicheAtelierModal from '../components/FicheAtelierModal';
+import CapaciteModule from '../components/CapaciteModule';
+import PredevisModule from '../components/PredevisModule';
 
 const STATUTS = ['Nouveau', 'Devis envoyé', 'Validé', 'En atelier', 'Prêt à poser', 'Clos'];
 const FLAGS = ['Standby', 'SAV', 'Urgent'];
@@ -29,7 +33,7 @@ const STATUT_STYLES = {
 const FLAG_STYLES = {
   'Standby': { bg: '#EEEEEE', text: '#444444', icon: Pause },
   'SAV':     { bg: '#DDDDDD', text: '#222222', icon: Wrench },
-  'Urgent':  { bg: '#000000', text: '#FFFFFF', icon: Zap },
+  'Urgent':  { bg: '#FF0000', text: '#FFFFFF', icon: Zap },
 };
 
 function StatutBadge({ statut }) {
@@ -312,7 +316,7 @@ function DossierModal({ dossier, onSave, onDelete, onClose, onReload }) {
   );
 }
 
-function VueDossiers({ dossiers, onEdit, onNew }) {
+function VueDossiers({ dossiers, onEdit, onNew, onFiche }) {
   const [search, setSearch] = useState('');
   const [statutFilter, setStatutFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -390,14 +394,14 @@ function VueDossiers({ dossiers, onEdit, onNew }) {
         <table className="w-full">
           <thead>
             <tr style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
-              {['Dossier','Statut','Type','Avancement','Date','H. prévues','Flags'].map((h,i) => (
+              {['Dossier','Statut','Type','Avancement','Date','H. prévues','Flags',''].map((h,i) => (
                 <th key={i} className="text-left px-4 py-3 text-xs font-medium uppercase" style={{ color: C.inkMuted, letterSpacing: '0.05em' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map(d => (
-              <tr key={d.id} className="group hover:bg-stone-50" style={{ borderTop: `1px solid ${C.borderSoft}` }}>
+              <tr key={d.id} className="group hover:bg-neutral-50" style={{ borderTop: `1px solid ${C.borderSoft}` }}>
                 <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}><p className="font-medium text-sm" style={{ color: C.ink }}>{d.nom_dossier}</p></td>
                 <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}><StatutBadge statut={d.statut} /></td>
                 <td className="px-4 py-3 text-xs cursor-pointer" style={{ color: C.inkSoft }} onClick={() => onEdit(d)}>{d.type_intervention || '—'}</td>
@@ -416,6 +420,10 @@ function VueDossiers({ dossiers, onEdit, onNew }) {
                         <FileText size={13} />
                       </a>
                     )}
+                    <button onClick={e => { e.stopPropagation(); onFiche(d); }} title="Fiche atelier"
+                      className="p-1.5" style={{ color: C.inkSoft }}>
+                      <ClipboardList size={13} />
+                    </button>
                     <button onClick={() => onEdit(d)} title="Modifier"
                       className="p-1.5" style={{ color: C.inkSoft }}>
                       <Pencil size={13} />
@@ -592,7 +600,14 @@ export default function Page() {
   const [fournisseurs, setFournisseurs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
+  const [ficheForDossier, setFicheForDossier] = useState(null);
   const [view, setView] = useState('dossiers');
+
+  const openFiche = (d) => setFicheForDossier({
+    ...d,
+    nom_client: d.client_nom || d.nom_dossier,
+    ref_dossier: d.nom_dossier,
+  });
   const reload = async () => {
     const [d, c, f] = await Promise.all([
       fetch('/api/dossiers').then(r => r.json()),
@@ -641,6 +656,7 @@ export default function Page() {
     { key: 'heures',    label: 'Heures',           icon: Clock,      count: null },
     { key: 'rapports',  label: 'Rapports',         icon: BarChart2,  count: null },
     { key: 'import',    label: 'Export PDF',        icon: Download,   count: null },
+    { key: 'predevis',  label: 'Prédevis',          icon: Calculator, count: null },
   ];
 
   return (
@@ -665,14 +681,20 @@ export default function Page() {
               </button>
             );
           })}
+          <Link href="/stock"
+                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium relative ml-auto"
+                style={{ color: C.inkSoft, borderBottom: '2px solid transparent', marginBottom: '-1px' }}>
+            <Layers size={15} /> Stock Kanban
+          </Link>
         </nav>
 
-        {view === 'dossiers'  && <VueDossiers dossiers={dossiers} onEdit={setEditing} onNew={() => setEditing({})} />}
+        {view === 'dossiers'  && <VueDossiers dossiers={dossiers} onEdit={setEditing} onNew={() => setEditing({})} onFiche={openFiche} />}
         {view === 'commandes' && <VueCommandes commandes={commandes} fournisseurs={fournisseurs} />}
         {view === 'archives'  && <VueArchives dossiers={dossiers} onEdit={setEditing} />}
         {view === 'heures'    && <HeuresModule />}
         {view === 'rapports'  && <ReportsPanel />}
         {view === 'import'    && <ImportExportPanel onDataChanged={reload} />}
+        {view === 'predevis'  && <PredevisModule />}
 
         <footer className="mt-10 pt-6" style={{ borderTop: `1px solid ${C.border}` }}>
           <p className="text-xs" style={{ color: C.inkMuted }}>Mode serveur · données partagées entre tous les postes du réseau</p>
@@ -680,6 +702,9 @@ export default function Page() {
       </div>
 
       {editing !== null && <DossierModal dossier={editing} onSave={handleSave} onDelete={handleDelete} onClose={() => setEditing(null)} onReload={reload} />}
+      {ficheForDossier && <FicheAtelierModal dossier={ficheForDossier} onClose={() => setFicheForDossier(null)} />}
+
+      <CapaciteModule />
     </div>
   );
 }

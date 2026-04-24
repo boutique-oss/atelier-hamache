@@ -76,6 +76,10 @@ export async function POST(request) {
       INSERT INTO heures (dossier_id, operateur, date, heures_passees, type_travail, description)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(dossier_id, operateur, date, parseFloat(heures_passees), type_travail || 'Atelier', description || '');
+
+    // Broadcast update to all connected clients
+    fetch(new URL('/api/sync?action=broadcast', request.url).toString()).catch(() => {});
+
     return NextResponse.json({ id: r.lastInsertRowid });
   } finally {
     db.close();
@@ -92,6 +96,10 @@ export async function PUT(request) {
       SET operateur=?, date=?, heures_passees=?, type_travail=?, description=?
       WHERE id=?
     `).run(operateur, date, parseFloat(heures_passees), type_travail, description, id);
+
+    // Broadcast update to all connected clients
+    fetch(new URL('/api/sync?action=broadcast', request.url).toString()).catch(() => {});
+
     return NextResponse.json({ ok: true });
   } finally {
     db.close();
@@ -104,6 +112,10 @@ export async function DELETE(request) {
   try {
     const id = new URL(request.url).searchParams.get('id');
     db.prepare('DELETE FROM heures WHERE id=?').run(id);
+
+    // Broadcast update to all connected clients
+    fetch(new URL('/api/sync?action=broadcast', request.url).toString()).catch(() => {});
+
     return NextResponse.json({ ok: true });
   } finally {
     db.close();

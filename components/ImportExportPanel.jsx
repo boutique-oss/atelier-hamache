@@ -10,7 +10,7 @@ const EXPORTS = [
   { type: 'commandes', label: 'Commandes tissu',   desc: 'Toutes les commandes fournisseurs' },
   { type: 'heures',    label: 'Heures',            desc: 'Saisies réelles par opérateur et dossier' },
   { type: 'rapport',   label: 'Rapport synthèse',  desc: 'Heures prévues/réelles · par opérateur · par statut' },
-  { type: 'complet',   label: '📄 Tout exporter',  desc: 'Toutes les sections en un seul document PDF' },
+  { type: 'complet',   label: 'Tout exporter',      desc: 'Toutes les sections en un seul document PDF' },
 ];
 
 function BoutonExport({ type, label, desc }) {
@@ -19,9 +19,9 @@ function BoutonExport({ type, label, desc }) {
     <button onClick={() => window.open(`/api/export?type=${type}`, '_blank')} style={{
       background: isBig ? ACCENT : '#fff',
       color: isBig ? '#fff' : INK,
-      border: `1px solid ${isBig ? ACCENT : '#D9D0C5'}`,
-      borderRadius: 8, padding: '10px 16px', cursor: 'pointer', textAlign: 'left',
-      flex: 1, minWidth: 180, transition: 'all .15s',
+      border: `1px solid ${isBig ? ACCENT : '#E5E5E5'}`,
+      padding: '10px 16px', cursor: 'pointer', textAlign: 'left',
+      flex: 1, minWidth: 180,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
         <Download size={14} color={isBig ? '#fff' : ACCENT} />

@@ -25,8 +25,8 @@ function BarreHeures({ prevues, reelles }) {
           {depasse ? `+${ecart}h dépassé` : `${ecart}h restantes`}
         </span>
       </div>
-      <div style={{ background: '#E0D8CE', borderRadius: 4, height: 8, overflow: 'hidden' }}>
-        <div style={{ width: `${Math.min(pct, 100)}%`, background: color, height: '100%', transition: 'width .4s', borderRadius: 4 }} />
+      <div style={{ background: '#E5E5E5', height: 8, overflow: 'hidden' }}>
+        <div style={{ width: `${Math.min(pct, 100)}%`, background: color, height: '100%' }} />
       </div>
     </div>
   );
@@ -35,7 +35,7 @@ function BarreHeures({ prevues, reelles }) {
 // ── Ligne d'une saisie heures ─────────────────────────────────────────────
 function LigneHeure({ entry, onDelete }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #EDE8E0', fontSize: 13 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #E5E5E5', fontSize: 13 }}>
       <span style={{ color: '#888', minWidth: 80 }}>{entry.date}</span>
       <span style={{ fontWeight: 600, minWidth: 80 }}>{entry.operateur}</span>
       <span style={{ background: SOFT, color: ACCENT, borderRadius: 4, padding: '2px 8px', fontWeight: 700, minWidth: 50, textAlign: 'center' }}>{entry.heures_passees}h</span>
@@ -91,10 +91,10 @@ function FormulaireHeure({ dossierId, dossiers, onSaved }) {
     onSaved();
   };
 
-  const inp = { border: '1px solid #D9D0C5', borderRadius: 6, padding: '6px 10px', fontSize: 13, background: '#fff', color: INK };
+  const inp = { border: '1px solid #E5E5E5', padding: '6px 10px', fontSize: 13, background: '#fff', color: INK };
 
   return (
-    <div style={{ background: SOFT, borderRadius: 10, padding: 16, marginBottom: 16 }}>
+    <div style={{ background: SOFT, padding: 16, marginBottom: 16, border: '1px solid #E5E5E5' }}>
 
       {/* Ligne contexte : dossier + date + type + description */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14, alignItems: 'flex-end' }}>
@@ -133,9 +133,8 @@ function FormulaireHeure({ dossierId, dossiers, onSaved }) {
           return (
             <div key={l.operateur} style={{
               background: actif ? '#fff' : 'rgba(255,255,255,0.55)',
-              border: `1.5px solid ${actif ? ACCENT : '#D9D0C5'}`,
-              borderRadius: 8, padding: '10px 12px',
-              transition: 'border-color .15s, background .15s',
+              border: `1.5px solid ${actif ? ACCENT : '#E5E5E5'}`,
+              padding: '10px 12px',
             }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: actif ? INK : '#999', marginBottom: 8 }}>
                 {l.operateur}
@@ -146,10 +145,10 @@ function FormulaireHeure({ dossierId, dossiers, onSaved }) {
                 onChange={e => setHeures(i, e.target.value)}
                 style={{
                   width: '100%', textAlign: 'center', fontWeight: 700, fontSize: 18,
-                  border: `1px solid ${actif ? ACCENT : '#D9D0C5'}`,
-                  borderRadius: 6, padding: '6px 4px',
+                  border: `1px solid ${actif ? ACCENT : '#E5E5E5'}`,
+                  padding: '6px 4px',
                   background: actif ? SOFT : '#fff',
-                  color: actif ? ACCENT : '#AAA',
+                  color: actif ? ACCENT : '#AAAAAA',
                   outline: 'none',
                 }}
               />
@@ -195,7 +194,7 @@ function FormulaireHeure({ dossierId, dossiers, onSaved }) {
 // ── Carte récap par opérateur ─────────────────────────────────────────────
 function CarteOperateur({ stat }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #EDE8E0', borderRadius: 8, padding: 14, minWidth: 160 }}>
+    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 14, minWidth: 160 }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginBottom: 4 }}>{stat.operateur}</div>
       <div style={{ fontSize: 24, fontWeight: 800, color: ACCENT }}>{stat.total_heures}h</div>
       <div style={{ fontSize: 11, color: '#888' }}>{stat.nb_saisies} saisies · {stat.nb_dossiers} dossiers</div>
@@ -251,8 +250,8 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0, comp
           </span>
         </div>
         <button onClick={() => setShowForm(f => !f)} style={{
-          background: showForm ? '#E0D8CE' : ACCENT, color: showForm ? INK : '#fff',
-          border: 'none', borderRadius: 6, padding: '7px 14px', fontSize: 13, cursor: 'pointer',
+          background: showForm ? '#E5E5E5' : ACCENT, color: showForm ? INK : '#fff',
+          border: 'none', padding: '7px 14px', fontSize: 13, cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
           {showForm ? <><ChevronUp size={14} /> Fermer</> : <><Plus size={14} /> Saisir des heures</>}
@@ -262,8 +261,8 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0, comp
       {/* Barre prévues/réelles */}
       {dossierId && prevues > 0 && <BarreHeures prevues={prevues} reelles={reelles} />}
       {dossierId && prevues === 0 && (
-        <div style={{ background: '#FFF9EC', border: '1px solid #F0D080', borderRadius: 6, padding: '8px 12px', fontSize: 12, color: '#7A6000', marginBottom: 12 }}>
-          ⚠️ Pas d'heures prévues renseignées — édite le dossier pour ajouter un devis horaire.
+        <div style={{ background: '#F5F5F5', border: '1px solid #000', padding: '8px 12px', fontSize: 12, color: '#000', marginBottom: 12 }}>
+          Pas d'heures prévues — édite le dossier pour ajouter un devis horaire.
         </div>
       )}
 
@@ -314,7 +313,7 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0, comp
           {heures.map(h => (
             <div key={h.id}>
               {!dossierId && (
-                <div style={{ display: 'grid', gridTemplateColumns: '80px 90px 60px 70px 1fr 120px 24px', gap: 8, alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #EDE8E0', fontSize: 13 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 90px 60px 70px 1fr 120px 24px', gap: 8, alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #E5E5E5', fontSize: 13 }}>
                   <span style={{ color: '#888' }}>{h.date}</span>
                   <span style={{ fontWeight: 600 }}>{h.operateur}</span>
                   <span style={{ background: SOFT, color: ACCENT, borderRadius: 4, padding: '1px 6px', fontWeight: 700, textAlign: 'center' }}>{h.heures_passees}h</span>

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm start *)",
+      "Bash(curl -s http://localhost:3000)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(pkill -f \"npm\")",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /PID 20632 /F)",
+      "PowerShell(Stop-Process -Id 20632 -Force)",
+      "Bash(taskkill /IM node.exe /F)"
+    ]
+  }
+}

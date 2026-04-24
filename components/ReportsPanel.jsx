@@ -18,7 +18,7 @@ const STATUT_COLORS = {
 
 function KpiCard({ icon: Icon, label, value, sub, color = ACCENT }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #EDE8E0', borderRadius: 10, padding: '16px 18px', flex: 1, minWidth: 140 }}>
+    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: '16px 18px', flex: 1, minWidth: 140 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <Icon size={16} color={color} />
         <span style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: .5 }}>{label}</span>
@@ -31,11 +31,11 @@ function KpiCard({ icon: Icon, label, value, sub, color = ACCENT }) {
 
 function TableStatuts({ data }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #EDE8E0', borderRadius: 10, padding: 18, flex: 1 }}>
+    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 18, flex: 1 }}>
       <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 12 }}>Répartition par statut</div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
-          <tr style={{ borderBottom: '2px solid #EDE8E0' }}>
+          <tr style={{ borderBottom: '2px solid #E5E5E5' }}>
             <th style={{ textAlign: 'left', padding: '4px 8px', color: '#888', fontWeight: 600 }}>Statut</th>
             <th style={{ textAlign: 'right', padding: '4px 8px', color: '#888', fontWeight: 600 }}>Nb</th>
             <th style={{ textAlign: 'right', padding: '4px 8px', color: '#888', fontWeight: 600 }}>CA HT</th>
@@ -44,7 +44,7 @@ function TableStatuts({ data }) {
         </thead>
         <tbody>
           {data.map(row => (
-            <tr key={row.statut} style={{ borderBottom: '1px solid #F5F0EA' }}>
+            <tr key={row.statut} style={{ borderBottom: '1px solid #E5E5E5' }}>
               <td style={{ padding: '7px 8px' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: STATUT_COLORS[row.statut] || '#AAA', display: 'inline-block' }} />
@@ -72,13 +72,13 @@ function TableHeuresComparaison({ data }) {
   );
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #EDE8E0', borderRadius: 10, padding: 18, flex: 1 }}>
+    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 18, flex: 1 }}>
       <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
         <Clock size={14} color={ACCENT} /> Heures prévues vs réelles (dossiers actifs)
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
         <thead>
-          <tr style={{ borderBottom: '2px solid #EDE8E0' }}>
+          <tr style={{ borderBottom: '2px solid #E5E5E5' }}>
             <th style={{ textAlign: 'left', padding: '4px 6px', color: '#888', fontWeight: 600 }}>Client</th>
             <th style={{ textAlign: 'left', padding: '4px 6px', color: '#888', fontWeight: 600 }}>Statut</th>
             <th style={{ textAlign: 'right', padding: '4px 6px', color: '#888', fontWeight: 600 }}>H.prévues</th>
@@ -93,7 +93,7 @@ function TableHeuresComparaison({ data }) {
             const depasse = row.ecart > 0;
             const manque  = row.prevues > 0 && row.reelles === 0;
             return (
-              <tr key={row.id} style={{ borderBottom: '1px solid #F5F0EA' }}>
+              <tr key={row.id} style={{ borderBottom: '1px solid #E5E5E5' }}>
                 <td style={{ padding: '6px 6px' }}>
                   <div style={{ fontWeight: 600 }}>{row.nom_client}</div>
                   <div style={{ fontSize: 10, color: '#888' }}>{row.ref_dossier}</div>
@@ -124,10 +124,10 @@ function TableHeuresComparaison({ data }) {
 
 function TableFournisseurs({ data }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #EDE8E0', borderRadius: 10, padding: 18, flex: 1, minWidth: 240 }}>
+    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 18, flex: 1, minWidth: 240 }}>
       <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 12 }}>Top fournisseurs</div>
       {data.map((f, i) => (
-        <div key={f.fournisseur} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #F5F0EA', fontSize: 13 }}>
+        <div key={f.fournisseur} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #E5E5E5', fontSize: 13 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ width: 20, height: 20, borderRadius: '50%', background: SOFT, color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{i + 1}</span>
             {f.fournisseur}
@@ -142,7 +142,7 @@ function TableFournisseurs({ data }) {
 function BarresTypes({ data }) {
   const max = Math.max(...data.map(d => d.nb), 1);
   return (
-    <div style={{ background: '#fff', border: '1px solid #EDE8E0', borderRadius: 10, padding: 18, flex: 1, minWidth: 220 }}>
+    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 18, flex: 1, minWidth: 220 }}>
       <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 12 }}>Par type d'intervention</div>
       {data.map(row => (
         <div key={row.type_intervention} style={{ marginBottom: 10 }}>
@@ -150,7 +150,7 @@ function BarresTypes({ data }) {
             <span style={{ color: INK }}>{row.type_intervention}</span>
             <span style={{ color: '#888' }}>{row.nb} dossiers</span>
           </div>
-          <div style={{ background: '#EDE8E0', borderRadius: 4, height: 6 }}>
+          <div style={{ background: '#E5E5E5', borderRadius: 4, height: 6 }}>
             <div style={{ width: `${(row.nb / max) * 100}%`, background: ACCENT, height: '100%', borderRadius: 4 }} />
           </div>
         </div>
@@ -203,7 +203,7 @@ export default function ReportsPanel() {
       {/* Ligne 3 : opérateurs + fournisseurs */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         {heuresParOp.length > 0 && (
-          <div style={{ background: '#fff', border: '1px solid #EDE8E0', borderRadius: 10, padding: 18, flex: 1, minWidth: 220 }}>
+          <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 18, flex: 1, minWidth: 220 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 12 }}>Heures par opérateur</div>
             {heuresParOp.map(op => (
               <div key={op.operateur} style={{ marginBottom: 10 }}>
@@ -223,7 +223,7 @@ export default function ReportsPanel() {
 
       <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
         <button onClick={load} style={{
-          background: 'none', border: '1px solid #D9D0C5', borderRadius: 6, padding: '6px 14px',
+          background: 'none', border: '1px solid #E5E5E5', borderRadius: 6, padding: '6px 14px',
           fontSize: 12, color: '#888', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
         }}>
           <RefreshCw size={12} /> Actualiser

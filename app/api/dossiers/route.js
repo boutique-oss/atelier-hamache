@@ -31,5 +31,9 @@ export async function POST(request) {
   );
   
   const created = db.prepare('SELECT * FROM dossiers WHERE id = ?').get(result.lastInsertRowid);
+
+  // Broadcast update to all connected clients
+  fetch(new URL('/api/sync?action=broadcast', request.url).toString()).catch(() => {});
+
   return NextResponse.json(row2dossier(created), { status: 201 });
 }

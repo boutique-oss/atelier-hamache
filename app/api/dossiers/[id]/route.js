@@ -14,6 +14,7 @@ export async function PUT(request, { params }) {
       lien_dossier_externe = ?, commentaires = ?,
       adresse = ?, telephone = ?, email = ?,
       heures_a_realiser = ?,
+      date_planifiee = ?,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `);
@@ -27,10 +28,15 @@ export async function PUT(request, { params }) {
     body.lien || '', body.comm || '',
     body.adresse || '', body.telephone || '', body.email || '',
     parseFloat(body.heures_a_realiser) || 0,
+    body.date_planifiee !== undefined ? body.date_planifiee : (db.prepare('SELECT date_planifiee FROM dossiers WHERE id=?').get(id)?.date_planifiee ?? null),
     id
   );
   
   const updated = db.prepare('SELECT * FROM dossiers WHERE id = ?').get(id);
+
+  // Broadcast update to all connected clients
+  fetch(new URL('/api/sync?action=broadcast', request.url).toString()).catch(() => {});
+
   return NextResponse.json(row2dossier(updated));
 }
 
@@ -42,6 +48,10 @@ export async function DELETE(request, { params }) {
       db.prepare('DELETE FROM heures WHERE dossier_id = ?').run(id);
       db.prepare('DELETE FROM dossiers WHERE id = ?').run(id);
     })();
+
+    // Broadcast update to all connected clients
+    fetch(new URL('/api/sync?action=broadcast', request.url).toString()).catch(() => {});
+
     return NextResponse.json({ deleted: id });
   } catch(e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
