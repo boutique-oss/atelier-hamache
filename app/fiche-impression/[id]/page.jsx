@@ -162,7 +162,7 @@ export default async function FicheImpressionPage({ params }) {
         }
       `}</style>
 
-      <button className="print-btn" onClick={() => window.print()}>
+      <button className="print-btn">
         Imprimer
       </button>
 
