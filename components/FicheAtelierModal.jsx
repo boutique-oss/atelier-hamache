@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FileText, Save, Printer, X } from 'lucide-react';
+import { FileText, Save, Printer, ExternalLink, X } from 'lucide-react';
 
 const INK    = '#000000';
 const ACCENT = '#000000';
@@ -232,12 +232,24 @@ export default function FicheAtelierModal({ dossier, onClose }) {
           </div>
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <a
+              href={`/fiche-impression/${dossier.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                border: '1px solid #000', background: '#000', color: '#fff',
+                padding: '8px 18px', cursor: 'pointer', fontSize: 13,
+                display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+              }}
+            >
+              <ExternalLink size={14} /> Fiche papier atelier
+            </a>
             {currentFiche && (
               <button onClick={() => setShowPrint(true)} style={{
                 border: '1px solid #000', background: '#fff', padding: '8px 18px', cursor: 'pointer', fontSize: 13,
                 display: 'flex', alignItems: 'center', gap: 6,
               }}>
-                <Printer size={14} /> Aperçu / Imprimer
+                <Printer size={14} /> Aperçu données
               </button>
             )}
             <button onClick={onClose} style={{ border: '1px solid #000', background: '#fff', padding: '8px 18px', cursor: 'pointer', fontSize: 13 }}>Annuler</button>
