@@ -318,15 +318,21 @@ function DossierModal({ dossier, onSave, onDelete, onClose, onReload }) {
 
 function VueDossiers({ dossiers, onEdit, onNew, onFiche }) {
   const [search, setSearch] = useState('');
+  const [clientFilter, setClientFilter] = useState('all');
   const [statutFilter, setStatutFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [flagFilter, setFlagFilter] = useState('all');
 
   const actifs = useMemo(() => dossiers.filter(d => d.statut !== 'Clos'), [dossiers]);
 
+  const clientsUniques = useMemo(() =>
+    [...new Set(actifs.map(d => d.client_nom).filter(Boolean))].sort(),
+  [actifs]);
+
   const filtered = useMemo(() => {
     return actifs.filter(d => {
       if (search && !d.nom_dossier.toLowerCase().includes(search.toLowerCase()) && !d.client_nom.toLowerCase().includes(search.toLowerCase())) return false;
+      if (clientFilter !== 'all' && d.client_nom !== clientFilter) return false;
       if (statutFilter !== 'all' && d.statut !== statutFilter) return false;
       if (typeFilter !== 'all' && d.type_intervention !== typeFilter) return false;
       if (flagFilter !== 'all' && !d.flags.includes(flagFilter)) return false;
@@ -336,7 +342,7 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche }) {
       if (sa !== sb) return sa - sb;
       return (b.date_ouverture || '').localeCompare(a.date_ouverture || '');
     });
-  }, [actifs, search, statutFilter, typeFilter, flagFilter]);
+  }, [actifs, search, clientFilter, statutFilter, typeFilter, flagFilter]);
 
   const stats = useMemo(() => {
     const out = {};
@@ -372,12 +378,16 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche }) {
         })}
       </div>
 
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 mb-2">
         <div className="relative flex-1">
           <Search size={14} style={{ color: C.inkMuted, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un dossier ou un client…"
                  className="w-full pl-9 pr-3 py-2 rounded-md text-sm" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.ink }} />
         </div>
+        <select value={clientFilter} onChange={e => setClientFilter(e.target.value)} className="px-3 py-2 rounded-md text-sm" style={{ background: clientFilter !== 'all' ? C.ink : C.surface, border: `1px solid ${C.border}`, color: clientFilter !== 'all' ? C.bg : C.ink, minWidth: 180 }}>
+          <option value="all">Tous clients</option>
+          {clientsUniques.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
         <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="px-3 py-2 rounded-md text-sm" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.ink, minWidth: 160 }}>
           <option value="all">Tous types</option>
           {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
@@ -387,6 +397,18 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche }) {
           {FLAGS.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
       </div>
+
+      {(clientFilter !== 'all' || statutFilter !== 'all' || typeFilter !== 'all' || flagFilter !== 'all' || search) && (
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <span className="text-xs" style={{ color: C.inkMuted }}>Filtres actifs :</span>
+          {search && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>"{search}" <button onClick={() => setSearch('')}><X size={10} /></button></span>}
+          {clientFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.ink, color: C.bg }}>{clientFilter} <button onClick={() => setClientFilter('all')}><X size={10} /></button></span>}
+          {statutFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>{statutFilter} <button onClick={() => setStatutFilter('all')}><X size={10} /></button></span>}
+          {typeFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>{typeFilter} <button onClick={() => setTypeFilter('all')}><X size={10} /></button></span>}
+          {flagFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>{flagFilter} <button onClick={() => setFlagFilter('all')}><X size={10} /></button></span>}
+          <button onClick={() => { setSearch(''); setClientFilter('all'); setStatutFilter('all'); setTypeFilter('all'); setFlagFilter('all'); }} className="text-xs underline" style={{ color: C.inkMuted }}>Tout effacer</button>
+        </div>
+      )}
 
       <p className="text-xs mb-3" style={{ color: C.inkMuted }}>{filtered.length} {filtered.length > 1 ? 'dossiers affichés' : 'dossier affiché'}</p>
 
@@ -402,7 +424,12 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche }) {
           <tbody>
             {filtered.map(d => (
               <tr key={d.id} className="group hover:bg-neutral-50" style={{ borderTop: `1px solid ${C.borderSoft}` }}>
-                <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}><p className="font-medium text-sm" style={{ color: C.ink }}>{d.nom_dossier}</p></td>
+                <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}>
+                  <p className="font-medium text-sm" style={{ color: C.ink }}>{d.nom_dossier}</p>
+                  {d.client_nom && d.client_nom !== d.nom_dossier && (
+                    <p className="text-xs mt-0.5" style={{ color: C.inkMuted }}>{d.client_nom}</p>
+                  )}
+                </td>
                 <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}><StatutBadge statut={d.statut} /></td>
                 <td className="px-4 py-3 text-xs cursor-pointer" style={{ color: C.inkSoft }} onClick={() => onEdit(d)}>{d.type_intervention || '—'}</td>
                 <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}><EtapesDots etapes={d.etapes} /></td>
@@ -584,21 +611,24 @@ function CommandeModal({ commande, fournisseurs, onSave, onDelete, onClose }) {
 
 function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
   const [search, setSearch] = useState('');
+  const [clientFilter, setClientFilter] = useState('all');
   const [fournFilter, setFournFilter] = useState('all');
   const [statutLivFilter, setStatutLivFilter] = useState('all');
 
   const fournUniques = useMemo(() => [...new Set(commandes.map(c => c.fournisseur))].sort(), [commandes]);
+  const clientsUniques = useMemo(() => [...new Set(commandes.map(c => c.client).filter(Boolean))].sort(), [commandes]);
 
   const filtered = useMemo(() => {
     return commandes.filter(c => {
-      if (search && !c.client.toLowerCase().includes(search.toLowerCase()) && !c.designation.toLowerCase().includes(search.toLowerCase()) && !c.reference.toLowerCase().includes(search.toLowerCase())) return false;
+      if (search && !c.client?.toLowerCase().includes(search.toLowerCase()) && !c.designation?.toLowerCase().includes(search.toLowerCase()) && !c.reference?.toLowerCase().includes(search.toLowerCase())) return false;
+      if (clientFilter !== 'all' && c.client !== clientFilter) return false;
       if (fournFilter !== 'all' && c.fournisseur !== fournFilter) return false;
       const livree = c.qte_livree && c.qte_livree > 0;
       if (statutLivFilter === 'livree' && !livree) return false;
       if (statutLivFilter === 'attente' && livree) return false;
       return true;
     });
-  }, [commandes, search, fournFilter, statutLivFilter]);
+  }, [commandes, search, clientFilter, fournFilter, statutLivFilter]);
 
   const stats = useMemo(() => {
     const livrees = commandes.filter(c => c.qte_livree && c.qte_livree > 0).length;
@@ -639,17 +669,32 @@ function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
         </div>
       </div>
 
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 mb-2">
         <div className="relative flex-1">
           <Search size={14} style={{ color: C.inkMuted, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher client, désignation, référence…"
                  className="w-full pl-9 pr-3 py-2 rounded-md text-sm" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.ink }} />
         </div>
+        <select value={clientFilter} onChange={e => setClientFilter(e.target.value)} className="px-3 py-2 rounded-md text-sm" style={{ background: clientFilter !== 'all' ? C.ink : C.surface, border: `1px solid ${C.border}`, color: clientFilter !== 'all' ? C.bg : C.ink, minWidth: 180 }}>
+          <option value="all">Tous clients</option>
+          {clientsUniques.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
         <select value={fournFilter} onChange={e => setFournFilter(e.target.value)} className="px-3 py-2 rounded-md text-sm" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.ink, minWidth: 200 }}>
           <option value="all">Tous fournisseurs ({fournUniques.length})</option>
           {fournUniques.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
       </div>
+
+      {(clientFilter !== 'all' || fournFilter !== 'all' || statutLivFilter !== 'all' || search) && (
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <span className="text-xs" style={{ color: C.inkMuted }}>Filtres actifs :</span>
+          {search && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>"{search}" <button onClick={() => setSearch('')}><X size={10} /></button></span>}
+          {clientFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.ink, color: C.bg }}>{clientFilter} <button onClick={() => setClientFilter('all')}><X size={10} /></button></span>}
+          {fournFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>{fournFilter} <button onClick={() => setFournFilter('all')}><X size={10} /></button></span>}
+          {statutLivFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>{statutLivFilter === 'livree' ? 'Livrées' : 'En attente'} <button onClick={() => setStatutLivFilter('all')}><X size={10} /></button></span>}
+          <button onClick={() => { setSearch(''); setClientFilter('all'); setFournFilter('all'); setStatutLivFilter('all'); }} className="text-xs underline" style={{ color: C.inkMuted }}>Tout effacer</button>
+        </div>
+      )}
 
       <p className="text-xs mb-3" style={{ color: C.inkMuted }}>{filtered.length} {filtered.length > 1 ? 'commandes affichées' : 'commande affichée'}</p>
 
