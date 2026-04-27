@@ -440,7 +440,149 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche }) {
   );
 }
 
-function VueCommandes({ commandes, fournisseurs }) {
+function CommandeModal({ commande, fournisseurs, onSave, onDelete, onClose }) {
+  const isNew = !commande.id;
+  const [c, setC] = useState({
+    fournisseur: '', client: '', designation: '', reference: '', coloris: '',
+    qte: '', qte_note: '', unite: 'ml', montant: '', qte_livree: '',
+    commentaires: '', date_cde: '', date_livraison: '',
+    ...commande,
+  });
+  const upd = (f, v) => setC(p => ({ ...p, [f]: v }));
+
+  const handleSubmit = () => {
+    if (!c.fournisseur.trim()) return;
+    const payload = { ...c };
+    if (payload.qte !== '' && payload.qte !== null) payload.qte = parseFloat(payload.qte) || null;
+    if (payload.qte_livree !== '' && payload.qte_livree !== null) payload.qte_livree = parseFloat(payload.qte_livree) || null;
+    onSave(payload);
+  };
+
+  const fournList = [...new Set(fournisseurs.map(f => f.nom))].sort();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
+      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto"
+           style={{ background: C.surface, border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: `1px solid ${C.borderSoft}` }}>
+          <div>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 500, color: C.ink }}>
+              {isNew ? 'Nouvelle commande' : 'Modifier la commande'}
+            </h2>
+            <p className="text-xs mt-0.5" style={{ color: C.inkMuted }}>
+              {isNew ? 'Saisir les informations matière' : `${c.fournisseur} · ${c.client}`}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5"><X size={18} style={{ color: C.inkSoft }} /></button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Fournisseur *</label>
+              <input list="fourns-list" value={c.fournisseur} onChange={e => upd('fournisseur', e.target.value)}
+                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+              <datalist id="fourns-list">
+                {fournList.map(f => <option key={f} value={f} />)}
+              </datalist>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Client (dossier)</label>
+              <input type="text" value={c.client} onChange={e => upd('client', e.target.value)}
+                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Désignation</label>
+            <input type="text" value={c.designation} onChange={e => upd('designation', e.target.value)}
+                   className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Référence</label>
+              <input type="text" value={c.reference} onChange={e => upd('reference', e.target.value)}
+                     className="w-full px-3 py-2 text-sm font-mono" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Coloris</label>
+              <input type="text" value={c.coloris} onChange={e => upd('coloris', e.target.value)}
+                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Quantité</label>
+              <input type="number" step="0.1" min="0" value={c.qte} onChange={e => upd('qte', e.target.value)}
+                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Unité</label>
+              <select value={c.unite} onChange={e => upd('unite', e.target.value)}
+                      className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }}>
+                {['ml', 'm²', 'pièce', 'lot'].map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Note qté</label>
+              <input type="text" value={c.qte_note} onChange={e => upd('qte_note', e.target.value)} placeholder="ex: 2 lés"
+                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Date commande</label>
+              <input type="date" value={c.date_cde || ''} onChange={e => upd('date_cde', e.target.value)}
+                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Date livraison prévue</label>
+              <input type="date" value={c.date_livraison || ''} onChange={e => upd('date_livraison', e.target.value)}
+                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+            </div>
+          </div>
+
+          <div className="pt-3" style={{ borderTop: `1px solid ${C.borderSoft}` }}>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>
+              <Truck size={12} style={{ display: 'inline', marginRight: 4 }} />
+              Quantité livrée (0 = en attente)
+            </label>
+            <input type="number" step="0.1" min="0" value={c.qte_livree} onChange={e => upd('qte_livree', e.target.value)}
+                   className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Commentaires</label>
+            <textarea value={c.commentaires} onChange={e => upd('commentaires', e.target.value)} rows={2}
+                      className="w-full px-3 py-2 text-sm resize-none" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+          </div>
+        </div>
+
+        <div className="px-6 py-4 flex items-center justify-between" style={{ borderTop: `1px solid ${C.borderSoft}`, background: C.bg }}>
+          <div>
+            {!isNew && (
+              <button onClick={() => onDelete(c.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium" style={{ color: '#000', border: '1px solid #000' }}>
+                <Trash2 size={12} /> Supprimer
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-1.5 text-sm font-medium" style={{ color: C.inkSoft, border: `1px solid ${C.border}` }}>Annuler</button>
+            <button onClick={handleSubmit} disabled={!c.fournisseur.trim()} className="px-4 py-1.5 text-sm font-medium disabled:opacity-40" style={{ background: C.ink, color: C.bg }}>
+              {isNew ? 'Enregistrer' : 'Mettre à jour'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
   const [search, setSearch] = useState('');
   const [fournFilter, setFournFilter] = useState('all');
   const [statutLivFilter, setStatutLivFilter] = useState('all');
@@ -473,6 +615,9 @@ function VueCommandes({ commandes, fournisseurs }) {
           <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 500, color: C.ink, lineHeight: 1.1 }}>Commandes</h2>
           <p className="text-sm mt-1" style={{ color: C.inkSoft }}>{commandes.length} commandes · {fournUniques.length} fournisseurs</p>
         </div>
+        <button onClick={onNew} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium" style={{ background: C.ink, color: C.bg }}>
+          <Plus size={16} strokeWidth={2.5} /> Nouvelle commande
+        </button>
       </div>
 
       <div className="grid grid-cols-4 gap-2 mb-6">
@@ -512,7 +657,7 @@ function VueCommandes({ commandes, fournisseurs }) {
         <table className="w-full">
           <thead>
             <tr style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
-              {['Fournisseur','Client','Désignation','Référence','Coloris','Quantité','Date cde','Livraison'].map((h,i) => (
+              {['Fournisseur','Client','Désignation','Référence','Coloris','Quantité','Date cde','Livraison',''].map((h,i) => (
                 <th key={i} className="text-left px-3 py-3 text-xs font-medium uppercase" style={{ color: C.inkMuted, letterSpacing: '0.05em' }}>{h}</th>
               ))}
             </tr>
@@ -522,7 +667,7 @@ function VueCommandes({ commandes, fournisseurs }) {
               const livree = c.qte_livree && c.qte_livree > 0;
               const url = fournLink(c.fournisseur);
               return (
-                <tr key={i} className="hover:bg-stone-50" style={{ borderTop: `1px solid ${C.borderSoft}` }}>
+                <tr key={i} className="group hover:bg-neutral-50" style={{ borderTop: `1px solid ${C.borderSoft}` }}>
                   <td className="px-3 py-3 text-xs">
                     {url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium" style={{ color: C.accent }}>{c.fournisseur} <ExternalLink size={10} /></a> : <span className="font-medium" style={{ color: C.ink }}>{c.fournisseur}</span>}
                   </td>
@@ -533,13 +678,20 @@ function VueCommandes({ commandes, fournisseurs }) {
                   <td className="px-3 py-3 text-xs whitespace-nowrap" style={{ color: C.ink }}>{c.qte ? `${c.qte} ${c.unite || 'ml'}` : (c.qte_note || '—')}</td>
                   <td className="px-3 py-3 text-xs whitespace-nowrap" style={{ color: C.inkSoft }}>{formatDate(c.date_cde)}</td>
                   <td className="px-3 py-3 text-xs">
-                    {livree ? <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium" style={{ background: '#000', color: '#FFF' }}><Check size={10} /> {c.qte_livree} ml</span>
+                    {livree ? <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium" style={{ background: '#000', color: '#FFF' }}><Check size={10} /> {c.qte_livree} {c.unite || 'ml'}</span>
                             : <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium" style={{ background: '#EEE', color: '#000' }}><Truck size={10} /> En attente</span>}
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="opacity-0 group-hover:opacity-100">
+                      <button onClick={() => onEdit(c)} title="Modifier" className="p-1.5" style={{ color: C.inkSoft }}>
+                        <Pencil size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
             })}
-            {filtered.length === 0 && <tr><td colSpan={8} className="px-4 py-12 text-center text-sm" style={{ color: C.inkMuted }}>Aucune commande ne correspond aux filtres.</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={9} className="px-4 py-12 text-center text-sm" style={{ color: C.inkMuted }}>Aucune commande ne correspond aux filtres.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -600,6 +752,7 @@ export default function Page() {
   const [fournisseurs, setFournisseurs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
+  const [editingCommande, setEditingCommande] = useState(null);
   const [ficheForDossier, setFicheForDossier] = useState(null);
   const [view, setView] = useState('dossiers');
 
@@ -638,6 +791,24 @@ export default function Page() {
       await fetch(`/api/dossiers/${id}`, { method: 'DELETE' });
       await reload();
       setEditing(null);
+    }
+  };
+
+  const handleSaveCommande = async (cmd) => {
+    if (cmd.id) {
+      await fetch(`/api/commandes/${cmd.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) });
+    } else {
+      await fetch('/api/commandes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) });
+    }
+    await reload();
+    setEditingCommande(null);
+  };
+
+  const handleDeleteCommande = async (id) => {
+    if (confirm('Supprimer définitivement cette commande ?')) {
+      await fetch(`/api/commandes/${id}`, { method: 'DELETE' });
+      await reload();
+      setEditingCommande(null);
     }
   };
 
@@ -689,7 +860,7 @@ export default function Page() {
         </nav>
 
         {view === 'dossiers'  && <VueDossiers dossiers={dossiers} onEdit={setEditing} onNew={() => setEditing({})} onFiche={openFiche} />}
-        {view === 'commandes' && <VueCommandes commandes={commandes} fournisseurs={fournisseurs} />}
+        {view === 'commandes' && <VueCommandes commandes={commandes} fournisseurs={fournisseurs} onNew={() => setEditingCommande({})} onEdit={setEditingCommande} />}
         {view === 'archives'  && <VueArchives dossiers={dossiers} onEdit={setEditing} />}
         {view === 'heures'    && <HeuresModule />}
         {view === 'rapports'  && <ReportsPanel />}
@@ -702,6 +873,7 @@ export default function Page() {
       </div>
 
       {editing !== null && <DossierModal dossier={editing} onSave={handleSave} onDelete={handleDelete} onClose={() => setEditing(null)} onReload={reload} />}
+      {editingCommande !== null && <CommandeModal commande={editingCommande} fournisseurs={fournisseurs} onSave={handleSaveCommande} onDelete={handleDeleteCommande} onClose={() => setEditingCommande(null)} />}
       {ficheForDossier && <FicheAtelierModal dossier={ficheForDossier} onClose={() => setFicheForDossier(null)} />}
 
       <CapaciteModule />
