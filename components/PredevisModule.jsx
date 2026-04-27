@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, X, FileText, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, X, FileText, Check, ChevronDown, ChevronUp, Printer, Download } from 'lucide-react';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
+import PredevisPrintView from './PredevisPrintView';
 
 const C = {
   ink: '#000', inkSoft: '#444', inkMuted: '#888',
@@ -282,6 +283,7 @@ export default function PredevisModule() {
   const [list, setList]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
+  const [printing, setPrinting] = useState(null);
 
   const load = async () => {
     const r = await fetch('/api/predevis');
@@ -379,8 +381,11 @@ export default function PredevisModule() {
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-1">
-                      <button onClick={() => setEditing(p)} className="px-2 py-1 border border-line font-mono text-[10px] text-muted">Éditer</button>
-                      <button onClick={() => handleDelete(p.id)} className="px-2 py-1 border border-line text-muted">
+                      <button onClick={() => setPrinting(p)} title="Imprimer/Télécharger PDF" className="px-2 py-1 border border-line font-mono text-[10px] text-muted hover:bg-bg">
+                        <Printer size={12} />
+                      </button>
+                      <button onClick={() => setEditing(p)} className="px-2 py-1 border border-line font-mono text-[10px] text-muted hover:bg-bg">Éditer</button>
+                      <button onClick={() => handleDelete(p.id)} className="px-2 py-1 border border-line text-muted hover:bg-bg">
                         <Trash2 size={12} />
                       </button>
                     </div>
@@ -397,6 +402,13 @@ export default function PredevisModule() {
           initial={editing?.id ? editing : undefined}
           onSave={handleSave}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {printing !== null && (
+        <PredevisPrintView
+          predevis={printing}
+          onClose={() => setPrinting(null)}
         />
       )}
     </div>

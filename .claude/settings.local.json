@@ -9,7 +9,10 @@
       "Bash(netstat -ano)",
       "Bash(taskkill /PID 20632 /F)",
       "PowerShell(Stop-Process -Id 20632 -Force)",
-      "Bash(taskkill /IM node.exe /F)"
+      "Bash(taskkill /IM node.exe /F)",
+      "Bash(npm install *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ]
   }
 }
