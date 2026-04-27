@@ -1,36 +1,27 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { FileText, Save, Printer, ExternalLink, X } from 'lucide-react';
+import Kicker from './ui/Kicker';
+import Btn from './ui/Btn';
 
-const INK    = '#000000';
-const ACCENT = '#000000';
-const SOFT   = '#EEEEEE';
-const BG     = '#F5F5F5';
-
-const INP_STYLE = {
-  border: '1px solid #000000',
-  padding: '7px 10px', fontSize: 13,
-  background: '#fff', color: INK, width: '100%', boxSizing: 'border-box',
-};
-const TEXTAREA_STYLE = { ...INP_STYLE, minHeight: 72, resize: 'vertical', fontFamily: 'DM Sans, sans-serif' };
+const labelCls = 'font-mono uppercase tracking-[0.16em] text-[10px] text-muted block mb-1';
+const fieldCls = 'w-full px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink';
+const textareaCls = `${fieldCls} resize-y`;
 
 function Champ({ field, value, onChange }) {
-  const label = (
-    <label style={{ fontSize: 11, color: '#737373', textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 4 }}>
-      {field.label}{field.unit ? ` (${field.unit})` : ''}
-    </label>
-  );
+  const label = <label className={labelCls}>{field.label}{field.unit ? ` (${field.unit})` : ''}</label>;
 
   if (field.type === 'textarea') return (
     <div style={{ gridColumn: 'span 2' }}>
       {label}
-      <textarea value={value || ''} onChange={e => onChange(field.key, e.target.value)} style={TEXTAREA_STYLE} />
+      <textarea value={value || ''} onChange={e => onChange(field.key, e.target.value)}
+                className={textareaCls} style={{ minHeight: 72 }} />
     </div>
   );
   if (field.type === 'select') return (
     <div>
       {label}
-      <select value={value || ''} onChange={e => onChange(field.key, e.target.value)} style={INP_STYLE}>
+      <select value={value || ''} onChange={e => onChange(field.key, e.target.value)} className={fieldCls}>
         <option value="">— Choisir —</option>
         {field.options.map(o => <option key={o}>{o}</option>)}
       </select>
@@ -39,13 +30,13 @@ function Champ({ field, value, onChange }) {
   if (field.type === 'number') return (
     <div>
       {label}
-      <input type="number" step="any" value={value || ''} onChange={e => onChange(field.key, e.target.value)} style={INP_STYLE} />
+      <input type="number" step="any" value={value || ''} onChange={e => onChange(field.key, e.target.value)} className={fieldCls} />
     </div>
   );
   return (
     <div>
       {label}
-      <input type="text" value={value || ''} onChange={e => onChange(field.key, e.target.value)} style={INP_STYLE} />
+      <input type="text" value={value || ''} onChange={e => onChange(field.key, e.target.value)} className={fieldCls} />
     </div>
   );
 }
@@ -57,85 +48,74 @@ function VueImpression({ dossier, fiche, schema, onClose }) {
   useEffect(() => {
     const style = document.createElement('style');
     style.id = 'print-fiche';
-    style.textContent = `
-      @media print {
-        body > * { display: none !important; }
-        #fiche-print { display: block !important; }
-      }
-    `;
+    style.textContent = `@media print { body > * { display: none !important; } #fiche-print { display: block !important; } }`;
     document.head.appendChild(style);
     return () => document.getElementById('print-fiche')?.remove();
   }, []);
 
   return (
-    <div id="fiche-print" style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', zIndex: 9999,
-    }}>
-      <div style={{ background: '#fff', padding: 32, maxWidth: 680, width: '95%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', border: '1px solid #000' }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer' }}>
-          <X size={20} />
-        </button>
+    <div id="fiche-print" className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,.5)' }}>
+      <div className="bg-surface border border-ink p-8 max-w-[680px] w-[95%] max-h-[90vh] overflow-y-auto relative">
+        <button onClick={onClose} className="absolute top-4 right-4 text-muted"><X size={20} /></button>
 
-        <div style={{ borderBottom: '2px solid #000', paddingBottom: 12, marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: '#737373', textTransform: 'uppercase', letterSpacing: 1 }}>Atelier Stéphan Hamache</div>
-          <div style={{ fontSize: 22, fontFamily: 'Fraunces, serif', fontWeight: 700, color: INK }}>Fiche {fiche.type_intervention}</div>
-          <div style={{ display: 'flex', gap: 20, fontSize: 13, color: '#737373', marginTop: 4 }}>
-            <span><b>Client :</b> {dossier.nom_client}</span>
-            <span><b>Réf. :</b> {dossier.ref_dossier}</span>
-            <span><b>Statut :</b> {dossier.statut}</span>
-            {dossier.heures_a_realiser > 0 && <span><b>Heures devis :</b> {dossier.heures_a_realiser}h</span>}
-            {dossier.montant_ht > 0 && <span><b>Devis HT :</b> {dossier.montant_ht}€</span>}
+        {/* Masthead A4 */}
+        <div className="border-b border-ink pb-4 mb-5">
+          <Kicker className="mb-1">Atelier Stéphan Hamache · Poitiers</Kicker>
+          <h2 className="font-serif text-[28px] text-ink">Fiche {fiche.type_intervention}</h2>
+          <div className="flex gap-5 font-sans text-[13px] text-muted mt-2">
+            <span><span className="font-mono text-[10px] uppercase tracking-[0.1em]">Client :</span> {dossier.nom_client}</span>
+            <span><span className="font-mono text-[10px] uppercase tracking-[0.1em]">Réf. :</span> {dossier.ref_dossier}</span>
+            <span><span className="font-mono text-[10px] uppercase tracking-[0.1em]">Statut :</span> {dossier.statut}</span>
+            {dossier.heures_a_realiser > 0 && <span><span className="font-mono text-[10px] uppercase">H. devis :</span> {dossier.heures_a_realiser}h</span>}
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', marginBottom: 16 }}>
+        {/* Champs */}
+        <div className="grid grid-cols-2 gap-x-5 gap-y-3 mb-5">
           {champs.filter(f => f.type !== 'textarea').map(f => (
             <div key={f.key}>
-              <div style={{ fontSize: 11, color: '#737373', textTransform: 'uppercase', letterSpacing: .5 }}>{f.label}{f.unit ? ` (${f.unit})` : ''}</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: INK, padding: '4px 0', borderBottom: '1px solid #E5E5E5' }}>
-                {contenu[f.key] || <span style={{ color: '#BBBBBB' }}>—</span>}
+              <Kicker>{f.label}{f.unit ? ` (${f.unit})` : ''}</Kicker>
+              <div className="font-serif text-[14px] text-ink py-1 border-b border-dotted border-black/30">
+                {contenu[f.key] || <span className="text-muted">—</span>}
               </div>
             </div>
           ))}
         </div>
 
         {champs.filter(f => f.type === 'textarea').map(f => (
-          <div key={f.key} style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, color: '#737373', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 4 }}>{f.label}</div>
-            <div style={{ fontSize: 13, color: INK, background: BG, padding: '8px 12px', minHeight: 40, whiteSpace: 'pre-wrap', border: '1px solid #E5E5E5' }}>
-              {contenu[f.key] || <span style={{ color: '#BBBBBB' }}>—</span>}
+          <div key={f.key} className="mb-4">
+            <Kicker className="mb-1">{f.label}</Kicker>
+            <div className="font-sans text-[13px] text-ink bg-bg border border-line p-3 min-h-[40px] whitespace-pre-wrap">
+              {contenu[f.key] || <span className="text-muted">—</span>}
             </div>
           </div>
         ))}
 
         {fiche.notes_libres && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 11, color: '#737373', textTransform: 'uppercase', letterSpacing: .5, marginBottom: 4 }}>Notes libres</div>
-            <div style={{ fontSize: 13, color: INK, background: BG, border: '1px solid #E5E5E5', padding: '8px 12px', whiteSpace: 'pre-wrap' }}>
+          <div className="mt-4">
+            <Kicker className="mb-1">Notes libres</Kicker>
+            <div className="font-sans text-[13px] text-ink bg-bg border border-line p-3 whitespace-pre-wrap">
               {fiche.notes_libres}
             </div>
           </div>
         )}
 
-        <div style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        {/* Signatures */}
+        <div className="mt-6 grid grid-cols-2 gap-5">
           {['Réalisé par', 'Contrôlé par'].map(label => (
             <div key={label}>
-              <div style={{ fontSize: 11, color: '#737373', marginBottom: 4 }}>{label}</div>
-              <div style={{ borderBottom: '1px solid #000', paddingBottom: 2, marginBottom: 4 }}>&nbsp;</div>
-              <div style={{ fontSize: 11, color: '#AAAAAA' }}>Date : ___________</div>
+              <Kicker className="mb-2">{label}</Kicker>
+              <div className="border-b border-ink pb-0.5 mb-1">&nbsp;</div>
+              <p className="font-mono text-[10px] text-muted">Date : ___________</p>
             </div>
           ))}
         </div>
 
-        <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ border: '1px solid #000', background: '#fff', padding: '8px 18px', cursor: 'pointer', fontSize: 13 }}>Fermer</button>
-          <button onClick={() => window.print()} style={{
-            background: INK, color: '#fff', border: 'none', padding: '8px 18px', cursor: 'pointer', fontSize: 13,
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
+        <div className="mt-6 flex gap-2 justify-end">
+          <Btn variant="outline" onClick={onClose}>Fermer</Btn>
+          <Btn onClick={() => window.print()}>
             <Printer size={14} /> Imprimer
-          </button>
+          </Btn>
         </div>
       </div>
     </div>
@@ -166,22 +146,14 @@ export default function FicheAtelierModal({ dossier, onClose }) {
       });
   }, [dossier.id]);
 
-  const handleChange = (key, value) => {
-    setContenu(c => ({ ...c, [key]: value }));
-    setSaved(false);
-  };
+  const handleChange = (key, value) => { setContenu(c => ({ ...c, [key]: value })); setSaved(false); };
 
   const handleSave = async () => {
     setSaving(true);
     await fetch('/api/fiches', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dossier_id: dossier.id,
-        type_intervention: typeIntervention,
-        contenu_json: contenu,
-        notes_libres: notes,
-      }),
+      body: JSON.stringify({ dossier_id: dossier.id, type_intervention: typeIntervention, contenu_json: contenu, notes_libres: notes }),
     });
     setSaving(false);
     setSaved(true);
@@ -192,86 +164,83 @@ export default function FicheAtelierModal({ dossier, onClose }) {
 
   return (
     <>
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-        <div style={{ background: '#fff', border: '1px solid #000', padding: 28, maxWidth: 760, width: '95%', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center" style={{ background: 'rgba(0,0,0,.5)' }}>
+        <div className="bg-surface border border-ink p-7 max-w-[760px] w-[95%] max-h-[90vh] overflow-y-auto relative">
+
+          {/* En-tête */}
+          <div className="flex justify-between items-start mb-5">
             <div>
-              <div style={{ fontSize: 12, color: '#737373', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <FileText size={12} /> Fiche atelier
+              <div className="flex items-center gap-2 mb-1">
+                <FileText size={12} className="text-muted" />
+                <Kicker>Fiche atelier</Kicker>
               </div>
-              <div style={{ fontFamily: 'Fraunces, serif', fontSize: 22, fontWeight: 700, color: INK }}>
-                {dossier.nom_client}
-              </div>
-              <div style={{ fontSize: 13, color: '#737373' }}>{dossier.ref_dossier} · {dossier.statut}</div>
+              <h2 className="font-serif text-[24px] text-ink">{dossier.nom_client}</h2>
+              <p className="font-mono text-[11px] text-muted">{dossier.ref_dossier} · {dossier.statut}</p>
             </div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-              <X size={20} color="#737373" />
-            </button>
+            <button onClick={onClose} className="p-1 text-muted"><X size={20} /></button>
           </div>
 
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ fontSize: 11, color: '#737373', textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 4 }}>Type d'intervention</label>
-            <select value={typeIntervention} onChange={e => { setType(e.target.value); setContenu({}); setSaved(false); }} style={{ ...INP_STYLE, maxWidth: 260 }}>
+          {/* Type */}
+          <div className="mb-5">
+            <label className={labelCls}>Type d&apos;intervention</label>
+            <select
+              value={typeIntervention}
+              onChange={e => { setType(e.target.value); setContenu({}); setSaved(false); }}
+              className={fieldCls}
+              style={{ maxWidth: 260 }}
+            >
               {Object.keys(schemas).map(t => <option key={t}>{t}</option>)}
             </select>
           </div>
 
+          {/* Champs */}
           {champsActuels.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div className="grid grid-cols-2 gap-3 mb-5">
               {champsActuels.map(f => (
                 <Champ key={f.key} field={f} value={contenu[f.key]} onChange={handleChange} />
               ))}
             </div>
           ) : (
-            <div style={{ color: '#AAAAAA', fontSize: 13, padding: 20, textAlign: 'center' }}>Chargement du schéma…</div>
+            <div className="text-center font-sans text-[13px] text-muted p-5">Chargement du schéma…</div>
           )}
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 11, color: '#737373', textTransform: 'uppercase', letterSpacing: .5, display: 'block', marginBottom: 4 }}>Notes libres</label>
-            <textarea value={notes} onChange={e => { setNotes(e.target.value); setSaved(false); }} placeholder="Informations complémentaires, particularités client…" style={TEXTAREA_STYLE} />
+          {/* Notes libres */}
+          <div className="mb-5">
+            <label className={labelCls}>Notes libres</label>
+            <textarea
+              value={notes}
+              onChange={e => { setNotes(e.target.value); setSaved(false); }}
+              placeholder="Informations complémentaires, particularités client…"
+              className={textareaCls}
+              style={{ minHeight: 72 }}
+            />
           </div>
 
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          {/* Actions */}
+          <div className="flex gap-2 justify-end flex-wrap">
             <a
               href={`/fiche-impression/${dossier.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                border: '1px solid #000', background: '#000', color: '#fff',
-                padding: '8px 18px', cursor: 'pointer', fontSize: 13,
-                display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none',
-              }}
+              target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-ink text-surface font-sans text-[13px] font-medium"
             >
               <ExternalLink size={14} /> Fiche papier atelier
             </a>
             {currentFiche && (
-              <button onClick={() => setShowPrint(true)} style={{
-                border: '1px solid #000', background: '#fff', padding: '8px 18px', cursor: 'pointer', fontSize: 13,
-                display: 'flex', alignItems: 'center', gap: 6,
-              }}>
+              <Btn variant="outline" onClick={() => setShowPrint(true)}>
                 <Printer size={14} /> Aperçu données
-              </button>
+              </Btn>
             )}
-            <button onClick={onClose} style={{ border: '1px solid #000', background: '#fff', padding: '8px 18px', cursor: 'pointer', fontSize: 13 }}>Annuler</button>
-            <button onClick={handleSave} disabled={saving} style={{
-              background: saved ? '#444' : ACCENT, color: '#fff', border: 'none',
-              padding: '8px 22px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-              display: 'flex', alignItems: 'center', gap: 6,
-              opacity: saving ? 0.5 : 1,
-            }}>
-              <Save size={14} /> {saving ? 'Enregistrement…' : saved ? 'Enregistre' : 'Enregistrer la fiche'}
-            </button>
+            <Btn variant="outline" onClick={onClose}>Annuler</Btn>
+            <Btn onClick={handleSave} disabled={saving}>
+              <Save size={14} />
+              {saving ? 'Enregistrement…' : saved ? '✓ Enregistré' : 'Enregistrer'}
+            </Btn>
           </div>
         </div>
       </div>
 
       {showPrint && currentFiche && (
-        <VueImpression
-          dossier={dossier}
-          fiche={currentFiche}
-          schema={schemas}
-          onClose={() => setShowPrint(false)}
-        />
+        <VueImpression dossier={dossier} fiche={currentFiche} schema={schemas} onClose={() => setShowPrint(false)} />
       )}
     </>
   );

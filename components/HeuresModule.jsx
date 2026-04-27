@@ -1,64 +1,47 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { Clock, Plus, Trash2, ChevronUp } from 'lucide-react';
-
-const INK    = '#000000';
-const ACCENT = '#000000';
-const SOFT   = '#EEEEEE';
-const BG     = '#F5F5F5';
+import { Plus, Trash2, ChevronUp } from 'lucide-react';
+import Kicker from './ui/Kicker';
+import Btn from './ui/Btn';
 
 const OPERATEURS    = ['Stéphan', 'Christophe', 'Morgane', 'Vivianne'];
 const TYPES_TRAVAIL = ['Atelier', 'Pose', 'Dépose', 'Livraison', 'Admin', 'Autre'];
 
-// ── Barre de progression prévues/réelles ─────────────────────────────────
 function BarreHeures({ prevues, reelles }) {
   const pct     = prevues > 0 ? Math.min((reelles / prevues) * 100, 150) : 0;
   const depasse = reelles > prevues;
   const ecart   = Math.abs(reelles - prevues).toFixed(1);
-  const color   = depasse ? '#000' : reelles >= prevues * 0.8 ? '#444' : '#666';
 
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4, color: INK }}>
-        <span><b>{reelles}h</b> réelles / <b>{prevues}h</b> prévues</span>
-        <span style={{ color, fontWeight: 600 }}>
+    <div className="mb-4">
+      <div className="flex justify-between font-sans text-[13px] mb-1 text-ink">
+        <span>
+          <span className="font-serif tnum text-[18px]">{reelles}h</span>
+          <span className="text-muted"> réelles / </span>
+          <span className="font-serif tnum text-[18px]">{prevues}h</span>
+          <span className="text-muted"> prévues</span>
+        </span>
+        <span className="font-mono text-[11px] tnum" style={{ color: depasse ? '#FF0000' : '#000' }}>
           {depasse ? `+${ecart}h dépassé` : `${ecart}h restantes`}
         </span>
       </div>
-      <div style={{ background: '#E5E5E5', height: 8, overflow: 'hidden' }}>
-        <div style={{ width: `${Math.min(pct, 100)}%`, background: color, height: '100%' }} />
+      <div className="bg-line h-1.5">
+        <div
+          className="h-full"
+          style={{ width: `${Math.min(pct, 100)}%`, background: depasse ? '#FF0000' : '#000' }}
+        />
       </div>
     </div>
   );
 }
 
-// ── Ligne d'une saisie heures ─────────────────────────────────────────────
-function LigneHeure({ entry, onDelete }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid #E5E5E5', fontSize: 13 }}>
-      <span style={{ color: '#888', minWidth: 80 }}>{entry.date}</span>
-      <span style={{ fontWeight: 600, minWidth: 80 }}>{entry.operateur}</span>
-      <span style={{ background: SOFT, color: ACCENT, borderRadius: 4, padding: '2px 8px', fontWeight: 700, minWidth: 50, textAlign: 'center' }}>{entry.heures_passees}h</span>
-      <span style={{ color: '#888', minWidth: 70 }}>{entry.type_travail}</span>
-      <span style={{ flex: 1, color: INK }}>{entry.description}</span>
-      <button onClick={() => onDelete(entry.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#000', padding: 4 }}>
-        <Trash2 size={14} />
-      </button>
-    </div>
-  );
-}
-
-// ── Formulaire multi-opérateurs ───────────────────────────────────────────
 function FormulaireHeure({ dossierId, dossiers, onSaved }) {
   const today = new Date().toISOString().split('T')[0];
-
   const [dossierSelect, setDossierSelect] = useState(dossierId || '');
   const [date,          setDate]          = useState(today);
   const [typeTravail,   setTypeTravail]   = useState('Atelier');
   const [description,   setDescription]  = useState('');
-  const [lignes,        setLignes]        = useState(
-    OPERATEURS.map(op => ({ operateur: op, heures: '' }))
-  );
+  const [lignes,        setLignes]        = useState(OPERATEURS.map(op => ({ operateur: op, heures: '' })));
   const [saving, setSaving] = useState(false);
 
   const setHeures = (i, val) =>
@@ -76,11 +59,11 @@ function FormulaireHeure({ dossierId, dossiers, onSaved }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          dossier_id:    parseInt(dossierCible),
-          operateur:     l.operateur,
+          dossier_id: parseInt(dossierCible),
+          operateur: l.operateur,
           date,
           heures_passees: parseFloat(l.heures),
-          type_travail:  typeTravail,
+          type_travail: typeTravail,
           description,
         }),
       })
@@ -91,17 +74,19 @@ function FormulaireHeure({ dossierId, dossiers, onSaved }) {
     onSaved();
   };
 
-  const inp = { border: '1px solid #E5E5E5', padding: '6px 10px', fontSize: 13, background: '#fff', color: INK };
-
   return (
-    <div style={{ background: SOFT, padding: 16, marginBottom: 16, border: '1px solid #E5E5E5' }}>
+    <div className="bg-bg border border-ink p-4 mb-5">
+      <Kicker className="mb-3">Saisie rapide</Kicker>
 
-      {/* Ligne contexte : dossier + date + type + description */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14, alignItems: 'flex-end' }}>
+      <div className="flex gap-3 flex-wrap mb-4 items-end">
         {!dossierId && dossiers && (
-          <div style={{ flex: '2 1 200px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <label style={{ fontSize: 11, color: '#888', fontWeight: 600 }}>DOSSIER</label>
-            <select value={dossierSelect} onChange={e => setDossierSelect(e.target.value)} style={inp}>
+          <div className="flex-[2_1_200px] flex flex-col gap-1">
+            <label className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted">Dossier</label>
+            <select
+              value={dossierSelect}
+              onChange={e => setDossierSelect(e.target.value)}
+              className="px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
+            >
               <option value="">— Choisir un dossier —</option>
               {dossiers.map(d => (
                 <option key={d.id} value={d.id}>{d.client_nom || d.nom_dossier} — {d.nom_dossier}</option>
@@ -109,101 +94,103 @@ function FormulaireHeure({ dossierId, dossiers, onSaved }) {
             </select>
           </div>
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontSize: 11, color: '#888', fontWeight: 600 }}>DATE</label>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp} />
+        <div className="flex flex-col gap-1">
+          <label className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted">Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
+          />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontSize: 11, color: '#888', fontWeight: 600 }}>TYPE</label>
-          <select value={typeTravail} onChange={e => setTypeTravail(e.target.value)} style={inp}>
+        <div className="flex flex-col gap-1">
+          <label className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted">Type</label>
+          <select
+            value={typeTravail}
+            onChange={e => setTypeTravail(e.target.value)}
+            className="px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
+          >
             {TYPES_TRAVAIL.map(t => <option key={t}>{t}</option>)}
           </select>
         </div>
-        <div style={{ flex: '2 1 180px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <label style={{ fontSize: 11, color: '#888', fontWeight: 600 }}>DESCRIPTION (optionnel)</label>
-          <input type="text" placeholder="Ex: Dépose velours fauteuil"
-            value={description} onChange={e => setDescription(e.target.value)} style={inp} />
+        <div className="flex-[2_1_180px] flex flex-col gap-1">
+          <label className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted">Description (optionnel)</label>
+          <input
+            type="text"
+            placeholder="Ex : Dépose velours fauteuil"
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            className="px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
+          />
         </div>
       </div>
 
-      {/* Grille opérateurs — une carte par personne */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 14 }}>
+      {/* Grille opérateurs */}
+      <div className="grid grid-cols-4 gap-2 mb-4">
         {lignes.map((l, i) => {
           const actif = l.heures !== '' && parseFloat(l.heures) > 0;
           return (
-            <div key={l.operateur} style={{
-              background: actif ? '#fff' : 'rgba(255,255,255,0.55)',
-              border: `1.5px solid ${actif ? ACCENT : '#E5E5E5'}`,
-              padding: '10px 12px',
-            }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: actif ? INK : '#999', marginBottom: 8 }}>
+            <div
+              key={l.operateur}
+              className="p-3"
+              style={{ background: actif ? '#fff' : 'rgba(255,255,255,0.55)', border: `1.5px solid ${actif ? '#000' : '#E5E5E5'}` }}
+            >
+              <p className="font-mono text-[10px] uppercase tracking-[0.12em] mb-2" style={{ color: actif ? '#000' : '#999' }}>
                 {l.operateur}
-              </div>
+              </p>
               <input
                 type="number" step="0.5" min="0" placeholder="—"
                 value={l.heures}
                 onChange={e => setHeures(i, e.target.value)}
+                className="w-full text-center font-serif tnum border bg-surface"
                 style={{
-                  width: '100%', textAlign: 'center', fontWeight: 700, fontSize: 18,
-                  border: `1px solid ${actif ? ACCENT : '#E5E5E5'}`,
+                  fontSize: 22, fontWeight: 500,
+                  border: `1px solid ${actif ? '#000' : '#E5E5E5'}`,
                   padding: '6px 4px',
-                  background: actif ? SOFT : '#fff',
-                  color: actif ? ACCENT : '#AAAAAA',
+                  color: actif ? '#000' : '#AAAAAA',
                   outline: 'none',
                 }}
               />
               {actif && (
-                <div style={{ fontSize: 11, color: '#888', marginTop: 5, textAlign: 'center' }}>
+                <p className="font-mono text-[10px] text-muted text-center mt-1">
                   {parseFloat(l.heures)}h · {typeTravail}
-                </div>
+                </p>
               )}
             </div>
           );
         })}
       </div>
 
-      {/* Récap + bouton */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-        <div style={{ fontSize: 12, color: '#888' }}>
+      <div className="flex justify-between items-center flex-wrap gap-2">
+        <p className="font-mono text-[11px] text-muted">
           {lignesValides.length > 0
             ? lignesValides.map(l => `${l.operateur} ${l.heures}h`).join(' · ')
-            : <span style={{ color: '#BBB' }}>Saisis les heures de chaque opérateur présent</span>
-          }
-        </div>
-        <button
-          onClick={save}
-          disabled={saving || !canSave}
-          style={{
-            background: ACCENT, color: '#fff', border: 'none', borderRadius: 6,
-            padding: '9px 20px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 6,
-            opacity: !canSave ? 0.4 : 1,
-          }}
-        >
+            : 'Saisis les heures de chaque opérateur présent'}
+        </p>
+        <Btn onClick={save} disabled={saving || !canSave}>
           <Plus size={14} />
           {saving
             ? 'Enregistrement…'
-            : `Enregistrer${lignesValides.length > 0 ? ` (${lignesValides.length} saisie${lignesValides.length > 1 ? 's' : ''})` : ''}`
-          }
-        </button>
+            : `Enregistrer${lignesValides.length > 0 ? ` (${lignesValides.length})` : ''}`}
+        </Btn>
       </div>
     </div>
   );
 }
 
-// ── Carte récap par opérateur ─────────────────────────────────────────────
 function CarteOperateur({ stat }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 14, minWidth: 160 }}>
-      <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginBottom: 4 }}>{stat.operateur}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: ACCENT }}>{stat.total_heures}h</div>
-      <div style={{ fontSize: 11, color: '#888' }}>{stat.nb_saisies} saisies · {stat.nb_dossiers} dossiers</div>
+    <div className="bg-surface border border-line p-4 flex-1" style={{ minWidth: 160 }}>
+      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted mb-1">{stat.operateur}</p>
+      <p className="font-serif tnum text-[32px] leading-none text-ink">{stat.total_heures}h</p>
+      <p className="font-mono text-[10px] text-muted mt-1">
+        {stat.nb_saisies} saisies · {stat.nb_dossiers} dossiers
+      </p>
     </div>
   );
 }
 
-// ── Composant principal ───────────────────────────────────────────────────
-export default function HeuresModule({ dossierId = null, heuresPrevues = 0, compact = false }) {
+export default function HeuresModule({ dossierId = null, heuresPrevues = 0 }) {
   const [data, setData]         = useState({ heures: [], stats: [], synthese: null });
   const [dossiers, setDossiers] = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -237,49 +224,48 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0, comp
   const prevues = synthese?.prevues ?? heuresPrevues ?? 0;
   const reelles = synthese?.reelles ?? 0;
 
-  if (loading) return <div style={{ padding: 20, color: '#888', fontSize: 13 }}>Chargement heures…</div>;
+  if (loading) return (
+    <div className="p-5 font-sans text-[13px] text-muted">Chargement heures…</div>
+  );
 
   return (
-    <div style={{ fontFamily: 'DM Sans, sans-serif' }}>
+    <div>
       {/* En-tête */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Clock size={18} color={ACCENT} />
-          <span style={{ fontWeight: 700, fontSize: 16, color: INK }}>
-            {dossierId ? 'Heures du dossier' : 'Suivi heures global'}
-          </span>
+      <div className="flex justify-between items-end mb-6">
+        <div>
+          <Kicker className="mb-2">Module 04</Kicker>
+          <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">
+            {dossierId ? 'Heures du dossier' : 'Suivi heures'}
+          </h2>
         </div>
-        <button onClick={() => setShowForm(f => !f)} style={{
-          background: showForm ? '#E5E5E5' : ACCENT, color: showForm ? INK : '#fff',
-          border: 'none', padding: '7px 14px', fontSize: 13, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: 6,
-        }}>
+        <Btn
+          variant={showForm ? 'outline' : 'primary'}
+          onClick={() => setShowForm(f => !f)}
+        >
           {showForm ? <><ChevronUp size={14} /> Fermer</> : <><Plus size={14} /> Saisir des heures</>}
-        </button>
+        </Btn>
       </div>
 
       {/* Barre prévues/réelles */}
       {dossierId && prevues > 0 && <BarreHeures prevues={prevues} reelles={reelles} />}
       {dossierId && prevues === 0 && (
-        <div style={{ background: '#F5F5F5', border: '1px solid #000', padding: '8px 12px', fontSize: 12, color: '#000', marginBottom: 12 }}>
-          Pas d'heures prévues — édite le dossier pour ajouter un devis horaire.
+        <div className="border border-ink bg-bg px-3 py-2 font-sans text-[13px] text-ink mb-4">
+          Pas d&apos;heures prévues — édite le dossier pour ajouter un devis horaire.
         </div>
       )}
 
-      {/* Stats par opérateur (vue globale) */}
+      {/* Stats par opérateur */}
       {!dossierId && stats.length > 0 && (
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div className="flex gap-2 flex-wrap mb-5">
           {stats.map(s => <CarteOperateur key={s.operateur} stat={s} />)}
         </div>
       )}
-
-      {/* Stats par opérateur (vue dossier) */}
       {dossierId && stats.length > 0 && (
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div className="flex gap-2 flex-wrap mb-4">
           {stats.map(s => (
-            <div key={s.operateur} style={{ background: SOFT, borderRadius: 6, padding: '6px 12px', fontSize: 13 }}>
-              <b style={{ color: ACCENT }}>{s.total_heures}h</b>
-              <span style={{ color: '#888' }}> · {s.operateur} ({s.nb_saisies} saisies)</span>
+            <div key={s.operateur} className="bg-bg border border-line px-3 py-1.5 font-sans text-[13px]">
+              <span className="font-serif tnum text-[15px]">{s.total_heures}h</span>
+              <span className="text-muted"> · {s.operateur} ({s.nb_saisies} saisies)</span>
             </div>
           ))}
         </div>
@@ -294,38 +280,83 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0, comp
         />
       )}
 
-      {/* Liste des saisies */}
+      {/* Liste */}
       {heures.length === 0 ? (
-        <div style={{ padding: '24px 0', textAlign: 'center', color: '#AAA', fontSize: 13 }}>
-          Aucune saisie d'heures pour le moment
+        <div className="py-10 text-center font-sans text-[13px] text-muted border border-line">
+          Aucune saisie d&apos;heures pour le moment
         </div>
       ) : (
         <div>
-          <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-            {heures.length} saisie{heures.length > 1 ? 's' : ''}
-          </div>
+          <Kicker className="mb-2">{heures.length} saisie{heures.length > 1 ? 's' : ''}</Kicker>
+
+          {/* Table globale */}
           {!dossierId && (
-            <div style={{ display: 'grid', gridTemplateColumns: '80px 90px 60px 70px 1fr 120px 24px', gap: 8, fontSize: 11, color: '#AAA', padding: '4px 0', borderBottom: '2px solid #EDE8E0', textTransform: 'uppercase' }}>
-              <span>Date</span><span>Opérateur</span><span>Heures</span><span>Type</span>
-              <span>Description</span><span>Dossier</span><span></span>
+            <div className="border border-ink bg-surface">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-bg border-b border-ink">
+                    {['Date', 'Opérateur', 'Heures', 'Type', 'Description', 'Dossier', ''].map((h, i) => (
+                      <th key={i} className="text-left px-3 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {heures.map(h => (
+                    <tr key={h.id} className="border-t border-dotted border-black/30 hover:bg-bg">
+                      <td className="px-3 py-2 font-mono text-[11px] tnum text-muted whitespace-nowrap">{h.date}</td>
+                      <td className="px-3 py-2 font-serif text-[14px] text-ink">{h.operateur}</td>
+                      <td className="px-3 py-2">
+                        <span className="font-serif tnum text-[16px] text-ink">{h.heures_passees}h</span>
+                      </td>
+                      <td className="px-3 py-2 font-sans text-[12px] text-muted">{h.type_travail}</td>
+                      <td className="px-3 py-2 font-sans text-[13px] text-ink">{h.description}</td>
+                      <td className="px-3 py-2 font-sans text-[12px] text-muted truncate max-w-[120px]">{h.nom_client}</td>
+                      <td className="px-3 py-2">
+                        <button onClick={() => handleDelete(h.id)} className="p-1 text-muted">
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
-          {heures.map(h => (
-            <div key={h.id}>
-              {!dossierId && (
-                <div style={{ display: 'grid', gridTemplateColumns: '80px 90px 60px 70px 1fr 120px 24px', gap: 8, alignItems: 'center', padding: '7px 0', borderBottom: '1px solid #E5E5E5', fontSize: 13 }}>
-                  <span style={{ color: '#888' }}>{h.date}</span>
-                  <span style={{ fontWeight: 600 }}>{h.operateur}</span>
-                  <span style={{ background: SOFT, color: ACCENT, borderRadius: 4, padding: '1px 6px', fontWeight: 700, textAlign: 'center' }}>{h.heures_passees}h</span>
-                  <span style={{ color: '#888' }}>{h.type_travail}</span>
-                  <span style={{ color: INK, fontSize: 12 }}>{h.description}</span>
-                  <span style={{ fontSize: 11, color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.nom_client}</span>
-                  <button onClick={() => handleDelete(h.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#000' }}><Trash2 size={13} /></button>
-                </div>
-              )}
-              {dossierId && <LigneHeure entry={h} onDelete={handleDelete} />}
+
+          {/* Table par dossier */}
+          {dossierId && (
+            <div className="border border-ink bg-surface">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-bg border-b border-ink">
+                    {['Date', 'Opérateur', 'Heures', 'Type', 'Description', ''].map((h, i) => (
+                      <th key={i} className="text-left px-3 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {heures.map(h => (
+                    <tr key={h.id} className="border-t border-dotted border-black/30 hover:bg-bg">
+                      <td className="px-3 py-2 font-mono text-[11px] tnum text-muted">{h.date}</td>
+                      <td className="px-3 py-2 font-serif text-[14px] text-ink">{h.operateur}</td>
+                      <td className="px-3 py-2 font-serif tnum text-[16px] text-ink">{h.heures_passees}h</td>
+                      <td className="px-3 py-2 font-sans text-[12px] text-muted">{h.type_travail}</td>
+                      <td className="px-3 py-2 font-sans text-[13px] text-ink">{h.description}</td>
+                      <td className="px-3 py-2">
+                        <button onClick={() => handleDelete(h.id)} className="p-1 text-muted">
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

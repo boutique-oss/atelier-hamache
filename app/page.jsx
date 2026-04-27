@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Pencil, Trash2, X, Pause, Wrench, Zap, Package, Archive, LayoutGrid, ExternalLink, Truck, Check, Clock, BarChart2, Download, FileText, ClipboardList, Layers, Calculator } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, ExternalLink, Truck, Check, FileText, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import HeuresModule from '../components/HeuresModule';
 import ImportExportPanel from '../components/ImportExportPanel';
@@ -9,17 +9,12 @@ import ReportsPanel from '../components/ReportsPanel';
 import FicheAtelierModal from '../components/FicheAtelierModal';
 import CapaciteModule from '../components/CapaciteModule';
 import PredevisModule from '../components/PredevisModule';
+import Kicker from '../components/ui/Kicker';
+import Btn from '../components/ui/Btn';
 
 const STATUTS = ['Nouveau', 'Devis envoyé', 'Validé', 'En atelier', 'Prêt à poser', 'Clos'];
 const FLAGS = ['Standby', 'SAV', 'Urgent'];
 const TYPES = ['Tapisserie', 'Rideaux', 'Stores', 'Tête de lit', 'Habillage de lit', 'Coussins', 'Pose seule', 'Autre'];
-
-const C = {
-  bg: '#F5F5F5', surface: '#FFFFFF', ink: '#000000',
-  inkSoft: '#444444', inkMuted: '#888888',
-  border: '#000000', borderSoft: '#DDDDDD',
-  accent: '#000000', accentSoft: '#EEEEEE',
-};
 
 const STATUT_STYLES = {
   'Nouveau':       { bg: '#FFFFFF', text: '#000', dot: '#BBBBBB' },
@@ -30,31 +25,42 @@ const STATUT_STYLES = {
   'Clos':          { bg: '#DDDDDD', text: '#666', dot: '#999999' },
 };
 
-const FLAG_STYLES = {
-  'Standby': { bg: '#EEEEEE', text: '#444444', icon: Pause },
-  'SAV':     { bg: '#DDDDDD', text: '#222222', icon: Wrench },
-  'Urgent':  { bg: '#FF0000', text: '#FFFFFF', icon: Zap },
-};
 
 function StatutBadge({ statut }) {
   const s = STATUT_STYLES[statut] || STATUT_STYLES['Nouveau'];
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap" style={{ background: s.bg, color: s.text }}>
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: s.dot }}></span>
+    <span
+      className="inline-block px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] whitespace-nowrap border"
+      style={{ background: s.bg, color: s.text, borderColor: s.dot }}
+    >
       {statut}
     </span>
   );
 }
 
 function FlagBadge({ flag }) {
-  const s = FLAG_STYLES[flag];
-  if (!s) return null;
-  const Icon = s.icon;
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium" style={{ background: s.bg, color: s.text }}>
-      <Icon size={11} strokeWidth={2.5} /> {flag}
-    </span>
-  );
+  if (flag === 'Urgent') {
+    return (
+      <span className="inline-block font-serif italic text-[11px] px-1.5 py-0 border-2 border-urgent text-urgent -rotate-3">
+        URGENT
+      </span>
+    );
+  }
+  if (flag === 'Standby') {
+    return (
+      <span className="inline-block font-serif italic text-[11px] px-1.5 py-0 border border-ink text-ink -rotate-3">
+        STANDBY
+      </span>
+    );
+  }
+  if (flag === 'SAV') {
+    return (
+      <span className="inline-block font-mono text-[10px] uppercase tracking-[0.12em] px-1.5 py-0.5 bg-ink text-surface">
+        SAV
+      </span>
+    );
+  }
+  return null;
 }
 
 function EtapesDots({ etapes }) {
@@ -66,10 +72,15 @@ function EtapesDots({ etapes }) {
   return (
     <div className="flex items-center gap-1">
       {items.map(it => (
-        <div key={it.key} title={`${it.label} : ${etapes[it.key] ? 'fait' : 'à faire'}`}
-             className="w-2.5 h-2.5 rounded-sm"
-             style={{ background: etapes[it.key] ? C.accent : 'transparent', border: `1px solid ${etapes[it.key] ? C.accent : C.border}` }}>
-        </div>
+        <div
+          key={it.key}
+          title={`${it.label} : ${etapes[it.key] ? 'fait' : 'à faire'}`}
+          style={{
+            width: 10, height: 10,
+            background: etapes[it.key] ? '#000' : 'transparent',
+            border: '1px solid #000',
+          }}
+        />
       ))}
     </div>
   );
@@ -80,6 +91,9 @@ const formatDate = (d) => {
   const [y, m, day] = d.split('-');
   return `${day}/${m}/${y}`;
 };
+
+const labelCls = 'font-mono uppercase tracking-[0.16em] text-[10px] text-muted block mb-1';
+const fieldCls = 'w-full px-3 py-2 bg-bg border border-ink font-sans text-[13px] text-ink';
 
 function DossierModal({ dossier, onSave, onDelete, onClose, onReload }) {
   const isNew = !dossier.id;
@@ -126,189 +140,180 @@ function DossierModal({ dossier, onSave, onDelete, onClose, onReload }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
          style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-           style={{ background: C.surface, border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: `1px solid ${C.borderSoft}` }}>
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-surface border border-ink" onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
           <div>
-            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 500, color: C.ink }}>
-              {isNew ? 'Nouveau dossier' : d.nom_dossier}
-            </h2>
-            <p className="text-xs mt-0.5" style={{ color: C.inkMuted }}>
+            <h2 className="font-serif text-[22px] text-ink">{isNew ? 'Nouveau dossier' : d.nom_dossier}</h2>
+            <p className="font-mono text-[10px] text-muted mt-0.5">
               {isNew ? 'Saisis les informations principales' : 'Modifier ce dossier'}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-stone-100"><X size={18} style={{ color: C.inkSoft }} /></button>
+          <button onClick={onClose} className="p-1.5 text-muted"><X size={18} /></button>
         </div>
 
         <div className="px-6 py-5 space-y-5">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Nom du dossier *</label>
-              <input type="text" value={d.nom_dossier} onChange={e => update('nom_dossier', e.target.value)}
-                     className="w-full px-3 py-2 rounded-md text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+              <label className={labelCls}>Nom du dossier *</label>
+              <input type="text" value={d.nom_dossier} onChange={e => update('nom_dossier', e.target.value)} className={fieldCls} />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Type d'intervention</label>
-              <select value={d.type_intervention} onChange={e => update('type_intervention', e.target.value)}
-                      className="w-full px-3 py-2 rounded-md text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }}>
+              <label className={labelCls}>Type d&apos;intervention</label>
+              <select value={d.type_intervention} onChange={e => update('type_intervention', e.target.value)} className={fieldCls}>
                 {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
           </div>
 
-          {/* Heures prévues (devis) */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Heures prévues (devis)</label>
+              <label className={labelCls}>Heures prévues (devis)</label>
               <input type="number" step="0.5" min="0" placeholder="ex: 8.5"
                      value={d.heures_a_realiser || ''}
                      onChange={e => update('heures_a_realiser', parseFloat(e.target.value) || 0)}
-                     className="w-full px-3 py-2 rounded-md text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
-              <p className="text-xs mt-1" style={{ color: C.inkMuted }}>Sera comparé aux heures saisies réellement</p>
+                     className={fieldCls} />
+              <p className="font-mono text-[10px] text-muted mt-1">Comparé aux heures réelles</p>
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Date d'ouverture</label>
-              <input type="date" value={d.date_ouverture || ''} onChange={e => update('date_ouverture', e.target.value)}
-                     className="w-full px-3 py-2 rounded-md text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+              <label className={labelCls}>Date d&apos;ouverture</label>
+              <input type="date" value={d.date_ouverture || ''} onChange={e => update('date_ouverture', e.target.value)} className={fieldCls} />
             </div>
           </div>
 
+          {/* Statut */}
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Statut dans le pipeline</label>
+            <label className={labelCls}>Statut dans le pipeline</label>
             <div className="grid grid-cols-3 gap-2">
               {STATUTS.map(s => {
                 const style = STATUT_STYLES[s]; const active = d.statut === s;
                 return (
                   <button key={s} type="button" onClick={() => update('statut', s)}
-                          className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium"
-                          style={{ background: active ? style.bg : 'transparent', color: active ? style.text : C.inkSoft, border: `1px solid ${active ? style.dot : C.border}` }}>
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: style.dot }}></span>{s}
+                          className="flex items-center gap-2 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.1em]"
+                          style={{ background: active ? style.bg : 'transparent', color: active ? style.text : '#444', border: `1px solid ${active ? style.dot : '#000'}` }}>
+                    {s}
                   </button>
                 );
               })}
             </div>
           </div>
 
+          {/* Flags */}
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Flags (cumulables)</label>
+            <label className={labelCls}>Flags (cumulables)</label>
             <div className="flex gap-2 flex-wrap">
               {FLAGS.map(f => {
-                const style = FLAG_STYLES[f]; const Icon = style.icon; const active = d.flags.includes(f);
+                const active = d.flags.includes(f);
+                const isUrgent = f === 'Urgent';
                 return (
                   <button key={f} type="button" onClick={() => toggleFlag(f)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
-                          style={{ background: active ? style.bg : 'transparent', color: active ? style.text : C.inkSoft, border: `1px solid ${active ? style.text : C.border}` }}>
-                    <Icon size={12} strokeWidth={2.5} /> {f}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em]"
+                          style={{
+                            background: active && isUrgent ? '#FF0000' : active ? '#000' : 'transparent',
+                            color: active ? '#FFF' : '#444',
+                            border: `1px solid ${active && isUrgent ? '#FF0000' : '#000'}`,
+                          }}>
+                    {f}
                   </button>
                 );
               })}
             </div>
           </div>
 
+          {/* Jalons */}
           <div>
-            <label className="block text-xs font-medium mb-2" style={{ color: C.inkSoft }}>Jalons d'avancement</label>
+            <label className={labelCls}>Jalons d&apos;avancement</label>
             <div className="grid grid-cols-5 gap-2">
               {[
                 { key: 'devis', label: 'Devis signé' }, { key: 'cmde', label: 'Commande' },
                 { key: 'atelier', label: 'Fiche atelier' }, { key: 'print', label: 'Print' },
                 { key: 'realise', label: 'Réalisé' },
               ].map(it => (
-                <label key={it.key} className="flex items-center gap-2 px-2.5 py-2 rounded-md cursor-pointer text-xs"
-                       style={{ background: C.bg, border: `1px solid ${d.etapes[it.key] ? C.accent : C.border}` }}>
-                  <input type="checkbox" checked={d.etapes[it.key]} onChange={e => updateEtape(it.key, e.target.checked)} style={{ accentColor: C.accent }} />
-                  <span style={{ color: d.etapes[it.key] ? C.ink : C.inkSoft }}>{it.label}</span>
+                <label key={it.key} className="flex items-center gap-2 px-2.5 py-2 cursor-pointer font-mono text-[10px]"
+                       style={{ background: '#F5F5F5', border: `1px solid ${d.etapes[it.key] ? '#000' : '#E5E5E5'}` }}>
+                  <input type="checkbox" checked={d.etapes[it.key]} onChange={e => updateEtape(it.key, e.target.checked)} style={{ accentColor: '#000' }} />
+                  <span style={{ color: d.etapes[it.key] ? '#000' : '#737373' }}>{it.label}</span>
                 </label>
               ))}
             </div>
           </div>
 
-          <div className="pt-3" style={{ borderTop: `1px solid ${C.borderSoft}` }}>
-            <p className="text-xs font-medium mb-3" style={{ color: C.inkSoft }}>Coordonnées client</p>
+          {/* Client */}
+          <div className="pt-3 border-t border-line">
+            <Kicker className="mb-3">Coordonnées client</Kicker>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Téléphone</label>
-                <input type="text" value={d.telephone} onChange={e => update('telephone', e.target.value)}
-                       className="w-full px-3 py-2 rounded-md text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+                <label className={labelCls}>Téléphone</label>
+                <input type="text" value={d.telephone} onChange={e => update('telephone', e.target.value)} className={fieldCls} />
               </div>
               <div>
-                <label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Email</label>
-                <input type="email" value={d.email} onChange={e => update('email', e.target.value)}
-                       className="w-full px-3 py-2 rounded-md text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+                <label className={labelCls}>Email</label>
+                <input type="email" value={d.email} onChange={e => update('email', e.target.value)} className={fieldCls} />
               </div>
               <div className="col-span-2">
-                <label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Adresse</label>
-                <input type="text" value={d.adresse} onChange={e => update('adresse', e.target.value)}
-                       className="w-full px-3 py-2 rounded-md text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+                <label className={labelCls}>Adresse</label>
+                <input type="text" value={d.adresse} onChange={e => update('adresse', e.target.value)} className={fieldCls} />
               </div>
             </div>
           </div>
 
+          {/* Lien + comm */}
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Lien dossier OneDrive</label>
+            <label className={labelCls}>Lien dossier OneDrive</label>
             <input type="text" value={d.lien} onChange={e => update('lien', e.target.value)} placeholder="%ONEDRIVE%\..."
-                   className="w-full px-3 py-2 rounded-md text-sm font-mono" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+                   className="w-full px-3 py-2 bg-bg border border-ink font-mono text-[12px] text-ink" />
           </div>
-
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Commentaires</label>
+            <label className={labelCls}>Commentaires</label>
             <textarea value={d.comm} onChange={e => update('comm', e.target.value)} rows={3}
-                      className="w-full px-3 py-2 rounded-md text-sm resize-none" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+                      className="w-full px-3 py-2 bg-bg border border-ink font-sans text-[13px] text-ink resize-none" />
           </div>
 
-          {/* ── Fiche PDF ── */}
-          <div className="pt-3" style={{ borderTop: `1px solid ${C.borderSoft}` }}>
-            <label className="block text-xs font-medium mb-2" style={{ color: C.inkSoft }}>
-              <FileText size={12} style={{ display: 'inline', marginRight: 4 }} />
-              Fiche PDF
-            </label>
+          {/* Fiche PDF */}
+          <div className="pt-3 border-t border-line">
+            <label className={labelCls}>Fiche PDF</label>
             {isNew ? (
-              <p className="text-xs" style={{ color: C.inkMuted }}>Disponible après création du dossier.</p>
+              <p className="font-sans text-[13px] text-muted">Disponible après création du dossier.</p>
             ) : d.fiche_pdf ? (
               <div className="flex items-center gap-2 flex-wrap">
                 <a href={`/api/pdf?dossier_id=${d.id}`} target="_blank" rel="noreferrer"
-                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
-                   style={{ background: C.ink, color: C.surface }}>
+                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-ink text-surface font-sans text-[13px]">
                   <FileText size={12} /> Ouvrir la fiche
                 </a>
-                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs cursor-pointer"
-                       style={{ border: `1px solid ${C.border}`, color: C.inkSoft }}>
-                  <input type="file" accept=".pdf" className="hidden"
-                         onChange={e => uploadPdf(e.target.files[0])} />
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-ink font-sans text-[13px] text-muted cursor-pointer">
+                  <input type="file" accept=".pdf" className="hidden" onChange={e => uploadPdf(e.target.files[0])} />
                   Remplacer
                 </label>
-                <button onClick={deletePdf} className="px-3 py-1.5 text-xs"
-                        style={{ border: '1px solid #000', color: '#000' }}>
-                  Supprimer
-                </button>
-                {pdfLoading && <span className="text-xs" style={{ color: C.inkMuted }}>Envoi…</span>}
+                <button onClick={deletePdf} className="px-3 py-1.5 border border-ink font-sans text-[13px] text-ink">Supprimer</button>
+                {pdfLoading && <span className="font-mono text-[11px] text-muted">Envoi…</span>}
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <label className="inline-flex items-center gap-2 px-3 py-2 text-xs cursor-pointer"
-                       style={{ border: `1px solid ${C.border}`, color: C.inkSoft }}>
-                  <input type="file" accept=".pdf" className="hidden"
-                         onChange={e => uploadPdf(e.target.files[0])} />
+                <label className="inline-flex items-center gap-2 px-3 py-2 border border-ink font-sans text-[13px] text-muted cursor-pointer">
+                  <input type="file" accept=".pdf" className="hidden" onChange={e => uploadPdf(e.target.files[0])} />
                   <FileText size={12} /> Joindre une fiche PDF
                 </label>
-                {pdfLoading && <span className="text-xs" style={{ color: C.inkMuted }}>Envoi…</span>}
+                {pdfLoading && <span className="font-mono text-[11px] text-muted">Envoi…</span>}
               </div>
             )}
           </div>
         </div>
 
-        <div className="px-6 py-4 flex items-center justify-between" style={{ borderTop: `1px solid ${C.borderSoft}`, background: C.bg }}>
+        {/* Footer */}
+        <div className="px-6 py-4 flex items-center justify-between border-t border-line bg-bg">
           <div>
             {!isNew && (
-              <button onClick={() => onDelete(d.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium" style={{ color: '#000', border: '1px solid #000' }}>
+              <Btn variant="danger" onClick={() => onDelete(d.id)}>
                 <Trash2 size={12} /> Supprimer
-              </button>
+              </Btn>
             )}
           </div>
           <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-1.5 rounded-md text-sm font-medium" style={{ color: C.inkSoft, border: `1px solid ${C.border}` }}>Annuler</button>
-            <button onClick={handleSubmit} disabled={!d.nom_dossier.trim()} className="px-4 py-1.5 rounded-md text-sm font-medium disabled:opacity-40" style={{ background: C.ink, color: C.bg }}>
+            <Btn variant="outline" onClick={onClose}>Annuler</Btn>
+            <Btn onClick={handleSubmit} disabled={!d.nom_dossier.trim()}>
               {isNew ? 'Créer le dossier' : 'Enregistrer'}
-            </button>
+            </Btn>
           </div>
         </div>
       </div>
@@ -350,116 +355,209 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche }) {
     return out;
   }, [actifs]);
 
+  const hasFilters = clientFilter !== 'all' || statutFilter !== 'all' || typeFilter !== 'all' || flagFilter !== 'all' || search;
+
   return (
     <div>
+      {/* En-tête de module */}
       <div className="flex items-end justify-between mb-6">
         <div>
-          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 500, color: C.ink, lineHeight: 1.1 }}>Dossiers actifs</h2>
-          <p className="text-sm mt-1" style={{ color: C.inkSoft }}>{actifs.length} dossiers en cours · pipeline atelier</p>
+          <Kicker className="mb-2">Module 01</Kicker>
+          <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">
+            Pipeline dossiers
+          </h2>
+          <p className="font-sans text-[13px] text-muted mt-1">
+            {actifs.length} dossiers en cours · pipeline atelier
+          </p>
         </div>
-        <button onClick={onNew} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium" style={{ background: C.ink, color: C.bg }}>
+        <Btn onClick={onNew}>
           <Plus size={16} strokeWidth={2.5} /> Nouveau dossier
-        </button>
+        </Btn>
       </div>
 
-      <div className="grid grid-cols-5 gap-2 mb-6">
-        {STATUTS.filter(s => s !== 'Clos').map(s => {
+      {/* Colonnes statuts — filtres cliquables */}
+      <div className="grid grid-cols-5 mb-6 border border-ink">
+        {STATUTS.filter(s => s !== 'Clos').map((s, idx) => {
           const style = STATUT_STYLES[s], count = stats[s] || 0, isActive = statutFilter === s;
           return (
-            <button key={s} onClick={() => setStatutFilter(isActive ? 'all' : s)}
-                    className="text-left p-4 rounded-lg" style={{ background: isActive ? style.bg : C.surface, border: `1px solid ${isActive ? style.dot : C.border}` }}>
-              <div className="flex items-center gap-1.5 mb-2">
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: style.dot }}></span>
-                <p className="text-xs" style={{ color: C.inkSoft }}>{s}</p>
-              </div>
-              <p style={{ fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 500, color: style.text, lineHeight: 1 }}>{count}</p>
+            <button
+              key={s}
+              onClick={() => setStatutFilter(isActive ? 'all' : s)}
+              className={`text-left p-4 ${idx > 0 ? 'border-l border-ink' : ''}`}
+              style={{ background: isActive ? style.bg : '#FFF', color: isActive ? style.text : '#000' }}
+            >
+              <Kicker className={`mb-2 ${isActive && style.text === '#FFF' ? 'text-white/70' : ''}`}>{s}</Kicker>
+              <p className="font-serif tnum text-[28px] leading-none">{count}</p>
             </button>
           );
         })}
       </div>
 
+      {/* Barre de filtres */}
       <div className="flex gap-2 mb-2">
         <div className="relative flex-1">
-          <Search size={14} style={{ color: C.inkMuted, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un dossier ou un client…"
-                 className="w-full pl-9 pr-3 py-2 rounded-md text-sm" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.ink }} />
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-muted text-[13px] pointer-events-none">⌕</span>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher un dossier ou un client…"
+            className="w-full pl-8 pr-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
+          />
         </div>
-        <select value={clientFilter} onChange={e => setClientFilter(e.target.value)} className="px-3 py-2 rounded-md text-sm" style={{ background: clientFilter !== 'all' ? C.ink : C.surface, border: `1px solid ${C.border}`, color: clientFilter !== 'all' ? C.bg : C.ink, minWidth: 180 }}>
+        <select
+          value={clientFilter}
+          onChange={e => setClientFilter(e.target.value)}
+          className="px-3 py-2 border border-ink font-sans text-[13px]"
+          style={{ background: clientFilter !== 'all' ? '#000' : '#FFF', color: clientFilter !== 'all' ? '#FFF' : '#000', minWidth: 180 }}
+        >
           <option value="all">Tous clients</option>
           {clientsUniques.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="px-3 py-2 rounded-md text-sm" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.ink, minWidth: 160 }}>
+        <select
+          value={typeFilter}
+          onChange={e => setTypeFilter(e.target.value)}
+          className="px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
+          style={{ minWidth: 160 }}
+        >
           <option value="all">Tous types</option>
           {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <select value={flagFilter} onChange={e => setFlagFilter(e.target.value)} className="px-3 py-2 rounded-md text-sm" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.ink, minWidth: 140 }}>
+        <select
+          value={flagFilter}
+          onChange={e => setFlagFilter(e.target.value)}
+          className="px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
+          style={{ minWidth: 140 }}
+        >
           <option value="all">Tous flags</option>
           {FLAGS.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
       </div>
 
-      {(clientFilter !== 'all' || statutFilter !== 'all' || typeFilter !== 'all' || flagFilter !== 'all' || search) && (
+      {/* Chips filtres actifs */}
+      {hasFilters && (
         <div className="flex items-center gap-2 mb-2 flex-wrap">
-          <span className="text-xs" style={{ color: C.inkMuted }}>Filtres actifs :</span>
-          {search && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>"{search}" <button onClick={() => setSearch('')}><X size={10} /></button></span>}
-          {clientFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.ink, color: C.bg }}>{clientFilter} <button onClick={() => setClientFilter('all')}><X size={10} /></button></span>}
-          {statutFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>{statutFilter} <button onClick={() => setStatutFilter('all')}><X size={10} /></button></span>}
-          {typeFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>{typeFilter} <button onClick={() => setTypeFilter('all')}><X size={10} /></button></span>}
-          {flagFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>{flagFilter} <button onClick={() => setFlagFilter('all')}><X size={10} /></button></span>}
-          <button onClick={() => { setSearch(''); setClientFilter('all'); setStatutFilter('all'); setTypeFilter('all'); setFlagFilter('all'); }} className="text-xs underline" style={{ color: C.inkMuted }}>Tout effacer</button>
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">Filtres :</span>
+          {search && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[11px] border border-ink">
+              &ldquo;{search}&rdquo;
+              <button onClick={() => setSearch('')} className="ml-0.5"><X size={10} /></button>
+            </span>
+          )}
+          {clientFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[11px] bg-ink text-surface">
+              {clientFilter}
+              <button onClick={() => setClientFilter('all')} className="ml-0.5"><X size={10} /></button>
+            </span>
+          )}
+          {statutFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[11px] border border-ink">
+              {statutFilter}
+              <button onClick={() => setStatutFilter('all')} className="ml-0.5"><X size={10} /></button>
+            </span>
+          )}
+          {typeFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[11px] border border-ink">
+              {typeFilter}
+              <button onClick={() => setTypeFilter('all')} className="ml-0.5"><X size={10} /></button>
+            </span>
+          )}
+          {flagFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[11px] border border-ink">
+              {flagFilter}
+              <button onClick={() => setFlagFilter('all')} className="ml-0.5"><X size={10} /></button>
+            </span>
+          )}
+          <button
+            onClick={() => { setSearch(''); setClientFilter('all'); setStatutFilter('all'); setTypeFilter('all'); setFlagFilter('all'); }}
+            className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted underline"
+          >
+            Tout effacer
+          </button>
         </div>
       )}
 
-      <p className="text-xs mb-3" style={{ color: C.inkMuted }}>{filtered.length} {filtered.length > 1 ? 'dossiers affichés' : 'dossier affiché'}</p>
+      <p className="font-mono text-[11px] text-muted mb-3 tnum">
+        {filtered.length} {filtered.length > 1 ? 'dossiers affichés' : 'dossier affiché'}
+      </p>
 
-      <div className="rounded-lg overflow-hidden" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+      {/* Table */}
+      <div className="border border-ink bg-surface">
         <table className="w-full">
           <thead>
-            <tr style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
-              {['Dossier','Statut','Type','Avancement','Date','H. prévues','Flags',''].map((h,i) => (
-                <th key={i} className="text-left px-4 py-3 text-xs font-medium uppercase" style={{ color: C.inkMuted, letterSpacing: '0.05em' }}>{h}</th>
+            <tr className="bg-bg border-b border-ink">
+              {['Dossier', 'Statut', 'Type', 'Avancement', 'Date', 'H. prévues', 'Flags', ''].map((h, i) => (
+                <th key={i} className="text-left px-4 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                  {h}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map(d => (
-              <tr key={d.id} className="group hover:bg-neutral-50" style={{ borderTop: `1px solid ${C.borderSoft}` }}>
+              <tr key={d.id} className="group hover:bg-bg border-t border-dotted border-black/30">
                 <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}>
-                  <p className="font-medium text-sm" style={{ color: C.ink }}>{d.nom_dossier}</p>
+                  <p className="font-serif text-[14px] text-ink">{d.nom_dossier}</p>
                   {d.client_nom && d.client_nom !== d.nom_dossier && (
-                    <p className="text-xs mt-0.5" style={{ color: C.inkMuted }}>{d.client_nom}</p>
+                    <p className="font-sans text-[12px] text-muted mt-0.5">{d.client_nom}</p>
                   )}
                 </td>
-                <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}><StatutBadge statut={d.statut} /></td>
-                <td className="px-4 py-3 text-xs cursor-pointer" style={{ color: C.inkSoft }} onClick={() => onEdit(d)}>{d.type_intervention || '—'}</td>
-                <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}><EtapesDots etapes={d.etapes} /></td>
-                <td className="px-4 py-3 text-xs whitespace-nowrap cursor-pointer" style={{ color: C.inkSoft }} onClick={() => onEdit(d)}>{formatDate(d.date_ouverture)}</td>
-                <td className="px-4 py-3 text-xs cursor-pointer" style={{ color: d.heures_a_realiser > 0 ? C.accent : C.inkMuted, fontWeight: d.heures_a_realiser > 0 ? 600 : 400 }} onClick={() => onEdit(d)}>
-                  {d.heures_a_realiser > 0 ? `${d.heures_a_realiser}h` : '—'}
+                <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}>
+                  <StatutBadge statut={d.statut} />
                 </td>
-                <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}><div className="flex flex-wrap gap-1">{d.flags.map(f => <FlagBadge key={f} flag={f} />)}</div></td>
+                <td className="px-4 py-3 font-sans text-[13px] text-muted cursor-pointer" onClick={() => onEdit(d)}>
+                  {d.type_intervention || '—'}
+                </td>
+                <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}>
+                  <EtapesDots etapes={d.etapes} />
+                </td>
+                <td className="px-4 py-3 font-mono text-[11px] text-muted whitespace-nowrap tnum cursor-pointer" onClick={() => onEdit(d)}>
+                  {formatDate(d.date_ouverture)}
+                </td>
+                <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}>
+                  <span className={`font-serif tnum text-[14px] ${d.heures_a_realiser > 0 ? 'text-ink' : 'text-muted'}`}>
+                    {d.heures_a_realiser > 0 ? `${d.heures_a_realiser}h` : '—'}
+                  </span>
+                </td>
+                <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}>
+                  <div className="flex flex-wrap gap-1.5">
+                    {d.flags.map(f => <FlagBadge key={f} flag={f} />)}
+                  </div>
+                </td>
                 <td className="px-4 py-3">
                   <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
                     {d.fiche_pdf && (
-                      <a href={`/api/pdf?dossier_id=${d.id}`} target="_blank" rel="noreferrer"
-                         onClick={e => e.stopPropagation()} title="Voir la fiche PDF"
-                         className="p-1.5" style={{ color: C.inkSoft }}>
+                      <a
+                        href={`/api/pdf?dossier_id=${d.id}`}
+                        target="_blank" rel="noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        title="Voir la fiche PDF"
+                        className="p-1.5 text-muted"
+                      >
                         <FileText size={13} />
                       </a>
                     )}
-                    <button onClick={e => { e.stopPropagation(); onFiche(d); }} title="Fiche atelier"
-                      className="p-1.5" style={{ color: C.inkSoft }}>
+                    <button
+                      onClick={e => { e.stopPropagation(); onFiche(d); }}
+                      title="Fiche atelier"
+                      className="p-1.5 text-muted"
+                    >
                       <ClipboardList size={13} />
                     </button>
-                    <button onClick={() => onEdit(d)} title="Modifier"
-                      className="p-1.5" style={{ color: C.inkSoft }}>
+                    <button onClick={() => onEdit(d)} title="Modifier" className="p-1.5 text-muted">
                       <Pencil size={13} />
                     </button>
                   </div>
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={8} className="px-4 py-12 text-center text-sm" style={{ color: C.inkMuted }}>Aucun dossier ne correspond aux filtres.</td></tr>}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-4 py-12 text-center font-sans text-[13px] text-muted">
+                  Aucun dossier ne correspond aux filtres.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -490,118 +588,110 @@ function CommandeModal({ commande, fournisseurs, onSave, onDelete, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
          style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
-      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto"
-           style={{ background: C.surface, border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: `1px solid ${C.borderSoft}` }}>
+      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-surface border border-ink"
+           onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
           <div>
-            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, fontWeight: 500, color: C.ink }}>
+            <h2 className="font-serif text-[22px] text-ink">
               {isNew ? 'Nouvelle commande' : 'Modifier la commande'}
             </h2>
-            <p className="text-xs mt-0.5" style={{ color: C.inkMuted }}>
+            <p className="font-mono text-[10px] text-muted mt-0.5">
               {isNew ? 'Saisir les informations matière' : `${c.fournisseur} · ${c.client}`}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5"><X size={18} style={{ color: C.inkSoft }} /></button>
+          <button onClick={onClose} className="p-1.5 text-muted"><X size={18} /></button>
         </div>
 
         <div className="px-6 py-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Fournisseur *</label>
+              <label className={labelCls}>Fournisseur *</label>
               <input list="fourns-list" value={c.fournisseur} onChange={e => upd('fournisseur', e.target.value)}
-                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+                     className={fieldCls} />
               <datalist id="fourns-list">
                 {fournList.map(f => <option key={f} value={f} />)}
               </datalist>
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Client (dossier)</label>
-              <input type="text" value={c.client} onChange={e => upd('client', e.target.value)}
-                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+              <label className={labelCls}>Client (dossier)</label>
+              <input type="text" value={c.client} onChange={e => upd('client', e.target.value)} className={fieldCls} />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Désignation</label>
-            <input type="text" value={c.designation} onChange={e => upd('designation', e.target.value)}
-                   className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+            <label className={labelCls}>Désignation</label>
+            <input type="text" value={c.designation} onChange={e => upd('designation', e.target.value)} className={fieldCls} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Référence</label>
+              <label className={labelCls}>Référence</label>
               <input type="text" value={c.reference} onChange={e => upd('reference', e.target.value)}
-                     className="w-full px-3 py-2 text-sm font-mono" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+                     className="w-full px-3 py-2 bg-bg border border-ink font-mono text-[12px] text-ink" />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Coloris</label>
-              <input type="text" value={c.coloris} onChange={e => upd('coloris', e.target.value)}
-                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+              <label className={labelCls}>Coloris</label>
+              <input type="text" value={c.coloris} onChange={e => upd('coloris', e.target.value)} className={fieldCls} />
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Quantité</label>
-              <input type="number" step="0.1" min="0" value={c.qte} onChange={e => upd('qte', e.target.value)}
-                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+              <label className={labelCls}>Quantité</label>
+              <input type="number" step="0.1" min="0" value={c.qte} onChange={e => upd('qte', e.target.value)} className={fieldCls} />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Unité</label>
-              <select value={c.unite} onChange={e => upd('unite', e.target.value)}
-                      className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }}>
+              <label className={labelCls}>Unité</label>
+              <select value={c.unite} onChange={e => upd('unite', e.target.value)} className={fieldCls}>
                 {['ml', 'm²', 'pièce', 'lot'].map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Note qté</label>
+              <label className={labelCls}>Note qté</label>
               <input type="text" value={c.qte_note} onChange={e => upd('qte_note', e.target.value)} placeholder="ex: 2 lés"
-                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+                     className={fieldCls} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Date commande</label>
-              <input type="date" value={c.date_cde || ''} onChange={e => upd('date_cde', e.target.value)}
-                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+              <label className={labelCls}>Date commande</label>
+              <input type="date" value={c.date_cde || ''} onChange={e => upd('date_cde', e.target.value)} className={fieldCls} />
             </div>
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Date livraison prévue</label>
-              <input type="date" value={c.date_livraison || ''} onChange={e => upd('date_livraison', e.target.value)}
-                     className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+              <label className={labelCls}>Date livraison prévue</label>
+              <input type="date" value={c.date_livraison || ''} onChange={e => upd('date_livraison', e.target.value)} className={fieldCls} />
             </div>
           </div>
 
-          <div className="pt-3" style={{ borderTop: `1px solid ${C.borderSoft}` }}>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>
-              <Truck size={12} style={{ display: 'inline', marginRight: 4 }} />
-              Quantité livrée (0 = en attente)
-            </label>
-            <input type="number" step="0.1" min="0" value={c.qte_livree} onChange={e => upd('qte_livree', e.target.value)}
-                   className="w-full px-3 py-2 text-sm" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+          <div className="pt-3 border-t border-line">
+            <label className={labelCls}>Quantité livrée (0 = en attente)</label>
+            <input type="number" step="0.1" min="0" value={c.qte_livree} onChange={e => upd('qte_livree', e.target.value)} className={fieldCls} />
           </div>
 
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.inkSoft }}>Commentaires</label>
+            <label className={labelCls}>Commentaires</label>
             <textarea value={c.commentaires} onChange={e => upd('commentaires', e.target.value)} rows={2}
-                      className="w-full px-3 py-2 text-sm resize-none" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.ink }} />
+                      className="w-full px-3 py-2 bg-bg border border-ink font-sans text-[13px] text-ink resize-none" />
           </div>
         </div>
 
-        <div className="px-6 py-4 flex items-center justify-between" style={{ borderTop: `1px solid ${C.borderSoft}`, background: C.bg }}>
+        {/* Footer */}
+        <div className="px-6 py-4 flex items-center justify-between border-t border-line bg-bg">
           <div>
             {!isNew && (
-              <button onClick={() => onDelete(c.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium" style={{ color: '#000', border: '1px solid #000' }}>
+              <Btn variant="danger" onClick={() => onDelete(c.id)}>
                 <Trash2 size={12} /> Supprimer
-              </button>
+              </Btn>
             )}
           </div>
           <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-1.5 text-sm font-medium" style={{ color: C.inkSoft, border: `1px solid ${C.border}` }}>Annuler</button>
-            <button onClick={handleSubmit} disabled={!c.fournisseur.trim()} className="px-4 py-1.5 text-sm font-medium disabled:opacity-40" style={{ background: C.ink, color: C.bg }}>
+            <Btn variant="outline" onClick={onClose}>Annuler</Btn>
+            <Btn onClick={handleSubmit} disabled={!c.fournisseur.trim()}>
               {isNew ? 'Enregistrer' : 'Mettre à jour'}
-            </button>
+            </Btn>
           </div>
         </div>
       </div>
@@ -637,73 +727,119 @@ function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
   }, [commandes]);
 
   const fournLink = (nom) => fournisseurs.find(f => f.nom === nom)?.url;
+  const hasFilters = clientFilter !== 'all' || fournFilter !== 'all' || statutLivFilter !== 'all' || search;
 
   return (
     <div>
+      {/* En-tête de module */}
       <div className="flex items-end justify-between mb-6">
         <div>
-          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 500, color: C.ink, lineHeight: 1.1 }}>Commandes</h2>
-          <p className="text-sm mt-1" style={{ color: C.inkSoft }}>{commandes.length} commandes · {fournUniques.length} fournisseurs</p>
+          <Kicker className="mb-2">Module 02</Kicker>
+          <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">Commandes</h2>
+          <p className="font-sans text-[13px] text-muted mt-1">
+            {commandes.length} commandes · {fournUniques.length} fournisseurs
+          </p>
         </div>
-        <button onClick={onNew} className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium" style={{ background: C.ink, color: C.bg }}>
+        <Btn onClick={onNew}>
           <Plus size={16} strokeWidth={2.5} /> Nouvelle commande
-        </button>
+        </Btn>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 mb-6">
-        <div className="p-4 rounded-lg" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-          <p className="text-xs mb-2" style={{ color: C.inkSoft }}>Total commandes</p>
-          <p style={{ fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 500, color: C.ink, lineHeight: 1 }}>{stats.total}</p>
+      {/* Stats 4 blocs */}
+      <div className="grid grid-cols-4 mb-6 border border-ink">
+        <div className="p-4">
+          <Kicker className="mb-2">Total commandes</Kicker>
+          <p className="font-serif tnum text-[28px] leading-none text-ink">{stats.total}</p>
         </div>
-        <button onClick={() => setStatutLivFilter(statutLivFilter === 'attente' ? 'all' : 'attente')} className="text-left p-4" style={{ background: statutLivFilter === 'attente' ? '#000' : C.surface, border: `1px solid ${statutLivFilter === 'attente' ? '#000' : C.borderSoft}`, color: statutLivFilter === 'attente' ? '#FFF' : C.ink }}>
-          <div className="flex items-center gap-1.5 mb-2"><Truck size={11} /><p className="text-xs">En attente</p></div>
-          <p style={{ fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 500, lineHeight: 1 }}>{stats.attente}</p>
+        <button
+          onClick={() => setStatutLivFilter(statutLivFilter === 'attente' ? 'all' : 'attente')}
+          className="text-left p-4 border-l border-ink"
+          style={{ background: statutLivFilter === 'attente' ? '#000' : '#FFF', color: statutLivFilter === 'attente' ? '#FFF' : '#000' }}
+        >
+          <Kicker className={`mb-2 ${statutLivFilter === 'attente' ? 'text-white/70' : ''}`}>En attente</Kicker>
+          <p className="font-serif tnum text-[28px] leading-none">{stats.attente}</p>
         </button>
-        <button onClick={() => setStatutLivFilter(statutLivFilter === 'livree' ? 'all' : 'livree')} className="text-left p-4" style={{ background: statutLivFilter === 'livree' ? '#000' : C.surface, border: `1px solid ${statutLivFilter === 'livree' ? '#000' : C.borderSoft}`, color: statutLivFilter === 'livree' ? '#FFF' : C.ink }}>
-          <div className="flex items-center gap-1.5 mb-2"><Check size={11} /><p className="text-xs">Livrées</p></div>
-          <p style={{ fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 500, lineHeight: 1 }}>{stats.livrees}</p>
+        <button
+          onClick={() => setStatutLivFilter(statutLivFilter === 'livree' ? 'all' : 'livree')}
+          className="text-left p-4 border-l border-ink"
+          style={{ background: statutLivFilter === 'livree' ? '#000' : '#FFF', color: statutLivFilter === 'livree' ? '#FFF' : '#000' }}
+        >
+          <Kicker className={`mb-2 ${statutLivFilter === 'livree' ? 'text-white/70' : ''}`}>Livrées</Kicker>
+          <p className="font-serif tnum text-[28px] leading-none">{stats.livrees}</p>
         </button>
-        <div className="p-4 rounded-lg" style={{ background: C.accentSoft, border: `1px solid ${C.accent}` }}>
-          <p className="text-xs mb-2" style={{ color: C.inkSoft }}>Total commandé</p>
-          <p style={{ fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 500, color: C.accent, lineHeight: 1 }}>{stats.ml}<span className="text-sm ml-1">ml</span></p>
+        <div className="p-4 border-l border-ink bg-ink text-surface">
+          <Kicker className="mb-2 text-white/70">Total commandé</Kicker>
+          <p className="font-serif tnum text-[28px] leading-none">
+            {stats.ml}<span className="font-mono text-[13px] ml-1">ml</span>
+          </p>
         </div>
       </div>
 
+      {/* Barre de filtres */}
       <div className="flex gap-2 mb-2">
         <div className="relative flex-1">
-          <Search size={14} style={{ color: C.inkMuted, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher client, désignation, référence…"
-                 className="w-full pl-9 pr-3 py-2 rounded-md text-sm" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.ink }} />
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-muted text-[13px] pointer-events-none">⌕</span>
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                 placeholder="Rechercher client, désignation, référence…"
+                 className="w-full pl-8 pr-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink" />
         </div>
-        <select value={clientFilter} onChange={e => setClientFilter(e.target.value)} className="px-3 py-2 rounded-md text-sm" style={{ background: clientFilter !== 'all' ? C.ink : C.surface, border: `1px solid ${C.border}`, color: clientFilter !== 'all' ? C.bg : C.ink, minWidth: 180 }}>
+        <select value={clientFilter} onChange={e => setClientFilter(e.target.value)}
+                className="px-3 py-2 border border-ink font-sans text-[13px]"
+                style={{ background: clientFilter !== 'all' ? '#000' : '#FFF', color: clientFilter !== 'all' ? '#FFF' : '#000', minWidth: 180 }}>
           <option value="all">Tous clients</option>
           {clientsUniques.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select value={fournFilter} onChange={e => setFournFilter(e.target.value)} className="px-3 py-2 rounded-md text-sm" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.ink, minWidth: 200 }}>
+        <select value={fournFilter} onChange={e => setFournFilter(e.target.value)}
+                className="px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
+                style={{ minWidth: 200 }}>
           <option value="all">Tous fournisseurs ({fournUniques.length})</option>
           {fournUniques.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
       </div>
 
-      {(clientFilter !== 'all' || fournFilter !== 'all' || statutLivFilter !== 'all' || search) && (
+      {/* Chips filtres actifs */}
+      {hasFilters && (
         <div className="flex items-center gap-2 mb-2 flex-wrap">
-          <span className="text-xs" style={{ color: C.inkMuted }}>Filtres actifs :</span>
-          {search && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>"{search}" <button onClick={() => setSearch('')}><X size={10} /></button></span>}
-          {clientFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.ink, color: C.bg }}>{clientFilter} <button onClick={() => setClientFilter('all')}><X size={10} /></button></span>}
-          {fournFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>{fournFilter} <button onClick={() => setFournFilter('all')}><X size={10} /></button></span>}
-          {statutLivFilter !== 'all' && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs" style={{ background: C.accentSoft, border: `1px solid ${C.border}` }}>{statutLivFilter === 'livree' ? 'Livrées' : 'En attente'} <button onClick={() => setStatutLivFilter('all')}><X size={10} /></button></span>}
-          <button onClick={() => { setSearch(''); setClientFilter('all'); setFournFilter('all'); setStatutLivFilter('all'); }} className="text-xs underline" style={{ color: C.inkMuted }}>Tout effacer</button>
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">Filtres :</span>
+          {search && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[11px] border border-ink">
+              &ldquo;{search}&rdquo;<button onClick={() => setSearch('')} className="ml-0.5"><X size={10} /></button>
+            </span>
+          )}
+          {clientFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[11px] bg-ink text-surface">
+              {clientFilter}<button onClick={() => setClientFilter('all')} className="ml-0.5"><X size={10} /></button>
+            </span>
+          )}
+          {fournFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[11px] border border-ink">
+              {fournFilter}<button onClick={() => setFournFilter('all')} className="ml-0.5"><X size={10} /></button>
+            </span>
+          )}
+          {statutLivFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[11px] border border-ink">
+              {statutLivFilter === 'livree' ? 'Livrées' : 'En attente'}
+              <button onClick={() => setStatutLivFilter('all')} className="ml-0.5"><X size={10} /></button>
+            </span>
+          )}
+          <button onClick={() => { setSearch(''); setClientFilter('all'); setFournFilter('all'); setStatutLivFilter('all'); }}
+                  className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted underline">
+            Tout effacer
+          </button>
         </div>
       )}
 
-      <p className="text-xs mb-3" style={{ color: C.inkMuted }}>{filtered.length} {filtered.length > 1 ? 'commandes affichées' : 'commande affichée'}</p>
+      <p className="font-mono text-[11px] text-muted mb-3 tnum">
+        {filtered.length} {filtered.length > 1 ? 'commandes affichées' : 'commande affichée'}
+      </p>
 
-      <div className="rounded-lg overflow-hidden" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+      {/* Table */}
+      <div className="border border-ink bg-surface">
         <table className="w-full">
           <thead>
-            <tr style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
-              {['Fournisseur','Client','Désignation','Référence','Coloris','Quantité','Date cde','Livraison',''].map((h,i) => (
-                <th key={i} className="text-left px-3 py-3 text-xs font-medium uppercase" style={{ color: C.inkMuted, letterSpacing: '0.05em' }}>{h}</th>
+            <tr className="bg-bg border-b border-ink">
+              {['Fournisseur','Client','Désignation','Référence','Coloris','Quantité','Date cde','Livraison',''].map((h, i) => (
+                <th key={i} className="text-left px-3 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{h}</th>
               ))}
             </tr>
           </thead>
@@ -712,23 +848,34 @@ function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
               const livree = c.qte_livree && c.qte_livree > 0;
               const url = fournLink(c.fournisseur);
               return (
-                <tr key={i} className="group hover:bg-neutral-50" style={{ borderTop: `1px solid ${C.borderSoft}` }}>
-                  <td className="px-3 py-3 text-xs">
-                    {url ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium" style={{ color: C.accent }}>{c.fournisseur} <ExternalLink size={10} /></a> : <span className="font-medium" style={{ color: C.ink }}>{c.fournisseur}</span>}
+                <tr key={i} className="group hover:bg-bg border-t border-dotted border-black/30">
+                  <td className="px-3 py-3">
+                    {url
+                      ? <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-serif text-[13px] text-ink">
+                          {c.fournisseur} <ExternalLink size={10} />
+                        </a>
+                      : <span className="font-serif text-[13px] text-ink">{c.fournisseur}</span>}
                   </td>
-                  <td className="px-3 py-3 text-xs font-medium" style={{ color: C.ink }}>{c.client}</td>
-                  <td className="px-3 py-3 text-xs" style={{ color: C.inkSoft }}>{c.designation || '—'}</td>
-                  <td className="px-3 py-3 text-xs font-mono" style={{ color: C.inkSoft }}>{c.reference || '—'}</td>
-                  <td className="px-3 py-3 text-xs" style={{ color: C.inkSoft }}>{c.coloris || '—'}</td>
-                  <td className="px-3 py-3 text-xs whitespace-nowrap" style={{ color: C.ink }}>{c.qte ? `${c.qte} ${c.unite || 'ml'}` : (c.qte_note || '—')}</td>
-                  <td className="px-3 py-3 text-xs whitespace-nowrap" style={{ color: C.inkSoft }}>{formatDate(c.date_cde)}</td>
-                  <td className="px-3 py-3 text-xs">
-                    {livree ? <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium" style={{ background: '#000', color: '#FFF' }}><Check size={10} /> {c.qte_livree} {c.unite || 'ml'}</span>
-                            : <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium" style={{ background: '#EEE', color: '#000' }}><Truck size={10} /> En attente</span>}
+                  <td className="px-3 py-3 font-serif text-[13px] text-ink">{c.client}</td>
+                  <td className="px-3 py-3 font-sans text-[12px] text-muted">{c.designation || '—'}</td>
+                  <td className="px-3 py-3 font-mono text-[11px] text-muted">{c.reference || '—'}</td>
+                  <td className="px-3 py-3 font-sans text-[12px] text-muted">{c.coloris || '—'}</td>
+                  <td className="px-3 py-3 font-serif tnum text-[13px] text-ink whitespace-nowrap">
+                    {c.qte ? `${c.qte} ${c.unite || 'ml'}` : (c.qte_note || '—')}
+                  </td>
+                  <td className="px-3 py-3 font-mono tnum text-[11px] text-muted whitespace-nowrap">{formatDate(c.date_cde)}</td>
+                  <td className="px-3 py-3">
+                    {livree
+                      ? <span className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] bg-ink text-surface">
+                          <Check size={10} /> {c.qte_livree} {c.unite || 'ml'}
+                        </span>
+                      : <span className="inline-flex items-center gap-1 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] border border-ink text-muted">
+                          <Truck size={10} /> En attente
+                        </span>}
                   </td>
                   <td className="px-3 py-3">
                     <div className="opacity-0 group-hover:opacity-100">
-                      <button onClick={() => onEdit(c)} title="Modifier" className="p-1.5" style={{ color: C.inkSoft }}>
+                      <button onClick={() => onEdit(c)} title="Modifier" className="p-1.5 text-muted">
                         <Pencil size={13} />
                       </button>
                     </div>
@@ -736,7 +883,9 @@ function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
                 </tr>
               );
             })}
-            {filtered.length === 0 && <tr><td colSpan={9} className="px-4 py-12 text-center text-sm" style={{ color: C.inkMuted }}>Aucune commande ne correspond aux filtres.</td></tr>}
+            {filtered.length === 0 && (
+              <tr><td colSpan={9} className="px-4 py-12 text-center font-sans text-[13px] text-muted">Aucune commande ne correspond aux filtres.</td></tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -747,43 +896,63 @@ function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
 function VueArchives({ dossiers, onEdit }) {
   const [search, setSearch] = useState('');
   const archives = useMemo(() => dossiers.filter(d => d.statut === 'Clos'), [dossiers]);
-  const filtered = useMemo(() => archives.filter(d => !search || d.nom_dossier.toLowerCase().includes(search.toLowerCase()) || d.client_nom.toLowerCase().includes(search.toLowerCase())), [archives, search]);
+  const filtered = useMemo(() => archives.filter(d => !search || d.nom_dossier.toLowerCase().includes(search.toLowerCase()) || d.client_nom?.toLowerCase().includes(search.toLowerCase())), [archives, search]);
 
   return (
     <div>
+      {/* En-tête de module */}
       <div className="flex items-end justify-between mb-6">
         <div>
-          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 500, color: C.ink, lineHeight: 1.1 }}>Archives</h2>
-          <p className="text-sm mt-1" style={{ color: C.inkSoft }}>{archives.length} dossiers clos · historique consultable</p>
+          <Kicker className="mb-2">Module 03</Kicker>
+          <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">Archives</h2>
+          <p className="font-sans text-[13px] text-muted mt-1">
+            {archives.length} dossiers clos · historique consultable
+          </p>
         </div>
       </div>
 
+      {/* Recherche */}
       <div className="relative mb-4">
-        <Search size={14} style={{ color: C.inkMuted, position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher dans les archives…"
-               className="w-full pl-9 pr-3 py-2 rounded-md text-sm" style={{ background: C.surface, border: `1px solid ${C.border}`, color: C.ink }} />
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-muted text-[13px] pointer-events-none">⌕</span>
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+               placeholder="Rechercher dans les archives…"
+               className="w-full pl-8 pr-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink" />
       </div>
 
-      <div className="rounded-lg overflow-hidden" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+      <p className="font-mono text-[11px] text-muted mb-3 tnum">
+        {filtered.length} {filtered.length > 1 ? 'dossiers' : 'dossier'}
+      </p>
+
+      {/* Table */}
+      <div className="border border-ink bg-surface">
         <table className="w-full">
           <thead>
-            <tr style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
-              {['Dossier','Type','Date','Lien dossier',''].map((h,i) => (
-                <th key={i} className="text-left px-4 py-3 text-xs font-medium uppercase" style={{ color: C.inkMuted, letterSpacing: '0.05em' }}>{h}</th>
+            <tr className="bg-bg border-b border-ink">
+              {['Dossier', 'Type', 'Date', 'Lien dossier', ''].map((h, i) => (
+                <th key={i} className="text-left px-4 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map(d => (
-              <tr key={d.id} className="cursor-pointer group hover:bg-stone-50" style={{ borderTop: `1px solid ${C.borderSoft}` }} onClick={() => onEdit(d)}>
-                <td className="px-4 py-3"><p className="font-medium text-sm" style={{ color: C.ink }}>{d.nom_dossier}</p></td>
-                <td className="px-4 py-3 text-xs" style={{ color: C.inkSoft }}>{d.type_intervention || '—'}</td>
-                <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: C.inkSoft }}>{formatDate(d.date_ouverture)}</td>
-                <td className="px-4 py-3 text-xs font-mono truncate max-w-md" style={{ color: C.inkMuted }}>{d.lien || '—'}</td>
-                <td className="px-4 py-3 text-right"><div className="opacity-0 group-hover:opacity-100"><Pencil size={14} style={{ color: C.inkSoft }} /></div></td>
+              <tr key={d.id} className="cursor-pointer group hover:bg-bg border-t border-dotted border-black/30" onClick={() => onEdit(d)}>
+                <td className="px-4 py-3">
+                  <p className="font-serif text-[14px] text-ink">{d.nom_dossier}</p>
+                  {d.client_nom && d.client_nom !== d.nom_dossier && (
+                    <p className="font-sans text-[12px] text-muted mt-0.5">{d.client_nom}</p>
+                  )}
+                </td>
+                <td className="px-4 py-3 font-sans text-[12px] text-muted">{d.type_intervention || '—'}</td>
+                <td className="px-4 py-3 font-mono tnum text-[11px] text-muted whitespace-nowrap">{formatDate(d.date_ouverture)}</td>
+                <td className="px-4 py-3 font-mono text-[11px] text-muted truncate max-w-md">{d.lien || '—'}</td>
+                <td className="px-4 py-3 text-right">
+                  <div className="opacity-0 group-hover:opacity-100 text-muted"><Pencil size={14} /></div>
+                </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={5} className="px-4 py-12 text-center text-sm" style={{ color: C.inkMuted }}>Aucun dossier archivé.</td></tr>}
+            {filtered.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-12 text-center font-sans text-[13px] text-muted">Aucun dossier archivé.</td></tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -863,44 +1032,95 @@ export default function Page() {
     archives: dossiers.filter(d => d.statut === 'Clos').length,
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center" style={{ background: C.bg }}><p style={{ color: C.inkSoft }}>Chargement…</p></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-bg"><p className="font-sans text-[13px] text-muted">Chargement…</p></div>;
 
   const TABS = [
-    { key: 'dossiers',  label: 'Dossiers',        icon: LayoutGrid, count: counts.dossiers },
-    { key: 'commandes', label: 'Commandes',        icon: Package,    count: counts.commandes },
-    { key: 'archives',  label: 'Archives',         icon: Archive,    count: counts.archives },
-    { key: 'heures',    label: 'Heures',           icon: Clock,      count: null },
-    { key: 'rapports',  label: 'Rapports',         icon: BarChart2,  count: null },
-    { key: 'import',    label: 'Export PDF',        icon: Download,   count: null },
-    { key: 'predevis',  label: 'Prédevis',          icon: Calculator, count: null },
+    { key: 'dossiers',  num: '01', label: 'Dossiers',   count: counts.dossiers },
+    { key: 'commandes', num: '02', label: 'Commandes',  count: counts.commandes },
+    { key: 'archives',  num: '03', label: 'Archives',   count: counts.archives },
+    { key: 'heures',    num: '04', label: 'Heures',     count: null },
+    { key: 'rapports',  num: '05', label: 'Rapports',   count: null },
+    { key: 'import',    num: '06', label: 'Export PDF', count: null },
+    { key: 'predevis',  num: '07', label: 'Prédevis',   count: null },
   ];
 
+  const now = new Date();
+  const DAYS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  const MONTHS = ['jan.', 'fév.', 'mar.', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sep.', 'oct.', 'nov.', 'déc.'];
+  const dateStr = `${DAYS[now.getDay()]} ${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const weekNum = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+
   return (
-    <div className="min-h-screen" style={{ background: C.bg, color: C.ink }}>
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <header className="flex items-end justify-between mb-2">
-          <p className="text-xs uppercase tracking-widest" style={{ color: C.accent, letterSpacing: '0.15em' }}>Atelier Stéphan Hamache</p>
-          <p className="text-xs" style={{ color: C.inkMuted }}>Connecté à la base atelier.db</p>
+    <div className="min-h-screen bg-bg text-ink">
+      <div className="max-w-[1400px] mx-auto px-6">
+
+        {/* Masthead — lettre à en-tête */}
+        <header className="pt-6 pb-4 border-b border-ink">
+          <div className="flex items-start justify-between">
+            {/* Coin gauche — date */}
+            <div className="font-mono text-[11px] text-muted leading-relaxed pt-1">
+              <p>{dateStr}</p>
+              <p>Semaine {weekNum}</p>
+            </div>
+
+            {/* Centre — branding */}
+            <div className="text-center">
+              <Kicker className="mb-1">Gestion · Atelier</Kicker>
+              <p className="font-serif text-[34px] leading-none tracking-[-0.01em]">
+                Stéphan Hamache
+              </p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted mt-1">
+                Tapisserie d&apos;ameublement · Poitiers
+              </p>
+            </div>
+
+            {/* Coin droit — utilisateur */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className="text-right">
+                <p className="font-serif text-[13px] text-ink">Stéphan H.</p>
+                <p className="font-mono text-[10px] text-muted uppercase tracking-[0.1em]">Atelier</p>
+              </div>
+              <div
+                className="flex items-center justify-center bg-ink text-surface"
+                style={{ width: 36, height: 36 }}
+              >
+                <span className="font-serif text-[14px]">SH</span>
+              </div>
+            </div>
+          </div>
         </header>
 
-        <nav className="flex items-center gap-1 mb-8 pb-1 flex-wrap" style={{ borderBottom: `1px solid ${C.border}` }}>
+        {/* Nav — 7 modules en blocs égaux */}
+        <nav className="flex border-b border-ink mb-8">
           {TABS.map(t => {
-            const Icon = t.icon, active = view === t.key;
+            const active = view === t.key;
             return (
-              <button key={t.key} onClick={() => setView(t.key)}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium relative"
-                      style={{ color: active ? C.ink : C.inkSoft, borderBottom: active ? `2px solid ${C.accent}` : '2px solid transparent', marginBottom: '-1px' }}>
-                <Icon size={15} /> {t.label}
+              <button
+                key={t.key}
+                onClick={() => setView(t.key)}
+                className={`flex-1 flex flex-col items-center justify-center py-3 border-r border-ink last:border-r-0 ${active ? 'bg-ink text-surface' : 'bg-surface text-ink hover:bg-bg'}`}
+              >
+                <span className={`font-serif text-[28px] leading-none tnum ${active ? 'text-surface' : 'text-ink'}`}>
+                  {t.num}
+                </span>
+                <span className={`font-sans text-[12px] uppercase tracking-[0.12em] mt-0.5 ${active ? 'text-surface' : 'text-muted'}`}>
+                  {t.label}
+                </span>
                 {t.count !== null && (
-                  <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: active ? C.accentSoft : C.borderSoft, color: active ? C.accent : C.inkMuted }}>{t.count}</span>
+                  <span className={`font-mono text-[10px] tnum mt-0.5 ${active ? 'text-surface/70' : 'text-muted'}`}>
+                    {t.count}
+                  </span>
                 )}
               </button>
             );
           })}
-          <Link href="/stock"
-                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium relative ml-auto"
-                style={{ color: C.inkSoft, borderBottom: '2px solid transparent', marginBottom: '-1px' }}>
-            <Layers size={15} /> Stock Kanban
+          <Link
+            href="/stock"
+            className="flex flex-col items-center justify-center py-3 px-4 border-l border-ink bg-surface text-ink hover:bg-bg"
+          >
+            <span className="font-serif text-[28px] leading-none text-muted">⊞</span>
+            <span className="font-sans text-[12px] uppercase tracking-[0.12em] mt-0.5 text-muted">Stock</span>
           </Link>
         </nav>
 
@@ -912,8 +1132,10 @@ export default function Page() {
         {view === 'import'    && <ImportExportPanel onDataChanged={reload} />}
         {view === 'predevis'  && <PredevisModule />}
 
-        <footer className="mt-10 pt-6" style={{ borderTop: `1px solid ${C.border}` }}>
-          <p className="text-xs" style={{ color: C.inkMuted }}>Mode serveur · données partagées entre tous les postes du réseau</p>
+        <footer className="mt-10 pt-4 pb-6 border-t border-ink">
+          <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+            Mode serveur · données partagées entre tous les postes du réseau
+          </p>
         </footer>
       </div>
 

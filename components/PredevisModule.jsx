@@ -1,37 +1,37 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2, X, FileText, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import Kicker from './ui/Kicker';
+import Btn from './ui/Btn';
 
 const C = {
   ink: '#000', inkSoft: '#444', inkMuted: '#888',
   bg: '#F5F5F5', surface: '#fff', border: '#000', borderSoft: '#E5E5E5', soft: '#EEEEEE',
 };
 const inp = { border: `1px solid ${C.borderSoft}`, padding: '7px 10px', fontSize: 13, background: '#fff', color: C.ink, width: '100%' };
-const TYPES = ['Tapisserie', 'Rideaux', 'Stores', 'Tête de lit', 'Habillage de lit', 'Coussins', 'Pose seule', 'Autre'];
+const TYPES    = ['Tapisserie', 'Rideaux', 'Stores', 'Tête de lit', 'Habillage de lit', 'Coussins', 'Pose seule', 'Autre'];
 const MATIERES = ['mousse', 'crin', 'ressorts', 'sangles', 'tissu'];
 const ZONES    = ['dessus', 'dessous', 'les_deux'];
-const STATUT_COLORS = { brouillon: '#888', envoyé: '#000', accepté: '#000', refusé: '#ccc', converti: '#000' };
 
 function fmt(n) { return Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-
-function defaultTapOps() {
-  return { degarnissage: false, recollage: false, decouverture: false, recouverture: false, creation: false, modificationStructure: false, changement: { actif: false, matiere: 'mousse', zone: 'les_deux' }, finition: { actif: false, galons: false, frange: false, invisible: false, clous: false, griffe: false } };
-}
+function defaultTapOps() { return { degarnissage: false, recollage: false, decouverture: false, recouverture: false, creation: false, modificationStructure: false, changement: { actif: false, matiere: 'mousse', zone: 'les_deux' }, finition: { actif: false, galons: false, frange: false, invisible: false, clous: false, griffe: false } }; }
 function parseTapOps(raw) { try { return { ...defaultTapOps(), ...JSON.parse(raw || '{}') }; } catch { return defaultTapOps(); } }
 function parseJSON(raw) { try { return JSON.parse(raw || '[]'); } catch { return []; } }
 
 function calcTotaux(form) {
-  const tissus     = parseJSON(form.tissus).reduce((s, t) => s + (parseFloat(t.prixMetre) || 0) * (parseFloat(t.metrage) || 0), 0);
+  const tissus      = parseJSON(form.tissus).reduce((s, t) => s + (parseFloat(t.prixMetre) || 0) * (parseFloat(t.metrage) || 0), 0);
   const fournitures = parseJSON(form.fournitures).reduce((s, f) => s + (parseFloat(f.prixUnit) || 0) * (parseFloat(f.quantite) || 0), 0);
-  const mdo        = (parseFloat(form.heures_estimees) || 0) * (parseFloat(form.taux_horaire) || 55);
-  const pose       = parseFloat(form.forfait_pose) || 0;
+  const mdo         = (parseFloat(form.heures_estimees) || 0) * (parseFloat(form.taux_horaire) || 55);
+  const pose        = parseFloat(form.forfait_pose) || 0;
   const deplacement = (parseFloat(form.km_deplacement) || 0) * (parseFloat(form.tarif_km) || 0.5);
-  const ht         = tissus + fournitures + mdo + pose + deplacement;
-  const ttc        = ht * (1 + (parseFloat(form.taux_tva) || 0.20));
+  const ht          = tissus + fournitures + mdo + pose + deplacement;
+  const ttc         = ht * (1 + (parseFloat(form.taux_tva) || 0.20));
   return { tissus, fournitures, mdo, pose, deplacement, ht, ttc };
 }
 
-// ── Formulaire prédevis ─────────────────────────────────────────────────────
+const labelCls = 'font-mono uppercase tracking-[0.16em] text-[10px] text-muted block mb-1';
+const fieldCls = 'w-full px-3 py-2 bg-surface border border-line font-sans text-[13px] text-ink';
+
 function FormulairePredevis({ initial, onSave, onClose }) {
   const [form, setForm] = useState({
     client_nom: '', client_tel: '', client_email: '', client_adresse: '',
@@ -68,97 +68,92 @@ function FormulairePredevis({ initial, onSave, onClose }) {
     setSaving(false);
   };
 
-  const s = { border: `1px solid ${C.borderSoft}`, padding: '6px 10px', fontSize: 13, background: '#fff', color: C.ink };
-
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 300, overflowY: 'auto', padding: '24px 16px' }}>
-      <div style={{ background: '#fff', border: '2px solid #000', maxWidth: 760, margin: '0 auto', padding: 28 }}>
+    <div className="fixed inset-0 z-[300] overflow-y-auto p-6" style={{ background: 'rgba(0,0,0,0.55)' }}>
+      <div className="bg-surface border-2 border-ink max-w-[760px] mx-auto p-7">
 
         {/* En-tête */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-start justify-between mb-6">
           <div>
-            <p className="text-xs uppercase tracking-widest mb-1" style={{ color: C.inkMuted }}>
-              {initial?.id ? `Prédevis ${initial.reference}` : 'Nouveau prédevis'}
-            </p>
-            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 500, color: C.ink }}>Chiffrage</h2>
+            <Kicker className="mb-1">{initial?.id ? `Prédevis ${initial.reference}` : 'Nouveau prédevis'}</Kicker>
+            <h2 className="font-serif text-[28px] text-ink">Chiffrage</h2>
           </div>
-          <button onClick={onClose}><X size={20} /></button>
+          <button onClick={onClose} className="p-1 text-muted"><X size={20} /></button>
         </div>
 
         {/* Client */}
-        <fieldset className="mb-5" style={{ border: `1px solid ${C.borderSoft}`, padding: 14 }}>
-          <legend className="text-xs uppercase tracking-wider px-1" style={{ color: C.inkMuted }}>Client</legend>
+        <fieldset className="mb-5 border border-line p-4">
+          <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Client</legend>
           <div className="grid grid-cols-2 gap-3">
             {[['client_nom','Nom'],['client_tel','Téléphone'],['client_email','Email'],['client_adresse','Adresse']].map(([k, label]) => (
               <div key={k}>
-                <label className="block text-xs mb-1" style={{ color: C.inkMuted }}>{label}</label>
-                <input style={s} value={form[k]} onChange={e => set(k, e.target.value)} />
+                <label className={labelCls}>{label}</label>
+                <input className={fieldCls} value={form[k]} onChange={e => set(k, e.target.value)} />
               </div>
             ))}
           </div>
         </fieldset>
 
         {/* Intervention */}
-        <fieldset className="mb-5" style={{ border: `1px solid ${C.borderSoft}`, padding: 14 }}>
-          <legend className="text-xs uppercase tracking-wider px-1" style={{ color: C.inkMuted }}>Intervention</legend>
+        <fieldset className="mb-5 border border-line p-4">
+          <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Intervention</legend>
           <div className="grid grid-cols-3 gap-3 mb-3">
             <div>
-              <label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Type</label>
-              <select style={s} value={form.type_intervention} onChange={e => set('type_intervention', e.target.value)}>
+              <label className={labelCls}>Type</label>
+              <select className={fieldCls} value={form.type_intervention} onChange={e => set('type_intervention', e.target.value)}>
                 {TYPES.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Description</label>
-              <input style={s} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Ex: Bergère Louis XV" />
+              <label className={labelCls}>Description</label>
+              <input className={fieldCls} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Ex: Bergère Louis XV" />
             </div>
             <div className="flex items-end pb-1">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <label className="flex items-center gap-2 font-sans text-[13px] cursor-pointer">
                 <input type="checkbox" checked={form.urgent} onChange={e => set('urgent', e.target.checked)} />
                 <span style={{ color: form.urgent ? '#FF0000' : C.inkSoft, fontWeight: form.urgent ? 700 : 400 }}>Urgent</span>
               </label>
             </div>
           </div>
 
-          {/* Tapisserie ops */}
           {form.type_intervention === 'Tapisserie' && (
             <div>
-              <button onClick={() => setShowTap(v => !v)} className="flex items-center gap-2 text-xs mb-2" style={{ color: C.inkSoft }}>
-                {showTap ? <ChevronUp size={13} /> : <ChevronDown size={13} />} Opérations tapisserie
+              <button onClick={() => setShowTap(v => !v)} className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted mb-2">
+                {showTap ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Opérations tapisserie
               </button>
               {showTap && (
-                <div style={{ background: C.bg, border: `1px solid ${C.borderSoft}`, padding: 12 }}>
+                <div className="bg-bg border border-line p-3">
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     {['degarnissage','recollage','decouverture','recouverture','creation','modificationStructure'].map(op => (
-                      <label key={op} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <label key={op} className="flex items-center gap-1.5 font-sans text-[12px] cursor-pointer">
                         <input type="checkbox" checked={!!tapOps[op]} onChange={e => setTap(op, e.target.checked)} />
                         {op.charAt(0).toUpperCase() + op.slice(1).replace(/([A-Z])/g, ' $1')}
                       </label>
                     ))}
                   </div>
                   <div className="flex gap-4 mb-2 flex-wrap">
-                    <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <label className="flex items-center gap-1.5 font-sans text-[12px] cursor-pointer">
                       <input type="checkbox" checked={!!tapOps.changement?.actif} onChange={e => setTap('changement', { ...tapOps.changement, actif: e.target.checked })} />
                       Changement matière
                     </label>
                     {tapOps.changement?.actif && (
                       <>
-                        <select style={{ ...s, width: 'auto' }} value={tapOps.changement.matiere} onChange={e => setTap('changement', { ...tapOps.changement, matiere: e.target.value })}>
+                        <select className="px-2 py-1 border border-line text-[12px]" value={tapOps.changement.matiere} onChange={e => setTap('changement', { ...tapOps.changement, matiere: e.target.value })}>
                           {MATIERES.map(m => <option key={m}>{m}</option>)}
                         </select>
-                        <select style={{ ...s, width: 'auto' }} value={tapOps.changement.zone} onChange={e => setTap('changement', { ...tapOps.changement, zone: e.target.value })}>
+                        <select className="px-2 py-1 border border-line text-[12px]" value={tapOps.changement.zone} onChange={e => setTap('changement', { ...tapOps.changement, zone: e.target.value })}>
                           {ZONES.map(z => <option key={z}>{z}</option>)}
                         </select>
                       </>
                     )}
                   </div>
                   <div className="flex gap-4 flex-wrap">
-                    <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <label className="flex items-center gap-1.5 font-sans text-[12px] cursor-pointer">
                       <input type="checkbox" checked={!!tapOps.finition?.actif} onChange={e => setTap('finition', { ...tapOps.finition, actif: e.target.checked })} />
                       Finitions
                     </label>
                     {tapOps.finition?.actif && ['galons','frange','invisible','clous','griffe'].map(f => (
-                      <label key={f} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                      <label key={f} className="flex items-center gap-1.5 font-sans text-[12px] cursor-pointer">
                         <input type="checkbox" checked={!!tapOps.finition?.[f]} onChange={e => setTap('finition', { ...tapOps.finition, [f]: e.target.checked })} />
                         {f}
                       </label>
@@ -171,56 +166,56 @@ function FormulairePredevis({ initial, onSave, onClose }) {
         </fieldset>
 
         {/* Tissus */}
-        <fieldset className="mb-5" style={{ border: `1px solid ${C.borderSoft}`, padding: 14 }}>
-          <legend className="text-xs uppercase tracking-wider px-1" style={{ color: C.inkMuted }}>Tissus</legend>
+        <fieldset className="mb-5 border border-line p-4">
+          <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Tissus</legend>
           {tissus.map((t, i) => (
             <div key={t.id} className="grid gap-2 mb-2" style={{ gridTemplateColumns: '1fr 1fr 80px 80px 24px', alignItems: 'end' }}>
-              <div><label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Fournisseur</label><input style={s} value={t.fournisseur} onChange={e => setTissu(i, 'fournisseur', e.target.value)} /></div>
-              <div><label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Référence</label><input style={s} value={t.reference} onChange={e => setTissu(i, 'reference', e.target.value)} /></div>
-              <div><label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Prix/m</label><input type="number" step="0.01" style={s} value={t.prixMetre} onChange={e => setTissu(i, 'prixMetre', e.target.value)} /></div>
-              <div><label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Métrage</label><input type="number" step="0.1" style={s} value={t.metrage} onChange={e => setTissu(i, 'metrage', e.target.value)} /></div>
-              <button onClick={() => delTissu(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', paddingBottom: 2 }}><Trash2 size={13} color="#888" /></button>
+              <div><label className={labelCls}>Fournisseur</label><input className={fieldCls} value={t.fournisseur} onChange={e => setTissu(i, 'fournisseur', e.target.value)} /></div>
+              <div><label className={labelCls}>Référence</label><input className={fieldCls} value={t.reference} onChange={e => setTissu(i, 'reference', e.target.value)} /></div>
+              <div><label className={labelCls}>Prix/m</label><input type="number" step="0.01" className={fieldCls} value={t.prixMetre} onChange={e => setTissu(i, 'prixMetre', e.target.value)} /></div>
+              <div><label className={labelCls}>Métrage</label><input type="number" step="0.1" className={fieldCls} value={t.metrage} onChange={e => setTissu(i, 'metrage', e.target.value)} /></div>
+              <button onClick={() => delTissu(i)} className="text-muted pb-0.5"><Trash2 size={13} /></button>
             </div>
           ))}
-          <button onClick={addTissu} className="flex items-center gap-1 text-xs mt-1" style={{ color: C.inkSoft, border: `1px dashed ${C.borderSoft}`, padding: '4px 10px' }}>
-            <Plus size={11} /> Ajouter tissu
+          <button onClick={addTissu} className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted border border-dashed border-line px-3 py-1 mt-1">
+            <Plus size={10} /> Ajouter tissu
           </button>
         </fieldset>
 
         {/* Fournitures */}
-        <fieldset className="mb-5" style={{ border: `1px solid ${C.borderSoft}`, padding: 14 }}>
-          <legend className="text-xs uppercase tracking-wider px-1" style={{ color: C.inkMuted }}>Fournitures</legend>
+        <fieldset className="mb-5 border border-line p-4">
+          <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Fournitures</legend>
           {fournitures.map((f, i) => (
             <div key={f.id} className="grid gap-2 mb-2" style={{ gridTemplateColumns: '2fr 70px 60px 80px 24px', alignItems: 'end' }}>
-              <div><label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Désignation</label><input style={s} value={f.designation} onChange={e => setFourn(i, 'designation', e.target.value)} /></div>
-              <div><label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Qté</label><input type="number" step="0.5" style={s} value={f.quantite} onChange={e => setFourn(i, 'quantite', e.target.value)} /></div>
-              <div><label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Unité</label>
-                <select style={s} value={f.unite} onChange={e => setFourn(i, 'unite', e.target.value)}>
+              <div><label className={labelCls}>Désignation</label><input className={fieldCls} value={f.designation} onChange={e => setFourn(i, 'designation', e.target.value)} /></div>
+              <div><label className={labelCls}>Qté</label><input type="number" step="0.5" className={fieldCls} value={f.quantite} onChange={e => setFourn(i, 'quantite', e.target.value)} /></div>
+              <div><label className={labelCls}>Unité</label>
+                <select className={fieldCls} value={f.unite} onChange={e => setFourn(i, 'unite', e.target.value)}>
                   {['u','m²','ml','kg','lot'].map(u => <option key={u}>{u}</option>)}
                 </select>
               </div>
-              <div><label className="block text-xs mb-1" style={{ color: C.inkMuted }}>Prix unit.</label><input type="number" step="0.01" style={s} value={f.prixUnit} onChange={e => setFourn(i, 'prixUnit', e.target.value)} /></div>
-              <button onClick={() => delFourn(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', paddingBottom: 2 }}><Trash2 size={13} color="#888" /></button>
+              <div><label className={labelCls}>Prix unit.</label><input type="number" step="0.01" className={fieldCls} value={f.prixUnit} onChange={e => setFourn(i, 'prixUnit', e.target.value)} /></div>
+              <button onClick={() => delFourn(i)} className="text-muted pb-0.5"><Trash2 size={13} /></button>
             </div>
           ))}
-          <button onClick={addFourn} className="flex items-center gap-1 text-xs mt-1" style={{ color: C.inkSoft, border: `1px dashed ${C.borderSoft}`, padding: '4px 10px' }}>
-            <Plus size={11} /> Ajouter fourniture
+          <button onClick={addFourn} className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted border border-dashed border-line px-3 py-1 mt-1">
+            <Plus size={10} /> Ajouter fourniture
           </button>
         </fieldset>
 
-        {/* Main-d'œuvre & frais */}
-        <fieldset className="mb-5" style={{ border: `1px solid ${C.borderSoft}`, padding: 14 }}>
-          <legend className="text-xs uppercase tracking-wider px-1" style={{ color: C.inkMuted }}>Main-d'œuvre & frais</legend>
+        {/* MO & frais */}
+        <fieldset className="mb-5 border border-line p-4">
+          <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Main-d&apos;œuvre &amp; frais</legend>
           <div className="grid grid-cols-3 gap-3 mb-3">
-            {[['heures_estimees','Heures estimées','number'],['taux_horaire','Taux horaire (€/h)','number'],['forfait_pose','Forfait pose (€)','number'],['km_deplacement','Km déplacement','number'],['tarif_km','Tarif km (€)','number']].map(([k, label, type]) => (
+            {[['heures_estimees','Heures estimées'],['taux_horaire','Taux horaire (€/h)'],['forfait_pose','Forfait pose (€)'],['km_deplacement','Km déplacement'],['tarif_km','Tarif km (€)']].map(([k, label]) => (
               <div key={k}>
-                <label className="block text-xs mb-1" style={{ color: C.inkMuted }}>{label}</label>
-                <input type={type} step="0.5" style={s} value={form[k]} onChange={e => set(k, e.target.value)} />
+                <label className={labelCls}>{label}</label>
+                <input type="number" step="0.5" className={fieldCls} value={form[k]} onChange={e => set(k, e.target.value)} />
               </div>
             ))}
             <div>
-              <label className="block text-xs mb-1" style={{ color: C.inkMuted }}>TVA</label>
-              <select style={s} value={form.taux_tva} onChange={e => set('taux_tva', parseFloat(e.target.value))}>
+              <label className={labelCls}>TVA</label>
+              <select className={fieldCls} value={form.taux_tva} onChange={e => set('taux_tva', parseFloat(e.target.value))}>
                 <option value={0.10}>10 %</option>
                 <option value={0.20}>20 %</option>
               </select>
@@ -228,52 +223,65 @@ function FormulairePredevis({ initial, onSave, onClose }) {
           </div>
         </fieldset>
 
-        {/* Total */}
-        <div className="mb-5 p-4" style={{ background: C.bg, border: `1px solid ${C.border}` }}>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm mb-3">
-            <span style={{ color: C.inkSoft }}>Tissus</span><span className="text-right">{fmt(totaux.tissus)} €</span>
-            <span style={{ color: C.inkSoft }}>Fournitures</span><span className="text-right">{fmt(totaux.fournitures)} €</span>
-            <span style={{ color: C.inkSoft }}>Main-d'œuvre</span><span className="text-right">{fmt(totaux.mdo)} €</span>
-            {totaux.pose > 0 && <><span style={{ color: C.inkSoft }}>Pose</span><span className="text-right">{fmt(totaux.pose)} €</span></>}
-            {totaux.deplacement > 0 && <><span style={{ color: C.inkSoft }}>Déplacement</span><span className="text-right">{fmt(totaux.deplacement)} €</span></>}
+        {/* Devis papier — récap TTC */}
+        <div className="mb-5 border border-ink">
+          {/* Masthead */}
+          <div className="text-center px-4 py-3 border-b border-ink bg-bg">
+            <Kicker>Atelier Hamache · Devis</Kicker>
           </div>
-          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
-            <div className="flex justify-between text-sm mb-1">
-              <span style={{ color: C.inkSoft }}>Total HT</span>
-              <span style={{ fontWeight: 600 }}>{fmt(totaux.ht)} €</span>
+          {/* Lignes */}
+          <div className="px-4 py-3">
+            {[
+              ['Tissus', totaux.tissus],
+              ['Fournitures', totaux.fournitures],
+              ['Main-d\'œuvre', totaux.mdo],
+              ...(totaux.pose > 0 ? [['Pose', totaux.pose]] : []),
+              ...(totaux.deplacement > 0 ? [['Déplacement', totaux.deplacement]] : []),
+            ].map(([label, val]) => (
+              <div key={label} className="flex justify-between py-1.5 border-b border-dotted border-black/30">
+                <span className="font-sans text-[13px] text-muted">{label}</span>
+                <span className="font-mono tnum text-[13px] text-ink">{fmt(val)} €</span>
+              </div>
+            ))}
+          </div>
+          {/* Total */}
+          <div className="px-4 py-2 border-t border-ink">
+            <div className="flex justify-between mb-1">
+              <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted">Total HT</span>
+              <span className="font-mono tnum text-[13px] text-ink">{fmt(totaux.ht)} €</span>
             </div>
-            <div className="flex justify-between">
-              <span style={{ fontFamily: "'Fraunces', serif", fontSize: 18, fontWeight: 500 }}>Total TTC</span>
-              <span style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 700 }}>{fmt(totaux.ttc)} €</span>
-            </div>
+          </div>
+          <div className="flex justify-between items-center px-4 py-3 bg-ink text-surface">
+            <span className="font-serif text-[16px]">Total TTC</span>
+            <span className="font-serif tnum text-[28px]">{fmt(totaux.ttc)} €</span>
+          </div>
+          <div className="px-4 py-2 border-t border-line bg-bg">
+            <p className="font-mono text-[10px] text-muted text-center">Validité 30 jours · Acompte 30 %</p>
           </div>
         </div>
 
         {/* Notes */}
         <div className="mb-5">
-          <label className="block text-xs mb-1 uppercase tracking-wide" style={{ color: C.inkMuted }}>Notes internes</label>
-          <textarea rows={2} style={{ ...s, resize: 'vertical' }} value={form.notes} onChange={e => set('notes', e.target.value)} />
+          <label className={labelCls}>Notes internes</label>
+          <textarea rows={2} className="w-full px-3 py-2 bg-surface border border-line font-sans text-[13px] text-ink resize-y" value={form.notes} onChange={e => set('notes', e.target.value)} />
         </div>
 
         {/* Actions */}
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm" style={{ border: `1px solid ${C.borderSoft}`, color: C.inkSoft }}>Annuler</button>
-          <button onClick={save} disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2 text-sm font-semibold"
-                  style={{ background: '#000', color: '#fff', border: 'none', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+          <Btn variant="outline" onClick={onClose}>Annuler</Btn>
+          <Btn onClick={save} disabled={saving}>
             <Check size={14} /> {saving ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
+          </Btn>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Liste prédevis ─────────────────────────────────────────────────────────
 export default function PredevisModule() {
-  const [list, setList]     = useState([]);
+  const [list, setList]       = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null); // null | {} | {id,...}
+  const [editing, setEditing] = useState(null);
 
   const load = async () => {
     const r = await fetch('/api/predevis');
@@ -299,70 +307,88 @@ export default function PredevisModule() {
   };
 
   const stats = useMemo(() => ({
-    total: list.length,
+    total:      list.length,
     brouillons: list.filter(p => p.statut === 'brouillon').length,
-    envoyes: list.filter(p => p.statut === 'envoyé').length,
-    convertis: list.filter(p => p.statut === 'converti').length,
+    envoyes:    list.filter(p => p.statut === 'envoyé').length,
+    convertis:  list.filter(p => p.statut === 'converti').length,
   }), [list]);
 
-  if (loading) return <div style={{ padding: 20, color: C.inkMuted, fontSize: 13 }}>Chargement…</div>;
+  if (loading) return <div className="p-5 font-sans text-[13px] text-muted">Chargement…</div>;
+
+  const STATUT_PILL = {
+    brouillon: 'border border-line text-muted',
+    'envoyé':   'border border-ink text-ink',
+    accepté:    'bg-ink text-surface',
+    refusé:     'border border-line text-muted',
+    converti:   'bg-ink text-surface',
+  };
 
   return (
     <div>
       <div className="flex items-end justify-between mb-6">
         <div>
-          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 28, fontWeight: 500, color: C.ink, lineHeight: 1.1 }}>Prédevis</h2>
-          <p className="text-sm mt-1" style={{ color: C.inkSoft }}>{list.length} chiffrage{list.length > 1 ? 's' : ''}</p>
+          <Kicker className="mb-2">Module 07</Kicker>
+          <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">Prédevis</h2>
+          <p className="font-sans text-[13px] text-muted mt-1">{list.length} chiffrage{list.length > 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => setEditing({})} className="flex items-center gap-2 px-4 py-2 text-sm font-medium"
-                style={{ background: '#000', color: '#fff', border: 'none', cursor: 'pointer' }}>
+        <Btn onClick={() => setEditing({})}>
           <Plus size={14} /> Nouveau prédevis
-        </button>
+        </Btn>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-2 mb-6">
-        {[['Total',stats.total,C.surface],[`Brouillons`,stats.brouillons,C.surface],[`Envoyés`,stats.envoyes,C.surface],[`Convertis`,stats.convertis,'#000']].map(([label, val, bg]) => (
-          <div key={label} className="p-4" style={{ background: bg, border: `1px solid ${bg === '#000' ? '#000' : C.borderSoft}` }}>
-            <p className="text-xs mb-2" style={{ color: bg === '#000' ? 'rgba(255,255,255,0.6)' : C.inkMuted }}>{label}</p>
-            <p style={{ fontFamily: "'Fraunces', serif", fontSize: 26, fontWeight: 500, color: bg === '#000' ? '#fff' : C.ink, lineHeight: 1 }}>{val}</p>
+      <div className="grid grid-cols-4 mb-6 border border-ink">
+        {[['Total', stats.total, false], ['Brouillons', stats.brouillons, false], ['Envoyés', stats.envoyes, false], ['Convertis', stats.convertis, true]].map(([label, val, inverted], idx) => (
+          <div key={label} className={`p-4 ${idx > 0 ? 'border-l border-ink' : ''} ${inverted ? 'bg-ink text-surface' : 'bg-surface text-ink'}`}>
+            <Kicker className={`mb-2 ${inverted ? 'text-white/60' : ''}`}>{label}</Kicker>
+            <p className="font-serif tnum text-[28px] leading-none">{val}</p>
           </div>
         ))}
       </div>
 
-      {/* Tableau */}
       {list.length === 0 ? (
-        <div className="text-center py-16" style={{ color: C.inkMuted, border: `1px dashed ${C.borderSoft}` }}>
-          <FileText size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-          <p className="text-sm">Aucun prédevis — créez-en un</p>
+        <div className="text-center py-16 border border-dashed border-line font-sans text-[13px] text-muted">
+          <FileText size={32} className="mx-auto mb-3 opacity-30" />
+          Aucun prédevis — créez-en un
         </div>
       ) : (
-        <div>
-          <div className="grid text-xs uppercase tracking-wide pb-1 mb-1"
-               style={{ gridTemplateColumns: '110px 1fr 1fr 90px 90px 90px 60px', gap: 8, borderBottom: `2px solid ${C.border}`, color: C.inkMuted }}>
-            <span>Réf.</span><span>Client</span><span>Intervention</span><span>Total HT</span><span>Total TTC</span><span>Statut</span><span></span>
-          </div>
-          {list.map(p => (
-            <div key={p.id} className="grid text-sm py-2"
-                 style={{ gridTemplateColumns: '110px 1fr 1fr 90px 90px 90px 60px', gap: 8, borderBottom: `1px solid ${C.borderSoft}`, alignItems: 'center' }}>
-              <span className="font-mono text-xs" style={{ color: C.inkSoft }}>{p.reference}</span>
-              <span style={{ color: C.ink, fontWeight: 500 }}>{p.client_nom || '—'}</span>
-              <span style={{ color: C.inkSoft }}>{p.type_intervention}{p.description ? ` · ${p.description}` : ''}</span>
-              <span style={{ color: C.inkSoft }}>{fmt(p.total_ht)} €</span>
-              <span style={{ fontWeight: 600 }}>{fmt(p.total_ttc)} €</span>
-              <span>
-                <span className="px-2 py-0.5 text-xs" style={{ background: p.statut === 'converti' ? '#000' : C.soft, color: p.statut === 'converti' ? '#fff' : STATUT_COLORS[p.statut] || C.inkMuted }}>
-                  {p.statut}
-                </span>
-              </span>
-              <div className="flex gap-1">
-                <button onClick={() => setEditing(p)} className="p-1 text-xs" style={{ border: `1px solid ${C.borderSoft}`, color: C.inkSoft }}>Éditer</button>
-                <button onClick={() => handleDelete(p.id)} className="p-1" style={{ border: `1px solid ${C.borderSoft}`, color: C.inkMuted }}>
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            </div>
-          ))}
+        <div className="border border-ink bg-surface">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-bg border-b border-ink">
+                {['Réf.', 'Client', 'Intervention', 'Total HT', 'Total TTC', 'Statut', ''].map((h, i) => (
+                  <th key={i} className="text-left px-3 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {list.map(p => (
+                <tr key={p.id} className="border-t border-dotted border-black/30 hover:bg-bg">
+                  <td className="px-3 py-2 font-mono text-[11px] text-muted">{p.reference}</td>
+                  <td className="px-3 py-2 font-serif text-[14px] text-ink">{p.client_nom || '—'}</td>
+                  <td className="px-3 py-2 font-sans text-[13px] text-muted">
+                    {p.type_intervention}{p.description ? ` · ` : ''}
+                    {p.description ? <em>{p.description}</em> : null}
+                  </td>
+                  <td className="px-3 py-2 font-mono tnum text-[12px] text-muted">{fmt(p.total_ht)} €</td>
+                  <td className="px-3 py-2 font-serif tnum text-[15px] text-ink">{fmt(p.total_ttc)} €</td>
+                  <td className="px-3 py-2">
+                    <span className={`inline-block font-mono text-[10px] uppercase tracking-[0.1em] px-2 py-0.5 ${STATUT_PILL[p.statut] || 'border border-line text-muted'}`}>
+                      {p.statut}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-1">
+                      <button onClick={() => setEditing(p)} className="px-2 py-1 border border-line font-mono text-[10px] text-muted">Éditer</button>
+                      <button onClick={() => handleDelete(p.id)} className="px-2 py-1 border border-line text-muted">
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

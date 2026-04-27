@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset global — angles droits, zéro ombre, zéro transition */
+*, *::before, *::after {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+body {
+  margin: 0;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: #F5F5F5;
+  color: #000;
+}
+
+/* Chiffres tabulaires */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #000;
+  outline-offset: -2px;
+}
+
+button:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}

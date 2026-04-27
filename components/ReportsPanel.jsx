@@ -1,59 +1,40 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { BarChart2, TrendingUp, Clock, AlertTriangle, Euro, Package, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import Kicker from './ui/Kicker';
+import Btn from './ui/Btn';
 
-const INK    = '#000000';
-const ACCENT = '#000000';
-const SOFT   = '#EEEEEE';
-const BG     = '#F5F5F5';
-
-const STATUT_COLORS = {
-  'Nouveau':       '#BBBBBB',
-  'Devis envoyé':  '#888888',
-  'Validé':        '#555555',
-  'En atelier':    '#222222',
-  'Prêt à poser':  '#000000',
-  'Clos':          '#DDDDDD',
-};
-
-function KpiCard({ icon: Icon, label, value, sub, color = ACCENT }) {
+function KpiCard({ label, value, sub }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: '16px 18px', flex: 1, minWidth: 140 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Icon size={16} color={color} />
-        <span style={{ fontSize: 11, color: '#888', textTransform: 'uppercase', letterSpacing: .5 }}>{label}</span>
-      </div>
-      <div style={{ fontSize: 26, fontWeight: 800, color: INK, lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>{sub}</div>}
+    <div className="bg-surface border border-line p-5 flex-1" style={{ minWidth: 160 }}>
+      <Kicker className="mb-2">{label}</Kicker>
+      <p className="font-serif tnum text-[44px] leading-none text-ink">{value}</p>
+      {sub && <p className="font-mono text-[10px] text-muted mt-2 tnum">{sub}</p>}
     </div>
   );
 }
 
 function TableStatuts({ data }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 18, flex: 1 }}>
-      <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 12 }}>Répartition par statut</div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+    <div className="bg-surface border border-line p-5 flex-1">
+      <Kicker className="mb-3">Répartition par statut</Kicker>
+      <table className="w-full">
         <thead>
-          <tr style={{ borderBottom: '2px solid #E5E5E5' }}>
-            <th style={{ textAlign: 'left', padding: '4px 8px', color: '#888', fontWeight: 600 }}>Statut</th>
-            <th style={{ textAlign: 'right', padding: '4px 8px', color: '#888', fontWeight: 600 }}>Nb</th>
-            <th style={{ textAlign: 'right', padding: '4px 8px', color: '#888', fontWeight: 600 }}>CA HT</th>
-            <th style={{ textAlign: 'right', padding: '4px 8px', color: '#888', fontWeight: 600 }}>H prévues</th>
+          <tr className="border-b border-ink">
+            {['Statut', 'Nb', 'CA HT', 'H prévues'].map((h, i) => (
+              <th key={i} className={`py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted ${i > 0 ? 'text-right' : 'text-left'}`}>{h}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {data.map(row => (
-            <tr key={row.statut} style={{ borderBottom: '1px solid #E5E5E5' }}>
-              <td style={{ padding: '7px 8px' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: STATUT_COLORS[row.statut] || '#AAA', display: 'inline-block' }} />
-                  {row.statut}
-                </span>
+            <tr key={row.statut} className="border-t border-dotted border-black/30">
+              <td className="py-2 font-serif text-[13px] text-ink">{row.statut}</td>
+              <td className="py-2 text-right font-serif tnum text-[14px] text-ink">{row.nb}</td>
+              <td className="py-2 text-right font-mono tnum text-[11px] text-muted">
+                {(row.total_ht || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
               </td>
-              <td style={{ textAlign: 'right', padding: '7px 8px', fontWeight: 700 }}>{row.nb}</td>
-              <td style={{ textAlign: 'right', padding: '7px 8px', color: ACCENT }}>{(row.total_ht || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</td>
-              <td style={{ textAlign: 'right', padding: '7px 8px', color: '#888' }}>{row.heures_prevues || 0}h</td>
+              <td className="py-2 text-right font-mono tnum text-[11px] text-muted">{row.heures_prevues || 0}h</td>
             </tr>
           ))}
         </tbody>
@@ -64,28 +45,24 @@ function TableStatuts({ data }) {
 
 function TableHeuresComparaison({ data }) {
   if (!data || data.length === 0) return (
-    <div style={{ background: '#F5F5F5', border: '1px solid #000', padding: 18, flex: 1 }}>
-      <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 8 }}>Heures prévues vs réelles</div>
-      <div style={{ fontSize: 13, color: '#888' }}>Aucune saisie d'heures pour le moment.<br/>
-        Va dans un dossier et clique <b>"Saisir des heures"</b> pour démarrer le suivi.</div>
+    <div className="bg-bg border border-ink p-5 flex-1">
+      <Kicker className="mb-2">Heures prévues vs réelles</Kicker>
+      <p className="font-sans text-[13px] text-muted mt-2">
+        Aucune saisie d&apos;heures pour le moment.{' '}
+        Va dans un dossier et clique <strong>«&nbsp;Saisir des heures&nbsp;»</strong> pour démarrer.
+      </p>
     </div>
   );
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 18, flex: 1 }}>
-      <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Clock size={14} color={ACCENT} /> Heures prévues vs réelles (dossiers actifs)
-      </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+    <div className="bg-surface border border-line p-5 flex-1">
+      <Kicker className="mb-3">Heures prévues vs réelles — dossiers actifs</Kicker>
+      <table className="w-full">
         <thead>
-          <tr style={{ borderBottom: '2px solid #E5E5E5' }}>
-            <th style={{ textAlign: 'left', padding: '4px 6px', color: '#888', fontWeight: 600 }}>Client</th>
-            <th style={{ textAlign: 'left', padding: '4px 6px', color: '#888', fontWeight: 600 }}>Statut</th>
-            <th style={{ textAlign: 'right', padding: '4px 6px', color: '#888', fontWeight: 600 }}>H.prévues</th>
-            <th style={{ textAlign: 'right', padding: '4px 6px', color: '#888', fontWeight: 600 }}>CA prévu</th>
-            <th style={{ textAlign: 'right', padding: '4px 6px', color: '#888', fontWeight: 600 }}>H.réelles</th>
-            <th style={{ textAlign: 'right', padding: '4px 6px', color: '#888', fontWeight: 600 }}>CA réel</th>
-            <th style={{ textAlign: 'right', padding: '4px 6px', color: '#888', fontWeight: 600 }}>Écart H.</th>
+          <tr className="border-b border-ink">
+            {['Client', 'Statut', 'H.prévues', 'CA prévu', 'H.réelles', 'CA réel', 'Écart'].map((h, i) => (
+              <th key={i} className={`py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted ${i > 1 ? 'text-right' : 'text-left'}`}>{h}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -93,24 +70,28 @@ function TableHeuresComparaison({ data }) {
             const depasse = row.ecart > 0;
             const manque  = row.prevues > 0 && row.reelles === 0;
             return (
-              <tr key={row.id} style={{ borderBottom: '1px solid #E5E5E5' }}>
-                <td style={{ padding: '6px 6px' }}>
-                  <div style={{ fontWeight: 600 }}>{row.nom_client}</div>
-                  <div style={{ fontSize: 10, color: '#888' }}>{row.ref_dossier}</div>
+              <tr key={row.id} className="border-t border-dotted border-black/30">
+                <td className="py-1.5">
+                  <p className="font-serif text-[13px] text-ink">{row.nom_client}</p>
+                  <p className="font-mono text-[10px] text-muted">{row.ref_dossier}</p>
                 </td>
-                <td style={{ padding: '6px 6px' }}>
-                  <span style={{ fontSize: 11, background: SOFT, color: '#666', borderRadius: 4, padding: '2px 6px' }}>{row.statut}</span>
+                <td className="py-1.5">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] border border-line px-1.5 py-0.5 text-muted">
+                    {row.statut}
+                  </span>
                 </td>
-                <td style={{ textAlign: 'right', padding: '6px 6px', fontWeight: 600 }}>{row.prevues}h</td>
-                <td style={{ textAlign: 'right', padding: '6px 6px', fontSize: 11, color: '#000' }}>
-                  {row.ca_prevu > 0 ? (row.ca_prevu).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }) : '—'}
+                <td className="py-1.5 text-right font-serif tnum text-[13px] text-ink">{row.prevues}h</td>
+                <td className="py-1.5 text-right font-mono tnum text-[11px] text-muted">
+                  {row.ca_prevu > 0 ? row.ca_prevu.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }) : '—'}
                 </td>
-                <td style={{ textAlign: 'right', padding: '6px 6px' }}>{row.reelles > 0 ? `${row.reelles}h` : '—'}</td>
-                <td style={{ textAlign: 'right', padding: '6px 6px', fontSize: 11, color: '#000', fontWeight: row.ca_reel > 0 ? 700 : 400 }}>
-                  {row.ca_reel > 0 ? (row.ca_reel).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }) : '—'}
+                <td className="py-1.5 text-right font-serif tnum text-[13px] text-ink">
+                  {row.reelles > 0 ? `${row.reelles}h` : '—'}
                 </td>
-                <td style={{ textAlign: 'right', padding: '6px 6px', fontWeight: 700,
-                  color: manque ? '#888' : depasse ? '#000' : '#000', fontWeight: depasse ? 700 : 600 }}>
+                <td className="py-1.5 text-right font-mono tnum text-[11px] text-muted">
+                  {row.ca_reel > 0 ? row.ca_reel.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }) : '—'}
+                </td>
+                <td className="py-1.5 text-right font-mono tnum text-[11px]"
+                    style={{ color: manque ? '#737373' : depasse ? '#FF0000' : '#000', fontWeight: depasse ? 700 : 400 }}>
                   {manque ? '—' : depasse ? `+${row.ecart}h` : `-${Math.abs(row.ecart)}h`}
                 </td>
               </tr>
@@ -122,36 +103,19 @@ function TableHeuresComparaison({ data }) {
   );
 }
 
-function TableFournisseurs({ data }) {
-  return (
-    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 18, flex: 1, minWidth: 240 }}>
-      <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 12 }}>Top fournisseurs</div>
-      {data.map((f, i) => (
-        <div key={f.fournisseur} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #E5E5E5', fontSize: 13 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 20, height: 20, borderRadius: '50%', background: SOFT, color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{i + 1}</span>
-            {f.fournisseur}
-          </span>
-          <span style={{ color: '#888' }}>{f.nb_cmd} cmd.</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function BarresTypes({ data }) {
   const max = Math.max(...data.map(d => d.nb), 1);
   return (
-    <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 18, flex: 1, minWidth: 220 }}>
-      <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 12 }}>Par type d'intervention</div>
+    <div className="bg-surface border border-line p-5 flex-1" style={{ minWidth: 220 }}>
+      <Kicker className="mb-4">Par type d&apos;intervention</Kicker>
       {data.map(row => (
-        <div key={row.type_intervention} style={{ marginBottom: 10 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
-            <span style={{ color: INK }}>{row.type_intervention}</span>
-            <span style={{ color: '#888' }}>{row.nb} dossiers</span>
+        <div key={row.type_intervention} className="mb-3">
+          <div className="flex justify-between font-sans text-[13px] mb-1">
+            <span className="text-ink">{row.type_intervention}</span>
+            <span className="font-mono tnum text-[11px] text-muted">{row.nb} dossiers</span>
           </div>
-          <div style={{ background: '#E5E5E5', borderRadius: 4, height: 6 }}>
-            <div style={{ width: `${(row.nb / max) * 100}%`, background: ACCENT, height: '100%', borderRadius: 4 }} />
+          <div className="bg-line h-1.5">
+            <div className="h-full bg-ink" style={{ width: `${(row.nb / max) * 100}%` }} />
           </div>
         </div>
       ))}
@@ -159,9 +123,25 @@ function BarresTypes({ data }) {
   );
 }
 
-// ── Composant principal ───────────────────────────────────────────────────
+function TableFournisseurs({ data }) {
+  return (
+    <div className="bg-surface border border-line p-5 flex-1" style={{ minWidth: 240 }}>
+      <Kicker className="mb-3">Top fournisseurs</Kicker>
+      {data.map((f, i) => (
+        <div key={f.fournisseur} className="flex justify-between items-center py-2 border-t border-dotted border-black/30 first:border-0">
+          <div className="flex items-center gap-3">
+            <span className="font-serif text-[18px] tnum text-muted w-6">{i + 1}</span>
+            <span className="font-serif text-[13px] text-ink">{f.fournisseur}</span>
+          </div>
+          <span className="font-mono text-[11px] tnum text-muted">{f.nb_cmd} cmd.</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ReportsPanel() {
-  const [data, setData]     = useState(null);
+  const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
@@ -173,61 +153,74 @@ export default function ReportsPanel() {
 
   useEffect(() => { load(); }, []);
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888', fontFamily: 'DM Sans, sans-serif' }}>Chargement des rapports…</div>;
-  if (!data)   return null;
+  if (loading) return (
+    <div className="p-10 text-center font-sans text-[13px] text-muted">Chargement des rapports…</div>
+  );
+  if (!data) return null;
 
   const { kpi, parStatut, parType, heuresComparaison, heuresParOp, topFournisseurs } = data;
 
   return (
-    <div style={{ fontFamily: 'DM Sans, sans-serif', maxWidth: 1100 }}>
-      {/* KPIs */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-        <KpiCard icon={Package}    label="Dossiers actifs"  value={kpi.dossiers_actifs} sub={`${kpi.total_dossiers} au total`} />
-        <KpiCard icon={Euro}       label="CA prévu (devis)" value={(kpi.ca_pipeline || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} sub={`${kpi.total_heures_prevues || 0}h × 55€ HT`} />
-        <KpiCard icon={TrendingUp} label="CA réalisé"       value={(kpi.ca_realise || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} sub={`${kpi.total_heures_reelles || 0}h réelles saisies`} color="#000" />
-        <KpiCard icon={Clock}      label="Opérateurs"       value={kpi.nb_operateurs || 0} sub={`${kpi.dossiers_avec_heures || 0} dossiers avec saisies`} />
-        {kpi.nb_urgent > 0 && <KpiCard icon={AlertTriangle} label="Urgents" value={kpi.nb_urgent} sub={`${kpi.nb_sav} SAV`} color="#000" />}
+    <div>
+      {/* En-tête */}
+      <div className="flex items-end justify-between mb-6">
+        <div>
+          <Kicker className="mb-2">Module 05</Kicker>
+          <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">Rapports</h2>
+        </div>
+        <Btn variant="outline" onClick={load}>
+          <RefreshCw size={12} /> Actualiser
+        </Btn>
       </div>
 
-      {/* Ligne 1 */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
+      {/* 4 KPI géants */}
+      <div className="flex gap-3 flex-wrap mb-5">
+        <KpiCard label="Dossiers actifs"  value={kpi.dossiers_actifs}
+          sub={`${kpi.total_dossiers} au total`} />
+        <KpiCard label="CA prévu (devis)"
+          value={(kpi.ca_pipeline || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+          sub={`${kpi.total_heures_prevues || 0}h × 55€ HT`} />
+        <KpiCard label="CA réalisé"
+          value={(kpi.ca_realise || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+          sub={`${kpi.total_heures_reelles || 0}h réelles`} />
+        <KpiCard label="Opérateurs"
+          value={kpi.nb_operateurs || 0}
+          sub={`${kpi.dossiers_avec_heures || 0} dossiers avec saisies`} />
+        {kpi.nb_urgent > 0 && (
+          <KpiCard label="Urgents" value={kpi.nb_urgent} sub={`${kpi.nb_sav} SAV`} />
+        )}
+      </div>
+
+      {/* Statuts + types */}
+      <div className="flex gap-4 flex-wrap mb-4">
         <TableStatuts data={parStatut} />
         <BarresTypes data={parType} />
       </div>
 
-      {/* Ligne 2 : heures */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
+      {/* Heures comparaison */}
+      <div className="flex gap-4 flex-wrap mb-4">
         <TableHeuresComparaison data={heuresComparaison} />
       </div>
 
-      {/* Ligne 3 : opérateurs + fournisseurs */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+      {/* Opérateurs + fournisseurs */}
+      <div className="flex gap-4 flex-wrap">
         {heuresParOp.length > 0 && (
-          <div style={{ background: '#fff', border: '1px solid #E5E5E5', padding: 18, flex: 1, minWidth: 220 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: INK, marginBottom: 12 }}>Heures par opérateur</div>
+          <div className="bg-surface border border-line p-5 flex-1" style={{ minWidth: 220 }}>
+            <Kicker className="mb-3">Heures par opérateur</Kicker>
             {heuresParOp.map(op => (
-              <div key={op.operateur} style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 2 }}>
-                  <span style={{ fontWeight: 600 }}>{op.operateur}</span>
-                  <span style={{ color: ACCENT, fontWeight: 700 }}>{op.total}h</span>
+              <div key={op.operateur} className="mb-4">
+                <div className="flex justify-between items-baseline mb-0.5">
+                  <span className="font-serif text-[14px] text-ink">{op.operateur}</span>
+                  <span className="font-serif tnum text-[20px] text-ink">{op.total}h</span>
                 </div>
-                <div style={{ fontSize: 11, color: '#AAA' }}>
+                <p className="font-mono text-[10px] text-muted">
                   {op.nb_saisies} saisies · {op.nb_dossiers} dossiers · dernière le {op.derniere_saisie}
-                </div>
+                </p>
               </div>
             ))}
           </div>
         )}
         <TableFournisseurs data={topFournisseurs} />
-      </div>
-
-      <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
-        <button onClick={load} style={{
-          background: 'none', border: '1px solid #E5E5E5', borderRadius: 6, padding: '6px 14px',
-          fontSize: 12, color: '#888', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-        }}>
-          <RefreshCw size={12} /> Actualiser
-        </button>
       </div>
     </div>
   );

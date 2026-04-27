@@ -128,33 +128,41 @@ export default async function FicheImpressionPage({ params }) {
   const etapes = buildEtapes(typeIntervention, contenu);
   const materiaux = extraireMateriaux(typeIntervention, contenu);
 
-  // ── Styles constants ────────────────────────────────────────────────────
-  const FONT = "'DM Sans', Arial, sans-serif";
-  const DARK = '#555555';
-  const BORDER = '1px solid #AAAAAA';
+  const SANS  = "'DM Sans', system-ui, sans-serif";
+  const SERIF = "'Fraunces', Georgia, serif";
+  const MONO  = "'DM Mono', Consolas, monospace";
+  const BORDER_SOLID  = '1px solid #000';
+  const BORDER_DOTTED = '1px dotted rgba(0,0,0,0.25)';
+
   const th = {
-    background: DARK, color: '#fff',
-    padding: '7px 10px', fontWeight: 700,
-    fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5,
-    border: BORDER, textAlign: 'left',
+    background: '#000', color: '#fff',
+    padding: '6px 10px',
+    fontFamily: MONO, fontSize: 10, fontWeight: 400,
+    textTransform: 'uppercase', letterSpacing: '0.14em',
+    border: BORDER_SOLID, textAlign: 'left',
   };
-  const td = { padding: '7px 10px', fontSize: 13, border: BORDER, verticalAlign: 'middle' };
+  const td = {
+    padding: '7px 10px', fontSize: 13,
+    fontFamily: SANS,
+    border: BORDER_DOTTED, verticalAlign: 'middle',
+  };
   const tdC = { ...td, textAlign: 'center' };
-  const zebra = (i) => ({ background: i % 2 === 0 ? '#fff' : '#F5F5F5' });
+  const tdLabel = { ...td, fontFamily: MONO, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#737373', background: '#F5F5F5', borderBottom: BORDER_SOLID };
 
   return (
     <>
       <style>{`
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: ${FONT}; background: #fff; color: #000; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0 !important; }
+        body { font-family: ${SANS}; background: #fff; color: #000; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
         .print-btn {
           position: fixed; top: 14px; right: 14px; z-index: 999;
           background: #000; color: #fff; border: none;
-          padding: 10px 22px; font-size: 13px; cursor: pointer;
-          font-family: ${FONT}; font-weight: 600; letter-spacing: 0.5px;
+          padding: 8px 20px;
+          font-family: ${MONO}; font-size: 10px; font-weight: 400;
+          text-transform: uppercase; letter-spacing: 0.14em; cursor: pointer;
         }
-        .print-btn:hover { background: #333; }
         @media print {
           @page { margin: 12mm 14mm; size: A4; }
           .print-btn { display: none !important; }
@@ -162,50 +170,43 @@ export default async function FicheImpressionPage({ params }) {
         }
       `}</style>
 
-      <button className="print-btn">
-        Imprimer
-      </button>
+      <button className="print-btn">Imprimer</button>
 
       <div style={{ padding: '24px 32px', maxWidth: 800, margin: '0 auto' }}>
 
-        {/* ── En-tête ─────────────────────────────────────────────── */}
-        <table style={{ marginBottom: 0 }}>
-          <tbody>
-            <tr>
-              <td style={{ ...th, width: '36%', fontSize: 15, letterSpacing: 1 }}>FICHE ATELIER</td>
-              <td style={{ ...th, width: '44%', fontSize: 13 }}>Code de devis : {codeDevis}</td>
-              <td style={{ ...th, width: '20%', fontSize: 10, textAlign: 'right' }}>Impression FICHE</td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* ── Estimation / Type / Date ─────────────────────────────── */}
-        <table style={{ marginBottom: 0 }}>
-          <tbody>
-            <tr>
-              <td style={{ ...td, width: '36%', fontWeight: 700 }}>ESTIMATION D'HEURE :</td>
-              <td style={{ ...td, width: '44%', fontWeight: 700, fontSize: 15 }}>
-                {typeIntervention.toUpperCase()}
-              </td>
-              <td style={{ ...td, width: '20%' }}>{dateStr}</td>
-            </tr>
-          </tbody>
-        </table>
+        {/* ── Masthead ─────────────────────────────────────────────── */}
+        <div style={{ borderBottom: BORDER_SOLID, paddingBottom: 12, marginBottom: 16 }}>
+          <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#737373', marginBottom: 4 }}>
+            Atelier Stéphan Hamache · Poitiers
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <p style={{ fontFamily: SERIF, fontSize: 22, color: '#000', lineHeight: 1 }}>
+              Fiche {typeIntervention}
+            </p>
+            <div style={{ textAlign: 'right', fontFamily: MONO, fontSize: 10, color: '#737373', letterSpacing: '0.1em' }}>
+              <p>Réf. {codeDevis}</p>
+              {dateStr && <p>{dateStr}</p>}
+            </div>
+          </div>
+        </div>
 
         {/* ── Heures + Nom client ──────────────────────────────────── */}
-        <table style={{ marginBottom: 16 }}>
+        <table style={{ marginBottom: 16, border: BORDER_SOLID }}>
           <tbody>
             <tr>
               <td style={{
-                width: '36%', padding: '10px 12px',
-                fontSize: 54, fontWeight: 900, border: BORDER, lineHeight: 1,
+                width: '30%', padding: '10px 14px',
+                fontFamily: SERIF, fontSize: 56, fontWeight: 600,
+                border: BORDER_SOLID, lineHeight: 1,
+                fontVariantNumeric: 'tabular-nums',
               }}>
                 {heures}
               </td>
               <td style={{
-                width: '64%', padding: '10px 12px',
-                fontSize: 48, fontWeight: 900, border: BORDER, lineHeight: 1,
-                letterSpacing: 2, wordBreak: 'break-word',
+                width: '70%', padding: '10px 14px',
+                fontFamily: SERIF, fontSize: 44, fontWeight: 600,
+                border: BORDER_SOLID, lineHeight: 1,
+                letterSpacing: 1, wordBreak: 'break-word',
               }}>
                 {clientNom}
               </td>
@@ -215,43 +216,47 @@ export default async function FicheImpressionPage({ params }) {
 
         {/* ── INFORMATION ─────────────────────────────────────────── */}
         <table>
+          <thead>
+            <tr>
+              <td style={{ ...th, width: '33%' }}>Information</td>
+              <td style={{ ...th, width: '50%' }}>Données</td>
+              <td style={{ ...th, width: '17%' }}>Num</td>
+            </tr>
+          </thead>
           <tbody>
             <tr>
-              <td style={{ ...th, width: '33%' }}>INFORMATION</td>
-              <td style={{ ...th, width: '50%' }}>Données</td>
-              <td style={{ ...th, width: '17%' }}>NUM</td>
+              <td style={tdLabel}>Adresse</td>
+              <td style={td}>{ville}</td>
+              <td style={td}>{cp}</td>
             </tr>
             <tr>
-              <td style={{ ...td, background: '#F0F0F0', fontWeight: 600 }}>ADRESSE</td>
-              <td style={{ ...td }}>{ville}</td>
-              <td style={{ ...td }}>{cp}</td>
+              <td style={tdLabel}>Téléphone client</td>
+              <td style={{ ...td, fontFamily: MONO, fontSize: 12 }}>{tel}</td>
+              <td style={{ ...td, fontFamily: MONO, fontSize: 10 }}>{typePhone(tel)}</td>
             </tr>
             <tr>
-              <td style={{ ...td, background: '#F0F0F0' }}>Téléphone client</td>
-              <td style={{ ...td, fontWeight: 700 }}>{tel}</td>
-              <td style={{ ...td }}>{typePhone(tel)}</td>
-            </tr>
-            <tr>
-              <td style={{ ...td, background: '#F0F0F0' }}>Date de livraison estimée</td>
-              <td style={{ ...td }}></td>
-              <td style={{ ...td }}></td>
+              <td style={tdLabel}>Date livraison estimée</td>
+              <td style={td}></td>
+              <td style={td}></td>
             </tr>
           </tbody>
         </table>
 
         {/* ── ETAPES ──────────────────────────────────────────────── */}
         <table>
-          <tbody>
+          <thead>
             <tr>
-              <td style={{ ...th, width: '40%' }}>ETAPES</td>
-              <td style={{ ...th, width: '43%' }}>TYPES</td>
-              <td style={{ ...th, width: '17%', textAlign: 'center' }}>COCHE</td>
+              <td style={{ ...th, width: '40%' }}>Étapes</td>
+              <td style={{ ...th, width: '43%' }}>Types</td>
+              <td style={{ ...th, width: '17%', textAlign: 'center' }}>Coche</td>
             </tr>
+          </thead>
+          <tbody>
             {etapes.map((e, i) => (
               <tr key={i}>
-                <td style={{ ...td, ...zebra(i) }}>{e.etape}</td>
-                <td style={{ ...td, ...zebra(i) }}>{e.type}</td>
-                <td style={{ ...tdC, ...zebra(i), fontSize: 20 }}>□</td>
+                <td style={{ ...td, fontFamily: MONO, fontSize: 11, letterSpacing: '0.08em' }}>{e.etape}</td>
+                <td style={td}>{e.type}</td>
+                <td style={{ ...tdC, fontSize: 18 }}>□</td>
               </tr>
             ))}
           </tbody>
@@ -259,65 +264,74 @@ export default async function FicheImpressionPage({ params }) {
 
         {/* ── MATÉRIAUX ───────────────────────────────────────────── */}
         <table>
-          <tbody>
+          <thead>
             <tr>
               <td style={{ ...th, width: '33%' }}>Matériaux</td>
               <td style={{ ...th, width: '50%' }}>Réf</td>
               <td style={{ ...th, width: '17%' }}>Dim</td>
             </tr>
+          </thead>
+          <tbody>
             {materiaux.length > 0
               ? materiaux.map((m, i) => (
                   <tr key={i}>
-                    <td style={{ ...td }}>{m.materiau}</td>
-                    <td style={{ ...td }}>{m.ref}</td>
-                    <td style={{ ...td }}>{m.dim}</td>
+                    <td style={{ ...td, fontFamily: MONO, fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>{m.materiau}</td>
+                    <td style={{ ...td, fontFamily: MONO, fontSize: 11 }}>{m.ref}</td>
+                    <td style={{ ...td, fontFamily: MONO, fontSize: 11 }}>{m.dim}</td>
                   </tr>
                 ))
               : [0, 1].map(i => (
                   <tr key={i}>
                     <td style={{ ...td, height: 34 }}></td>
-                    <td style={{ ...td }}></td>
-                    <td style={{ ...td }}></td>
+                    <td style={td}></td>
+                    <td style={td}></td>
                   </tr>
                 ))
             }
           </tbody>
         </table>
 
-        {/* ── NOM / HEURES / TRAVAIL TERMINÉ ──────────────────────── */}
+        {/* ── RÉALISATION ─────────────────────────────────────────── */}
         <table>
-          <tbody>
+          <thead>
             <tr>
-              <td style={{ ...th, width: '40%' }}>NOM</td>
-              <td style={{ ...th, width: '43%' }}>HEURES</td>
-              <td style={{ ...th, width: '17%', textAlign: 'center' }}>TRAVAIL TERMINÉ</td>
+              <td style={{ ...th, width: '40%' }}>Nom opérateur</td>
+              <td style={{ ...th, width: '43%' }}>Heures réelles</td>
+              <td style={{ ...th, width: '17%', textAlign: 'center' }}>Terminé</td>
             </tr>
+          </thead>
+          <tbody>
             {[0, 1, 2].map(i => (
               <tr key={i}>
                 <td style={{ ...td, height: 36 }}></td>
-                <td style={{ ...td }}></td>
-                <td style={{ ...tdC, fontSize: 20 }}>□</td>
+                <td style={td}></td>
+                <td style={{ ...tdC, fontSize: 18 }}>□</td>
               </tr>
             ))}
             <tr>
-              <td colSpan={3} style={{ ...td, background: '#F0F0F0', fontWeight: 700 }}>
-                NOTES :
-              </td>
+              <td colSpan={3} style={{ ...tdLabel, borderTop: BORDER_SOLID }}>Notes</td>
             </tr>
             <tr>
-              <td colSpan={3} style={{ ...td, height: 90, verticalAlign: 'top', whiteSpace: 'pre-wrap', fontSize: 13 }}>
+              <td colSpan={3} style={{ ...td, height: 90, verticalAlign: 'top', whiteSpace: 'pre-wrap', borderBottom: BORDER_SOLID }}>
                 {notes}
               </td>
-            </tr>
-            <tr>
-              <td colSpan={3} style={{ ...td, height: 22 }}></td>
             </tr>
           </tbody>
         </table>
 
+        {/* Signatures */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 8 }}>
+          {['Réalisé par', 'Contrôlé par'].map(label => (
+            <div key={label}>
+              <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#737373', marginBottom: 8 }}>{label}</p>
+              <div style={{ borderBottom: BORDER_SOLID, height: 28 }}></div>
+              <p style={{ fontFamily: MONO, fontSize: 9, color: '#737373', marginTop: 4 }}>Date : ___________</p>
+            </div>
+          ))}
+        </div>
+
       </div>
 
-      {/* Le bouton Imprimer est un Server Component — on l'active via script inline */}
       <script dangerouslySetInnerHTML={{
         __html: `document.querySelector('.print-btn').addEventListener('click',function(){window.print();});`,
       }} />
