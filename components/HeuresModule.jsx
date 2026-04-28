@@ -88,9 +88,20 @@ function FormulaireHeure({ dossierId, dossiers, onSaved }) {
               className="px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
             >
               <option value="">— Choisir un dossier —</option>
-              {dossiers.filter(d => d.statut !== 'Clos').map(d => (
-                <option key={d.id} value={d.id}>{d.client_nom || d.nom_dossier} — {d.nom_dossier}</option>
-              ))}
+              {dossiers.filter(d => d.statut !== 'Clos' && d.type_intervention !== 'Rideaux').length > 0 && (
+                <optgroup label="── Atelier TAP ──">
+                  {dossiers.filter(d => d.statut !== 'Clos' && d.type_intervention !== 'Rideaux').map(d => (
+                    <option key={d.id} value={d.id}>{d.client_nom || d.nom_dossier} — {d.nom_dossier}</option>
+                  ))}
+                </optgroup>
+              )}
+              {dossiers.filter(d => d.statut !== 'Clos' && d.type_intervention === 'Rideaux').length > 0 && (
+                <optgroup label="── Atelier COUT ──">
+                  {dossiers.filter(d => d.statut !== 'Clos' && d.type_intervention === 'Rideaux').map(d => (
+                    <option key={d.id} value={d.id}>{d.client_nom || d.nom_dossier} — {d.nom_dossier}</option>
+                  ))}
+                </optgroup>
+              )}
               {dossiers.some(d => d.statut === 'Clos') && (
                 <optgroup label="── Dossiers clos ──">
                   {dossiers.filter(d => d.statut === 'Clos').map(d => (
@@ -255,7 +266,7 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0 }) {
       {/* En-tête */}
       <div className="flex justify-between items-end mb-6">
         <div>
-          <Kicker className="mb-2">Module 04</Kicker>
+          <Kicker className="mb-2">Module 05</Kicker>
           <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">
             {dossierId ? 'Heures du dossier' : 'Suivi heures'}
           </h2>
