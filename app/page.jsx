@@ -1092,15 +1092,15 @@ export default function Page() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-bg"><p className="font-sans text-[13px] text-muted">Chargement…</p></div>;
 
   const TABS = [
-    { key: 'dossiers',  num: '01', label: 'Dossiers',   count: counts.dossiers },
-    { key: 'commandes', num: '02', label: 'Commandes',  count: counts.commandes },
-    { key: 'archives',  num: '03', label: 'Archives',   count: counts.archives },
-    { key: 'heures',    num: '04', label: 'Heures',     count: null },
-    { key: 'rapports',  num: '05', label: 'Rapports',   count: null },
-    { key: 'import',    num: '06', label: 'Export PDF', count: null },
-    { key: 'predevis',  num: '07', label: 'Prédevis',   count: null },
-    { key: 'rideaux',   num: '08', label: 'Rideaux',    count: rideauxFiches.length },
-    { key: 'todo',      num: '09', label: 'À faire',    count: null },
+    { key: 'dossiers',  num: '01', label: 'Atelier TAP',  count: counts.dossiers },
+    { key: 'rideaux',   num: '02', label: 'Atelier COUT', count: rideauxFiches.length },
+    { key: 'commandes', num: '03', label: 'Commandes',    count: counts.commandes },
+    { key: 'archives',  num: '04', label: 'Archives',     count: counts.archives },
+    { key: 'heures',    num: '05', label: 'Heures',       count: null },
+    { key: 'rapports',  num: '06', label: 'Rapports',     count: null },
+    { key: 'import',    num: '07', label: 'Export PDF',   count: null },
+    { key: 'predevis',  num: '08', label: 'Prédevis',     count: null },
+    { key: 'todo',      num: '09', label: 'À faire',      count: null },
   ];
 
   const now = new Date();
