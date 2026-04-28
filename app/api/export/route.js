@@ -208,13 +208,19 @@ ${body}
 
 // ── Sections ─────────────────────────────────────────────────────────────────
 
+function bannerTap(n, h) {
+  return `<div style="background:#F5E9DC;border-left:4px solid #9B5E2A;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:#9B5E2A">— ATELIER TAP —&nbsp; Tapisserie d'ameublement</span><span style="font-size:11px;color:#9B5E2A">${n} dossier${n!==1?'s':''} · ${Math.round(h*10)/10}h prévues</span></div>`;
+}
+function bannerCout(n, h) {
+  return `<div style="background:#E5EDF3;border-left:4px solid #2D5F7C;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:#2D5F7C">— ATELIER COUT —&nbsp; Rideaux &amp; Couture</span><span style="font-size:11px;color:#2D5F7C">${n} fiche${n!==1?'s':''} · ${Math.round(h*10)/10}h estimées</span></div>`;
+}
+
 function sectionDossiers(db) {
-  const rows = db.prepare(`
+  // TAP — table dossiers
+  const tap = db.prepare(`
     SELECT id, nom_dossier, client_nom, statut, flags, type_intervention,
-           date_ouverture, telephone, adresse,
-           heures_a_realiser,
-           etape_devis, etape_cmde, etape_atelier, etape_print, etape_realise,
-           lien_dossier_externe, commentaires
+           date_ouverture, telephone, heures_a_realiser,
+           etape_devis, etape_cmde, etape_atelier, etape_print, etape_realise
     FROM dossiers
     WHERE statut != 'Clos'
     ORDER BY
@@ -227,20 +233,24 @@ function sectionDossiers(db) {
       END, date_ouverture DESC
   `).all();
 
+  // COUT — table interventions_rideaux
+  const cout = db.prepare(`
+    SELECT id, client, telephone, date, type_tete, heures, metrage,
+           ref_tissu, coloris, dossier_id
+    FROM interventions_rideaux
+    ORDER BY date DESC
+  `).all();
+
   const archived = db.prepare(`SELECT COUNT(*) as n FROM dossiers WHERE statut='Clos'`).get().n;
   const byStatut = db.prepare(`SELECT statut, COUNT(*) as n FROM dossiers WHERE statut!='Clos' GROUP BY statut`).all();
-  const totH     = db.prepare(`SELECT ROUND(SUM(heures_a_realiser),1) as t FROM dossiers WHERE statut!='Clos'`).get().t || 0;
-
-  const tap  = rows.filter(r => r.type_intervention !== 'Rideaux');
-  const cout = rows.filter(r => r.type_intervention === 'Rideaux');
   const hTap  = tap.reduce((s, r)  => s + (parseFloat(r.heures_a_realiser) || 0), 0);
-  const hCout = cout.reduce((s, r) => s + (parseFloat(r.heures_a_realiser) || 0), 0);
+  const hCout = cout.reduce((s, r) => s + (parseFloat(r.heures) || 0), 0);
 
   const statsHtml = `<div class="stats-grid">
-    ${statCard('Total actifs', rows.length, '#1A1814')}
     ${statCard('Atelier TAP', tap.length + ' dossiers', '#9B5E2A')}
-    ${statCard('Atelier COUT', cout.length + ' dossiers', '#2D5F7C')}
+    ${statCard('Atelier COUT', cout.length + ' fiches', '#2D5F7C')}
     ${statCard('En atelier', byStatut.find(r=>r.statut==='En atelier')?.n || 0, '#B8702F')}
+    ${statCard('Archivés', archived, '#9A9387')}
   </div>`;
 
   const etapeDots = r => {
@@ -254,9 +264,6 @@ function sectionDossiers(db) {
     ).join('');
   };
 
-  const atelier_mention = (color, label) =>
-    `<span style="display:inline-block;background:${color};color:#fff;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:2px;margin-right:4px">${label}</span>`;
-
   const colsTap = [
     { label: 'Dossier / Client', render: r => `<b>${esc(r.nom_dossier)}</b>${r.client_nom && r.client_nom !== r.nom_dossier ? `<br><span style="color:#9A9387;font-size:9px">${esc(r.client_nom)}</span>` : ''}` },
     { label: 'Statut', render: r => badge(r.statut) },
@@ -269,24 +276,22 @@ function sectionDossiers(db) {
   ];
 
   const colsCout = [
-    { label: 'Dossier / Client', render: r => `<b>${esc(r.nom_dossier)}</b>${r.client_nom && r.client_nom !== r.nom_dossier ? `<br><span style="color:#9A9387;font-size:9px">${esc(r.client_nom)}</span>` : ''}` },
-    { label: 'Statut', render: r => badge(r.statut) },
-    { label: 'H.prévues', render: r => fmtH(r.heures_a_realiser), num: true },
-    { label: 'Date', render: r => fmtDate(r.date_ouverture) },
+    { label: 'Client', render: r => `<b>${esc(r.client)}</b>` },
+    { label: 'Type de tête', render: r => esc(r.type_tete) },
+    { label: 'H.estimées', render: r => fmtH(r.heures), num: true },
+    { label: 'Métrage', render: r => r.metrage ? `${esc(r.metrage)} ml` : '<span class="nd">—</span>', num: true },
+    { label: 'Tissu / Réf.', render: r => [r.ref_tissu, r.coloris].filter(Boolean).map(esc).join(' · ') || '<span class="nd">—</span>' },
+    { label: 'Date', render: r => fmtDate(r.date) },
     { label: 'Téléphone', render: r => esc(r.telephone) },
-    { label: 'Avancement', render: r => etapeDots(r) },
-    { label: 'Flags', render: r => flagBadges(r.flags) },
+    { label: 'Dossier lié', render: r => r.dossier_id ? `<span class="badge st-pret">✓ #${r.dossier_id}</span>` : '<span class="nd">—</span>' },
   ];
 
-  const bannerTap  = `<div style="background:#F5E9DC;border-left:4px solid #9B5E2A;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:#9B5E2A">— ATELIER TAP —&nbsp; Tapisserie d'ameublement</span><span style="font-size:11px;color:#9B5E2A">${tap.length} dossier${tap.length!==1?'s':''} · ${Math.round(hTap*10)/10}h prévues</span></div>`;
-  const bannerCout = `<div style="background:#E5EDF3;border-left:4px solid #2D5F7C;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:#2D5F7C">— ATELIER COUT —&nbsp; Rideaux &amp; Couture</span><span style="font-size:11px;color:#2D5F7C">${cout.length} dossier${cout.length!==1?'s':''} · ${Math.round(hCout*10)/10}h prévues</span></div>`;
-
   return `${statsHtml}
-  <div class="section-title">Compilation dossiers actifs <span class="section-count">${rows.length} dossiers · ${archived} archivé(s) · ${totH}h total</span></div>
-  ${bannerTap}
+  <div class="section-title">Compilation dossiers actifs <span class="section-count">${tap.length} TAP · ${cout.length} COUT · ${archived} archivé(s)</span></div>
+  ${bannerTap(tap.length, hTap)}
   ${tableHtml(colsTap, tap, 'Aucun dossier Atelier TAP en cours')}
-  ${bannerCout}
-  ${tableHtml(colsCout, cout, 'Aucun dossier Atelier COUT en cours')}`;
+  ${bannerCout(cout.length, hCout)}
+  ${tableHtml(colsCout, cout, 'Aucune fiche Atelier COUT')}`;
 }
 
 function sectionCommandes(db) {
@@ -390,20 +395,34 @@ function sectionRapport(db) {
     }));
   } catch {}
 
-  const tapRows  = heuresRows.filter(r => r.type_intervention !== 'Rideaux');
-  const coutRows = heuresRows.filter(r => r.type_intervention === 'Rideaux');
+  const sumH = arr => Math.round(arr.reduce((s, r) => s + (r.reelles || 0), 0) * 10) / 10;
+  const sumP = arr => Math.round(arr.reduce((s, r) => s + (r.prevues  || 0), 0) * 10) / 10;
 
-  const sumH = rows => rows.reduce((s, r) => s + (r.reelles || 0), 0);
-  const sumP = rows => rows.reduce((s, r) => s + (r.prevues  || 0), 0);
+  // COUT — depuis interventions_rideaux + heures liées via dossier_id
+  let coutRows = [];
+  try {
+    coutRows = db.prepare(`
+      SELECT ir.id, ir.client as nom_dossier, ir.client as client_nom,
+             COALESCE(CAST(ir.heures AS REAL), 0) as prevues,
+             ROUND(COALESCE(SUM(h.heures_passees), 0), 1) as reelles,
+             ir.type_tete, ir.dossier_id
+      FROM interventions_rideaux ir
+      LEFT JOIN heures h ON h.dossier_id = ir.dossier_id AND ir.dossier_id IS NOT NULL
+      GROUP BY ir.id
+      ORDER BY (reelles - prevues) DESC
+    `).all().map(r => ({
+      ...r,
+      ecart:    Math.round((r.reelles - r.prevues) * 10) / 10,
+      ca_prevu: Math.round(r.prevues  * TAUX_HORAIRE),
+      ca_reel:  Math.round(r.reelles  * TAUX_HORAIRE),
+    }));
+  } catch {}
 
-  // Stats globales
-  const totalPrevues = heuresRows.reduce((s, r) => s + r.prevues, 0);
-  const totalReelles = heuresRows.reduce((s, r) => s + r.reelles, 0);
   const statsHtml = `<div class="stats-grid">
-    ${statCard('H. prévues total', Math.round(totalPrevues * 10) / 10 + 'h', '#9B5E2A')}
-    ${statCard('H. réelles total', Math.round(totalReelles * 10) / 10 + 'h', '#1A1814')}
-    ${statCard('Atelier TAP', Math.round(sumH(tapRows) * 10) / 10 + 'h réelles', '#9B5E2A')}
-    ${statCard('Atelier COUT', Math.round(sumH(coutRows) * 10) / 10 + 'h réelles', '#2D5F7C')}
+    ${statCard('TAP — H. prévues', sumP(heuresRows) + 'h', '#9B5E2A')}
+    ${statCard('TAP — H. réelles', sumH(heuresRows) + 'h', '#9B5E2A')}
+    ${statCard('COUT — H. estimées', sumP(coutRows) + 'h', '#2D5F7C')}
+    ${statCard('COUT — H. réelles', sumH(coutRows) + 'h', '#2D5F7C')}
   </div>`;
 
   const heuresCols = [
@@ -420,8 +439,20 @@ function sectionRapport(db) {
     }, num: true },
   ];
 
-  const bannerTap  = (rows) => `<div style="background:#F5E9DC;border-left:4px solid #9B5E2A;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:#9B5E2A">— ATELIER TAP —&nbsp; Tapisserie d'ameublement</span><span style="font-size:11px;color:#9B5E2A">${rows.length} dossier${rows.length!==1?'s':''} · ${Math.round(sumP(rows)*10)/10}h prévues · ${Math.round(sumH(rows)*10)/10}h réelles</span></div>`;
-  const bannerCout = (rows) => `<div style="background:#E5EDF3;border-left:4px solid #2D5F7C;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:#2D5F7C">— ATELIER COUT —&nbsp; Rideaux &amp; Couture</span><span style="font-size:11px;color:#2D5F7C">${rows.length} dossier${rows.length!==1?'s':''} · ${Math.round(sumP(rows)*10)/10}h prévues · ${Math.round(sumH(rows)*10)/10}h réelles</span></div>`;
+  const coutCols = [
+    { label: 'Client', render: r => `<b>${esc(r.nom_dossier)}</b>` },
+    { label: 'Type tête', render: r => esc(r.type_tete) },
+    { label: 'H.estimées', render: r => fmtH(r.prevues), num: true },
+    { label: `CA estimé (${TAUX_HORAIRE}€/h)`, render: r => fmtEur(r.ca_prevu), num: true },
+    { label: 'H.réelles', render: r => r.reelles > 0 ? `<b>${r.reelles}h</b>` : '<span class="nd">—</span>', num: true },
+    { label: 'CA réel', render: r => r.ca_reel > 0 ? `<b style="color:#27AE60">${fmtEur(r.ca_reel)}</b>` : '<span class="nd">—</span>', num: true },
+    { label: 'Écart', render: r => {
+      if (!r.prevues) return '<span class="nd">—</span>';
+      const cls = r.ecart > 0 ? 'h-over' : r.ecart < 0 ? 'h-ok' : 'h-neu';
+      return `<span class="${cls}">${r.ecart > 0 ? '+' : ''}${r.ecart}h</span>`;
+    }, num: true },
+    { label: 'Dossier lié', render: r => r.dossier_id ? `<span class="badge st-pret">✓ #${r.dossier_id}</span>` : '<span class="nd">—</span>' },
+  ];
 
   // Par opérateur
   let opsRows = [];
@@ -462,10 +493,10 @@ function sectionRapport(db) {
   return `
   <div class="section-title">Rapport de synthèse — Heures par atelier</div>
   ${statsHtml}
-  ${bannerTap(tapRows)}
-  ${tapRows.length ? tableHtml(heuresCols, tapRows) : '<p class="empty">Aucune donnée Atelier TAP.</p>'}
-  ${bannerCout(coutRows)}
-  ${coutRows.length ? tableHtml(heuresCols, coutRows) : '<p class="empty">Aucune donnée Atelier COUT.</p>'}
+  ${bannerTap(heuresRows.length, sumP(heuresRows))}
+  ${heuresRows.length ? tableHtml(heuresCols, heuresRows) : '<p class="empty">Aucune donnée Atelier TAP.</p>'}
+  ${bannerCout(coutRows.length, sumP(coutRows))}
+  ${coutRows.length ? tableHtml(coutCols, coutRows) : '<p class="empty">Aucune fiche Atelier COUT.</p>'}
 
   <div class="section-title">Par opérateur</div>
   ${opsRows.length ? tableHtml(opsCols, opsRows) : '<p class="empty">Aucune saisie d\'heures enregistrée.</p>'}
