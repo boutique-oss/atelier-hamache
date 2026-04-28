@@ -60,8 +60,11 @@ const ETAPES_PAR_TYPE = {
 };
 
 function buildEtapes(typeIntervention, contenu) {
+  // Étapes personnalisées sauvegardées depuis le formulaire
+  if (Array.isArray(contenu.etapes_custom) && contenu.etapes_custom.length > 0) {
+    return contenu.etapes_custom;
+  }
   const base = ETAPES_PAR_TYPE[typeIntervention] || ETAPES_PAR_TYPE['Autre'];
-  // Injecter dynamiquement le type tête pour rideaux
   if (typeIntervention === 'Rideaux' && contenu.type_tete) {
     return base.map(e => e.etape === 'TÊTES' ? { ...e, type: contenu.type_tete } : e);
   }
@@ -72,6 +75,15 @@ function buildEtapes(typeIntervention, contenu) {
 }
 
 function extraireMateriaux(typeIntervention, contenu) {
+  // Tissus multiples avec zones (nouveau format)
+  if (Array.isArray(contenu.tissus_list) && contenu.tissus_list.length > 0) {
+    return contenu.tissus_list.map(t => ({
+      materiau: 'TISSU',
+      ref: [t.ref, t.fournisseur].filter(Boolean).join(' · '),
+      dim: [t.ml ? `${t.ml}ML` : '', t.zone].filter(Boolean).join(' / '),
+    }));
+  }
+  // Fallback legacy — un seul tissu
   const materiaux = [];
   if (contenu.tissu_ref) {
     materiaux.push({

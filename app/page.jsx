@@ -7,7 +7,6 @@ import HeuresModule from '../components/HeuresModule';
 import ImportExportPanel from '../components/ImportExportPanel';
 import ReportsPanel from '../components/ReportsPanel';
 import FicheAtelierModal from '../components/FicheAtelierModal';
-import CapaciteModule from '../components/CapaciteModule';
 import PredevisModule from '../components/PredevisModule';
 import Kicker from '../components/ui/Kicker';
 import Btn from '../components/ui/Btn';
@@ -1143,7 +1142,6 @@ export default function Page() {
       {editingCommande !== null && <CommandeModal commande={editingCommande} fournisseurs={fournisseurs} onSave={handleSaveCommande} onDelete={handleDeleteCommande} onClose={() => setEditingCommande(null)} />}
       {ficheForDossier && <FicheAtelierModal dossier={ficheForDossier} onClose={() => setFicheForDossier(null)} />}
 
-      <CapaciteModule />
     </div>
   );
 }

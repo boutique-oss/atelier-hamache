@@ -1,12 +1,66 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FileText, Save, Printer, ExternalLink, X } from 'lucide-react';
+import { FileText, Save, Printer, ExternalLink, X, Plus, Trash2 } from 'lucide-react';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
 
 const labelCls = 'font-mono uppercase tracking-[0.16em] text-[10px] text-muted block mb-1';
 const fieldCls = 'w-full px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink';
 const textareaCls = `${fieldCls} resize-y`;
+
+const ETAPES_PAR_TYPE = {
+  Tapisserie: [
+    { etape: 'DÉCOUVERTURE', type: '' },
+    { etape: 'SANGLAGE', type: '' },
+    { etape: 'GARNISSAGE', type: '' },
+    { etape: 'POSE TISSU', type: '' },
+    { etape: 'FINITION', type: '' },
+  ],
+  Rideaux: [
+    { etape: 'COUPE', type: '' },
+    { etape: 'COUTURE', type: '' },
+    { etape: 'TÊTES', type: '' },
+    { etape: 'FINITIONS', type: '' },
+    { etape: 'POSE', type: '' },
+  ],
+  Stores: [
+    { etape: 'DÉCOUPE', type: '' },
+    { etape: 'MONTAGE', type: '' },
+    { etape: 'ESSAI', type: '' },
+    { etape: 'POSE', type: '' },
+  ],
+  'Tête de lit': [
+    { etape: 'DÉCOUPE', type: '' },
+    { etape: 'GARNISSAGE', type: '' },
+    { etape: 'POSE TISSU', type: '' },
+    { etape: 'FINITION', type: '' },
+  ],
+  'Habillage de lit': [
+    { etape: 'DÉCOUPE', type: '' },
+    { etape: 'COUTURE', type: '' },
+    { etape: 'ASSEMBLAGE', type: '' },
+    { etape: 'FINITION', type: '' },
+  ],
+  Coussins: [
+    { etape: 'DÉCOUPE', type: '' },
+    { etape: 'COUTURE', type: '' },
+    { etape: 'GARNISSAGE', type: '' },
+    { etape: 'FERMETURE', type: '' },
+  ],
+  'Pose seule': [
+    { etape: 'PRÉPARATION', type: '' },
+    { etape: 'POSE', type: '' },
+    { etape: 'VÉRIFICATION', type: '' },
+  ],
+  Autre: [
+    { etape: 'ÉTAPE 1', type: '' },
+    { etape: 'ÉTAPE 2', type: '' },
+    { etape: 'ÉTAPE 3', type: '' },
+  ],
+};
+
+// Ces clés sont gérées par la section Tissus dédiée — ne pas rendre via Champ
+const TISSU_KEYS = new Set(['tissu_ref', 'tissu_fournisseur', 'ml_tissu', 'tissu_rapport']);
 
 function Champ({ field, value, onChange }) {
   const label = <label className={labelCls}>{field.label}{field.unit ? ` (${field.unit})` : ''}</label>;
@@ -48,7 +102,7 @@ function VueImpression({ dossier, fiche, schema, onClose }) {
   useEffect(() => {
     const style = document.createElement('style');
     style.id = 'print-fiche';
-    style.textContent = `@media print { body > * { display: none !important; } #fiche-print { display: block !important; } }`;
+    style.textContent = `@media print { @page { size: A4; margin: 12mm 14mm; } body > * { display: none !important; } #fiche-print { display: block !important; } }`;
     document.head.appendChild(style);
     return () => document.getElementById('print-fiche')?.remove();
   }, []);
@@ -58,7 +112,6 @@ function VueImpression({ dossier, fiche, schema, onClose }) {
       <div className="bg-surface border border-ink p-8 max-w-[680px] w-[95%] max-h-[90vh] overflow-y-auto relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-muted"><X size={20} /></button>
 
-        {/* Masthead A4 */}
         <div className="border-b border-ink pb-4 mb-5">
           <Kicker className="mb-1">Atelier Stéphan Hamache · Poitiers</Kicker>
           <h2 className="font-serif text-[28px] text-ink">Fiche {fiche.type_intervention}</h2>
@@ -70,9 +123,8 @@ function VueImpression({ dossier, fiche, schema, onClose }) {
           </div>
         </div>
 
-        {/* Champs */}
         <div className="grid grid-cols-2 gap-x-5 gap-y-3 mb-5">
-          {champs.filter(f => f.type !== 'textarea').map(f => (
+          {champs.filter(f => f.type !== 'textarea' && !TISSU_KEYS.has(f.key)).map(f => (
             <div key={f.key}>
               <Kicker>{f.label}{f.unit ? ` (${f.unit})` : ''}</Kicker>
               <div className="font-serif text-[14px] text-ink py-1 border-b border-dotted border-black/30">
@@ -100,7 +152,6 @@ function VueImpression({ dossier, fiche, schema, onClose }) {
           </div>
         )}
 
-        {/* Signatures */}
         <div className="mt-6 grid grid-cols-2 gap-5">
           {['Réalisé par', 'Contrôlé par'].map(label => (
             <div key={label}>
@@ -123,10 +174,14 @@ function VueImpression({ dossier, fiche, schema, onClose }) {
 }
 
 export default function FicheAtelierModal({ dossier, onClose }) {
+  const initialType = dossier.type_intervention || 'Tapisserie';
+
   const [schemas, setSchemas]       = useState({});
   const [contenu, setContenu]       = useState({});
   const [notes, setNotes]           = useState('');
-  const [typeIntervention, setType] = useState(dossier.type_intervention || 'Tapisserie');
+  const [typeIntervention, setType] = useState(initialType);
+  const [etapes, setEtapes]         = useState(ETAPES_PAR_TYPE[initialType] || ETAPES_PAR_TYPE['Autre']);
+  const [tissus, setTissus]         = useState([]); // [{ref, fournisseur, ml, zone}]
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [showPrint, setShowPrint]   = useState(false);
@@ -139,28 +194,66 @@ export default function FicheAtelierModal({ dossier, onClose }) {
         setSchemas(schema);
         if (fiche) {
           setFicheId(fiche.id);
-          setType(fiche.type_intervention);
-          setContenu(JSON.parse(fiche.contenu_json || '{}'));
+          const type = fiche.type_intervention;
+          setType(type);
+          const c = JSON.parse(fiche.contenu_json || '{}');
+          setContenu(c);
           setNotes(fiche.notes_libres || '');
+          setEtapes(
+            Array.isArray(c.etapes_custom) && c.etapes_custom.length > 0
+              ? c.etapes_custom
+              : (ETAPES_PAR_TYPE[type] || ETAPES_PAR_TYPE['Autre'])
+          );
+          setTissus(Array.isArray(c.tissus_list) ? c.tissus_list : []);
         }
       });
   }, [dossier.id]);
 
   const handleChange = (key, value) => { setContenu(c => ({ ...c, [key]: value })); setSaved(false); };
 
+  // ── Tissus ──────────────────────────────────────────────────────────────
+  const addTissu    = () => { setTissus(t => [...t, { ref: '', fournisseur: '', ml: '', zone: '' }]); setSaved(false); };
+  const setTissuField = (i, k, v) => { setTissus(t => t.map((x, j) => j === i ? { ...x, [k]: v } : x)); setSaved(false); };
+  const delTissu    = (i) => { setTissus(t => t.filter((_, j) => j !== i)); setSaved(false); };
+
+  // ── Étapes ──────────────────────────────────────────────────────────────
+  const addEtape    = () => { setEtapes(e => [...e, { etape: '', type: '' }]); setSaved(false); };
+  const setEtapeField = (i, k, v) => { setEtapes(e => e.map((x, j) => j === i ? { ...x, [k]: v } : x)); setSaved(false); };
+  const delEtape    = (i) => { setEtapes(e => e.filter((_, j) => j !== i)); setSaved(false); };
+  const moveEtape   = (i, dir) => {
+    setEtapes(e => {
+      const arr = [...e];
+      const ni = i + dir;
+      if (ni < 0 || ni >= arr.length) return arr;
+      [arr[i], arr[ni]] = [arr[ni], arr[i]];
+      return arr;
+    });
+    setSaved(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
+    const contenuComplet = { ...contenu, etapes_custom: etapes, tissus_list: tissus };
     await fetch('/api/fiches', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dossier_id: dossier.id, type_intervention: typeIntervention, contenu_json: contenu, notes_libres: notes }),
+      body: JSON.stringify({
+        dossier_id: dossier.id,
+        type_intervention: typeIntervention,
+        contenu_json: contenuComplet,
+        notes_libres: notes,
+      }),
     });
     setSaving(false);
     setSaved(true);
   };
 
   const champsActuels = schemas[typeIntervention] || [];
-  const currentFiche  = ficheId ? { type_intervention: typeIntervention, contenu_json: JSON.stringify(contenu), notes_libres: notes } : null;
+  const currentFiche  = ficheId
+    ? { type_intervention: typeIntervention, contenu_json: JSON.stringify({ ...contenu, etapes_custom: etapes, tissus_list: tissus }), notes_libres: notes }
+    : null;
+
+  const btnDashed = 'flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted border border-dashed border-line px-3 py-1.5 mt-1 hover:bg-bg';
 
   return (
     <>
@@ -185,24 +278,101 @@ export default function FicheAtelierModal({ dossier, onClose }) {
             <label className={labelCls}>Type d&apos;intervention</label>
             <select
               value={typeIntervention}
-              onChange={e => { setType(e.target.value); setContenu({}); setSaved(false); }}
+              onChange={e => {
+                const t = e.target.value;
+                setType(t);
+                setContenu({});
+                setEtapes(ETAPES_PAR_TYPE[t] || ETAPES_PAR_TYPE['Autre']);
+                setTissus([]);
+                setSaved(false);
+              }}
               className={fieldCls}
               style={{ maxWidth: 260 }}
             >
-              {Object.keys(schemas).map(t => <option key={t}>{t}</option>)}
+              {Object.keys(schemas).length > 0
+                ? Object.keys(schemas).map(t => <option key={t}>{t}</option>)
+                : <option>{typeIntervention}</option>
+              }
             </select>
           </div>
 
-          {/* Champs */}
-          {champsActuels.length > 0 ? (
+          {/* Champs schéma (hors champs tissu gérés séparément) */}
+          {champsActuels.filter(f => !TISSU_KEYS.has(f.key)).length > 0 && (
             <div className="grid grid-cols-2 gap-3 mb-5">
-              {champsActuels.map(f => (
+              {champsActuels.filter(f => !TISSU_KEYS.has(f.key)).map(f => (
                 <Champ key={f.key} field={f} value={contenu[f.key]} onChange={handleChange} />
               ))}
             </div>
-          ) : (
-            <div className="text-center font-sans text-[13px] text-muted p-5">Chargement du schéma…</div>
           )}
+
+          {/* ── Tissus ── */}
+          <fieldset className="mb-5 border border-line p-4">
+            <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Tissus</legend>
+            {tissus.length === 0 && (
+              <p className="font-sans text-[12px] text-muted mb-2">Aucun tissu — ajoutez-en un ci-dessous.</p>
+            )}
+            {tissus.map((t, i) => (
+              <div key={i} className="grid gap-2 mb-2" style={{ gridTemplateColumns: '1fr 1fr 72px 1fr 20px', alignItems: 'end' }}>
+                <div>
+                  <label className={labelCls}>Référence</label>
+                  <input className={fieldCls} value={t.ref} onChange={e => setTissuField(i, 'ref', e.target.value)} placeholder="Ex: VELOURS-42" />
+                </div>
+                <div>
+                  <label className={labelCls}>Fournisseur</label>
+                  <input className={fieldCls} value={t.fournisseur} onChange={e => setTissuField(i, 'fournisseur', e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelCls}>ML</label>
+                  <input type="number" step="0.1" className={fieldCls} value={t.ml} onChange={e => setTissuField(i, 'ml', e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelCls}>Zone à poser</label>
+                  <input className={fieldCls} value={t.zone} onChange={e => setTissuField(i, 'zone', e.target.value)} placeholder="Ex: Dossier, Assise…" />
+                </div>
+                <button onClick={() => delTissu(i)} className="text-muted pb-0.5 self-end"><Trash2 size={13} /></button>
+              </div>
+            ))}
+            <button onClick={addTissu} className={btnDashed}>
+              <Plus size={10} /> Ajouter tissu
+            </button>
+          </fieldset>
+
+          {/* ── Étapes atelier ── */}
+          <fieldset className="mb-5 border border-line p-4">
+            <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Étapes atelier</legend>
+            {etapes.map((e, i) => (
+              <div key={i} className="flex gap-2 mb-1.5 items-center">
+                <input
+                  value={e.etape}
+                  onChange={ev => setEtapeField(i, 'etape', ev.target.value)}
+                  placeholder="ÉTAPE"
+                  className="flex-[2] px-3 py-2 bg-surface border border-ink font-mono text-[11px] text-ink uppercase tracking-[0.08em]"
+                />
+                <input
+                  value={e.type}
+                  onChange={ev => setEtapeField(i, 'type', ev.target.value)}
+                  placeholder="Type / tissu"
+                  className="flex-1 px-3 py-2 bg-surface border border-line font-sans text-[13px] text-ink"
+                />
+                <button
+                  onClick={() => moveEtape(i, -1)}
+                  disabled={i === 0}
+                  className="px-1.5 py-1 font-mono text-[12px] text-muted disabled:opacity-25 hover:text-ink"
+                  title="Remonter"
+                >↑</button>
+                <button
+                  onClick={() => moveEtape(i, 1)}
+                  disabled={i === etapes.length - 1}
+                  className="px-1.5 py-1 font-mono text-[12px] text-muted disabled:opacity-25 hover:text-ink"
+                  title="Descendre"
+                >↓</button>
+                <button onClick={() => delEtape(i)} className="p-1 text-muted hover:text-ink"><Trash2 size={12} /></button>
+              </div>
+            ))}
+            <button onClick={addEtape} className={btnDashed}>
+              <Plus size={10} /> Ajouter étape
+            </button>
+          </fieldset>
 
           {/* Notes libres */}
           <div className="mb-5">
@@ -223,11 +393,11 @@ export default function FicheAtelierModal({ dossier, onClose }) {
               target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 bg-ink text-surface font-sans text-[13px] font-medium"
             >
-              <ExternalLink size={14} /> Fiche papier atelier
+              <ExternalLink size={14} /> Fiche papier A4
             </a>
             {currentFiche && (
               <Btn variant="outline" onClick={() => setShowPrint(true)}>
-                <Printer size={14} /> Aperçu données
+                <Printer size={14} /> Aperçu
               </Btn>
             )}
             <Btn variant="outline" onClick={onClose}>Annuler</Btn>
