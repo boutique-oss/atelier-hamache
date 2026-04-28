@@ -198,11 +198,12 @@ function CarteOperateur({ stat }) {
 }
 
 export default function HeuresModule({ dossierId = null, heuresPrevues = 0 }) {
-  const [data, setData]             = useState({ heures: [], stats: [], synthese: null });
-  const [dossiers, setDossiers]     = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [showForm, setShowForm]     = useState(false);
-  const [ficheRideaux, setFicheRideaux] = useState(undefined); // undefined = pas encore chargé
+  const [data, setData]                   = useState({ heures: [], stats: [], synthese: null });
+  const [dossiers, setDossiers]           = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [showForm, setShowForm]           = useState(false);
+  const [ficheRideaux, setFicheRideaux]   = useState(undefined);
+  const [toutesRideaux, setToutesRideaux] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -212,7 +213,7 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0 }) {
     setLoading(false);
   }, [dossierId]);
 
-  // Charge la fiche rideaux liée au dossier (si mode dossier précis)
+  // Mode dossier précis : charge la fiche rideaux liée
   useEffect(() => {
     if (dossierId) {
       fetch(`/api/interventions-rideaux?dossier_id=${dossierId}`)
@@ -228,6 +229,10 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0 }) {
       fetch('/api/dossiers')
         .then(r => r.json())
         .then(d => setDossiers(Array.isArray(d) ? d : d.dossiers || []));
+      // Mode global : charge toutes les fiches rideaux liées à un dossier
+      fetch('/api/interventions-rideaux')
+        .then(r => r.json())
+        .then(d => setToutesRideaux((Array.isArray(d) ? d : []).filter(f => f.dossier_id)));
     }
   }, [dossierId]);
 
@@ -285,6 +290,57 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0 }) {
           ) : (
             <span className="font-mono text-[11px] text-muted">○ Aucune fiche rideaux liée à ce dossier</span>
           )}
+        </div>
+      )}
+
+      {/* ── Atelier Rideaux — vue globale ───────────────────────── */}
+      {!dossierId && toutesRideaux.length > 0 && (
+        <div className="mb-5">
+          <Kicker className="mb-2">Atelier · Fiches rideaux</Kicker>
+          <div className="border border-ink bg-surface">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-bg border-b border-ink">
+                  {['Client', 'Type de tête', 'Heures estimées', 'Heures réalisées', 'Écart'].map((h, i) => (
+                    <th key={i} className="text-left px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {toutesRideaux.map(f => {
+                  const reellesDossier = heures
+                    .filter(h => h.dossier_id === f.dossier_id)
+                    .reduce((s, h) => s + (h.heures_passees || 0), 0);
+                  const estimees = parseFloat(f.heures) || 0;
+                  const ecart = reellesDossier - estimees;
+                  const depasse = ecart > 0;
+                  return (
+                    <tr key={f.id} className="border-t border-dotted border-black/30">
+                      <td className="px-3 py-2 font-serif text-[14px] text-ink">
+                        {f.client}
+                        <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.1em] px-1 py-0.5 border border-ink/30 text-muted">
+                          Atelier ✓
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 font-sans text-[12px] text-muted">{f.type_tete || '—'}</td>
+                      <td className="px-3 py-2 font-serif tnum text-[14px] text-ink">
+                        {estimees > 0 ? `${estimees}h` : '—'}
+                      </td>
+                      <td className="px-3 py-2 font-serif tnum text-[14px] text-ink">
+                        {reellesDossier > 0 ? `${reellesDossier.toFixed(1)}h` : '—'}
+                      </td>
+                      <td className="px-3 py-2 font-mono tnum text-[11px]"
+                          style={{ color: depasse ? '#FF0000' : ecart < 0 ? '#000' : '#999' }}>
+                        {estimees > 0
+                          ? (depasse ? `+${ecart.toFixed(1)}h` : ecart < 0 ? `${ecart.toFixed(1)}h` : '=')
+                          : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
