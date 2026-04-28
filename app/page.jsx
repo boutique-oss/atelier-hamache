@@ -5,7 +5,6 @@ import { Plus, Pencil, Trash2, X, ExternalLink, Truck, Check, FileText, Clipboar
 import Link from 'next/link';
 import HeuresModule from '../components/HeuresModule';
 import ImportExportPanel from '../components/ImportExportPanel';
-import ReportsPanel from '../components/ReportsPanel';
 import FicheAtelierModal from '../components/FicheAtelierModal';
 import PredevisModule from '../components/PredevisModule';
 import VueRideaux from '../components/VueRideaux';
@@ -1097,10 +1096,9 @@ export default function Page() {
     { key: 'commandes', num: '03', label: 'Commandes',    count: counts.commandes },
     { key: 'archives',  num: '04', label: 'Archives',     count: counts.archives },
     { key: 'heures',    num: '05', label: 'Heures',       count: null },
-    { key: 'rapports',  num: '06', label: 'Rapports',     count: null },
-    { key: 'import',    num: '07', label: 'Export PDF',   count: null },
-    { key: 'predevis',  num: '08', label: 'Prédevis',     count: null },
-    { key: 'todo',      num: '09', label: 'À faire',      count: null },
+    { key: 'import',    num: '06', label: 'Export PDF',   count: null },
+    { key: 'predevis',  num: '07', label: 'Prédevis',     count: null },
+    { key: 'todo',      num: '08', label: 'À faire',      count: null },
   ];
 
   const now = new Date();
@@ -1187,7 +1185,6 @@ export default function Page() {
         {view === 'commandes' && <VueCommandes commandes={commandes} fournisseurs={fournisseurs} onNew={() => setEditingCommande({})} onEdit={setEditingCommande} />}
         {view === 'archives'  && <VueArchives dossiers={dossiers} onEdit={setEditing} />}
         {view === 'heures'    && <HeuresModule />}
-        {view === 'rapports'  && <ReportsPanel />}
         {view === 'import'    && <ImportExportPanel onDataChanged={reload} />}
         {view === 'predevis'  && <PredevisModule />}
         {view === 'rideaux'   && <VueRideaux />}
