@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import PrintButton from './PrintButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -182,7 +183,7 @@ export default async function FicheImpressionPage({ params }) {
         }
       `}</style>
 
-      <button className="print-btn">Imprimer</button>
+      <PrintButton className="print-btn" />
 
       <div style={{ padding: '24px 32px', maxWidth: 800, margin: '0 auto' }}>
 
@@ -344,9 +345,6 @@ export default async function FicheImpressionPage({ params }) {
 
       </div>
 
-      <script dangerouslySetInnerHTML={{
-        __html: `document.querySelector('.print-btn').addEventListener('click',function(){window.print();});`,
-      }} />
     </>
   );
 }
