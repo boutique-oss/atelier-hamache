@@ -368,11 +368,13 @@ function sectionHeures(db) {
 }
 
 function sectionRapport(db) {
-  // Heures prévues vs réelles par dossier
+  const fmtEur = v => v > 0 ? v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }) : '<span class="nd">—</span>';
+
+  // Heures prévues vs réelles par dossier — avec type_intervention
   let heuresRows = [];
   try {
     heuresRows = db.prepare(`
-      SELECT d.nom_dossier, d.client_nom, d.statut,
+      SELECT d.nom_dossier, d.client_nom, d.statut, d.type_intervention,
              COALESCE(d.heures_a_realiser, 0) as prevues,
              ROUND(COALESCE(SUM(h.heures_passees), 0), 1) as reelles
       FROM dossiers d
@@ -388,6 +390,39 @@ function sectionRapport(db) {
       ca_reel:  Math.round(r.reelles  * TAUX_HORAIRE),
     }));
   } catch {}
+
+  const tapRows  = heuresRows.filter(r => r.type_intervention !== 'Rideaux');
+  const coutRows = heuresRows.filter(r => r.type_intervention === 'Rideaux');
+
+  const sumH = rows => rows.reduce((s, r) => s + (r.reelles || 0), 0);
+  const sumP = rows => rows.reduce((s, r) => s + (r.prevues  || 0), 0);
+
+  // Stats globales
+  const totalPrevues = heuresRows.reduce((s, r) => s + r.prevues, 0);
+  const totalReelles = heuresRows.reduce((s, r) => s + r.reelles, 0);
+  const statsHtml = `<div class="stats-grid">
+    ${statCard('H. prévues total', Math.round(totalPrevues * 10) / 10 + 'h', '#9B5E2A')}
+    ${statCard('H. réelles total', Math.round(totalReelles * 10) / 10 + 'h', '#1A1814')}
+    ${statCard('Atelier TAP', Math.round(sumH(tapRows) * 10) / 10 + 'h réelles', '#9B5E2A')}
+    ${statCard('Atelier COUT', Math.round(sumH(coutRows) * 10) / 10 + 'h réelles', '#2D5F7C')}
+  </div>`;
+
+  const heuresCols = [
+    { label: 'Dossier', render: r => `<b>${esc(r.nom_dossier)}</b>${r.client_nom && r.client_nom !== r.nom_dossier ? `<br><span style="color:#9A9387;font-size:9px">${esc(r.client_nom)}</span>` : ''}` },
+    { label: 'Statut', render: r => badge(r.statut) },
+    { label: 'H.prévues', render: r => fmtH(r.prevues), num: true },
+    { label: `CA prévu (${TAUX_HORAIRE}€/h)`, render: r => fmtEur(r.ca_prevu), num: true },
+    { label: 'H.réelles', render: r => r.reelles > 0 ? `<b>${r.reelles}h</b>` : '<span class="nd">—</span>', num: true },
+    { label: 'CA réel', render: r => r.ca_reel > 0 ? `<b style="color:#27AE60">${fmtEur(r.ca_reel)}</b>` : '<span class="nd">—</span>', num: true },
+    { label: 'Écart', render: r => {
+      if (!r.prevues) return '<span class="nd">—</span>';
+      const cls = r.ecart > 0 ? 'h-over' : r.ecart < 0 ? 'h-ok' : 'h-neu';
+      return `<span class="${cls}">${r.ecart > 0 ? '+' : ''}${r.ecart}h</span>`;
+    }, num: true },
+  ];
+
+  const bannerTap  = (rows) => `<div style="background:#F5E9DC;border-left:4px solid #9B5E2A;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:#9B5E2A">— ATELIER TAP —&nbsp; Tapisserie d'ameublement</span><span style="font-size:11px;color:#9B5E2A">${rows.length} dossier${rows.length!==1?'s':''} · ${Math.round(sumP(rows)*10)/10}h prévues · ${Math.round(sumH(rows)*10)/10}h réelles</span></div>`;
+  const bannerCout = (rows) => `<div style="background:#E5EDF3;border-left:4px solid #2D5F7C;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:#2D5F7C">— ATELIER COUT —&nbsp; Rideaux &amp; Couture</span><span style="font-size:11px;color:#2D5F7C">${rows.length} dossier${rows.length!==1?'s':''} · ${Math.round(sumP(rows)*10)/10}h prévues · ${Math.round(sumH(rows)*10)/10}h réelles</span></div>`;
 
   // Par opérateur
   let opsRows = [];
@@ -412,23 +447,6 @@ function sectionRapport(db) {
     ORDER BY nb DESC
   `).all();
 
-  const fmtEur = v => v > 0 ? v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }) : '<span class="nd">—</span>';
-
-  const heuresCols = [
-    { label: 'Dossier', render: r => esc(r.nom_dossier) },
-    { label: 'Statut', render: r => badge(r.statut) },
-    { label: 'H.prévues', render: r => fmtH(r.prevues), num: true },
-    { label: `CA prévu (${TAUX_HORAIRE}€/h)`, render: r => fmtEur(r.ca_prevu), num: true },
-    { label: 'H.réelles', render: r => r.reelles > 0 ? `<b>${r.reelles}h</b>` : '<span class="nd">—</span>', num: true },
-    { label: 'CA réel', render: r => r.ca_reel > 0 ? `<b style="color:#27AE60">${fmtEur(r.ca_reel)}</b>` : '<span class="nd">—</span>', num: true },
-    { label: 'Écart', render: r => {
-      if (!r.prevues) return '<span class="nd">—</span>';
-      const cls = r.ecart > 0 ? 'h-over' : r.ecart < 0 ? 'h-ok' : 'h-neu';
-      const sign = r.ecart > 0 ? '+' : '';
-      return `<span class="${cls}">${sign}${r.ecart}h</span>`;
-    }, num: true },
-  ];
-
   const opsCols = [
     { label: 'Opérateur', render: r => `<b>${esc(r.operateur)}</b>` },
     { label: 'Total heures', render: r => `<b>${r.total}h</b>`, num: true },
@@ -443,8 +461,12 @@ function sectionRapport(db) {
   ];
 
   return `
-  <div class="section-title">Heures prévues vs réelles <span class="section-count">dossiers actifs avec saisies</span></div>
-  ${heuresRows.length ? tableHtml(heuresCols, heuresRows) : '<p class="empty">Aucune donnée de comparaison disponible.</p>'}
+  <div class="section-title">Rapport de synthèse — Heures par atelier</div>
+  ${statsHtml}
+  ${bannerTap(tapRows)}
+  ${tapRows.length ? tableHtml(heuresCols, tapRows) : '<p class="empty">Aucune donnée Atelier TAP.</p>'}
+  ${bannerCout(coutRows)}
+  ${coutRows.length ? tableHtml(heuresCols, coutRows) : '<p class="empty">Aucune donnée Atelier COUT.</p>'}
 
   <div class="section-title">Par opérateur</div>
   ${opsRows.length ? tableHtml(opsCols, opsRows) : '<p class="empty">Aucune saisie d\'heures enregistrée.</p>'}
