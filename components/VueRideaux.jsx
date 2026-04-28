@@ -9,8 +9,10 @@ const TYPES_TETE = [
   'Vague', 'Pince simple', 'Pince triple', 'Œillets',
   'Ruban fronceur', 'Accordéon', 'Passants', 'Fixe',
 ];
+const UNITES_MAT = ['ml', 'm²', 'pièce', 'lot', 'rouleau'];
 
-const emptyPiece = () => ({ baie: '', nb_rideaux: '', dimensions: '' });
+const emptyPiece    = () => ({ baie: '', nb_rideaux: '', dimensions: '' });
+const emptyMateriau = () => ({ materiau: '', ref: '', fournisseur: '', coloris: '', qte: '', unite: 'ml' });
 
 const fieldCls = 'w-full px-3 py-2 bg-bg border border-ink font-sans text-[13px] text-ink';
 const labelCls = 'font-mono uppercase tracking-[0.16em] text-[10px] text-muted block mb-1';
@@ -20,17 +22,32 @@ function FormulaireRideaux({ initial, onSaved, onCancel }) {
   const [f, setF] = useState(() => initial || {
     client: '', telephone: '', adresse: '',
     date: today,
+    dossier_id: '',
     pieces: [emptyPiece(), emptyPiece(), emptyPiece()],
     tissu: '', ref_tissu: '', coloris: '', metrage: '',
     type_tete: 'Vague', heures: '', notes: '',
+    materiaux: [],
   });
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [dossiers, setDossiers] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/dossiers')
+      .then(r => r.json())
+      .then(d => setDossiers(Array.isArray(d) ? d : []));
+  }, []);
 
   const upd = (k, v) => setF(p => ({ ...p, [k]: v }));
+
   const updPiece = (i, k, v) =>
     setF(p => ({ ...p, pieces: p.pieces.map((row, j) => j === i ? { ...row, [k]: v } : row) }));
   const addPiece = () => setF(p => ({ ...p, pieces: [...p.pieces, emptyPiece()] }));
   const delPiece = (i) => setF(p => ({ ...p, pieces: p.pieces.filter((_, j) => j !== i) }));
+
+  const updMat = (i, k, v) =>
+    setF(p => ({ ...p, materiaux: p.materiaux.map((row, j) => j === i ? { ...row, [k]: v } : row) }));
+  const addMat = () => setF(p => ({ ...p, materiaux: [...p.materiaux, emptyMateriau()] }));
+  const delMat = (i) => setF(p => ({ ...p, materiaux: p.materiaux.filter((_, j) => j !== i) }));
 
   const save = async () => {
     if (!f.client.trim()) return;
@@ -40,11 +57,18 @@ function FormulaireRideaux({ initial, onSaved, onCancel }) {
     await fetch(url, {
       method: isEdit ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...f, pieces_json: JSON.stringify(f.pieces) }),
+      body: JSON.stringify({
+        ...f,
+        pieces_json:   JSON.stringify(f.pieces),
+        materiaux_json: JSON.stringify(f.materiaux),
+        dossier_id: f.dossier_id ? parseInt(f.dossier_id) : null,
+      }),
     });
     setSaving(false);
     onSaved();
   };
+
+  const dossiersActifs = dossiers.filter(d => d.type_intervention === 'Rideaux' || d.type_intervention === 'Stores');
 
   return (
     <div className="bg-surface border border-ink p-6 mb-6">
@@ -53,7 +77,7 @@ function FormulaireRideaux({ initial, onSaved, onCancel }) {
         <button onClick={onCancel} className="p-1 text-muted"><X size={16} /></button>
       </div>
 
-      {/* Client + date */}
+      {/* Client + date + dossier lié */}
       <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="col-span-2">
           <label className={labelCls}>Client *</label>
@@ -67,9 +91,21 @@ function FormulaireRideaux({ initial, onSaved, onCancel }) {
           <label className={labelCls}>Téléphone</label>
           <input type="text" value={f.telephone} onChange={e => upd('telephone', e.target.value)} className={fieldCls} />
         </div>
-        <div className="col-span-2">
+        <div>
           <label className={labelCls}>Adresse</label>
           <input type="text" value={f.adresse} onChange={e => upd('adresse', e.target.value)} className={fieldCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Dossier lié (optionnel)</label>
+          <select value={f.dossier_id || ''} onChange={e => upd('dossier_id', e.target.value)} className={fieldCls}>
+            <option value="">— Aucun dossier —</option>
+            {dossiers.map(d => (
+              <option key={d.id} value={d.id}>
+                {d.client_nom || d.nom_dossier}
+                {d.statut === 'Clos' ? ' [clos]' : ''}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -98,34 +134,20 @@ function FormulaireRideaux({ initial, onSaved, onCancel }) {
                 <tr key={i} className="border-t border-dotted border-black/20">
                   <td className="px-3 py-1.5 font-mono text-[11px] text-muted w-8">{i + 1}</td>
                   <td className="px-2 py-1.5">
-                    <input
-                      type="text" value={row.baie}
-                      onChange={e => updPiece(i, 'baie', e.target.value)}
-                      placeholder="Fenêtre"
-                      className="w-full px-2 py-1 bg-surface border border-line font-sans text-[13px] text-ink"
-                    />
+                    <input type="text" value={row.baie} onChange={e => updPiece(i, 'baie', e.target.value)}
+                      placeholder="Fenêtre" className="w-full px-2 py-1 bg-surface border border-line font-sans text-[13px] text-ink" />
                   </td>
                   <td className="px-2 py-1.5 w-28">
-                    <input
-                      type="number" value={row.nb_rideaux}
-                      onChange={e => updPiece(i, 'nb_rideaux', e.target.value)}
-                      placeholder="—"
-                      className="w-full px-2 py-1 bg-surface border border-line font-sans text-[13px] text-ink text-center"
-                    />
+                    <input type="number" value={row.nb_rideaux} onChange={e => updPiece(i, 'nb_rideaux', e.target.value)}
+                      placeholder="—" className="w-full px-2 py-1 bg-surface border border-line font-sans text-[13px] text-ink text-center" />
                   </td>
                   <td className="px-2 py-1.5">
-                    <input
-                      type="text" value={row.dimensions}
-                      onChange={e => updPiece(i, 'dimensions', e.target.value)}
-                      placeholder="ex : 140×260"
-                      className="w-full px-2 py-1 bg-surface border border-line font-sans text-[13px] text-ink"
-                    />
+                    <input type="text" value={row.dimensions} onChange={e => updPiece(i, 'dimensions', e.target.value)}
+                      placeholder="ex : 140×260" className="w-full px-2 py-1 bg-surface border border-line font-sans text-[13px] text-ink" />
                   </td>
                   <td className="px-2 py-1.5 w-8">
                     {f.pieces.length > 1 && (
-                      <button onClick={() => delPiece(i)} className="p-0.5 text-muted">
-                        <Trash2 size={12} />
-                      </button>
+                      <button onClick={() => delPiece(i)} className="p-0.5 text-muted"><Trash2 size={12} /></button>
                     )}
                   </td>
                 </tr>
@@ -135,7 +157,7 @@ function FormulaireRideaux({ initial, onSaved, onCancel }) {
         </div>
       </div>
 
-      {/* Tissu */}
+      {/* Tissu principal */}
       <div className="grid grid-cols-4 gap-3 mb-4">
         <div className="col-span-2">
           <label className={labelCls}>Tissu</label>
@@ -161,23 +183,84 @@ function FormulaireRideaux({ initial, onSaved, onCancel }) {
         </div>
         <div>
           <label className={labelCls}>Heures estimées</label>
-          <input
-            type="number" step="0.5" min="0"
-            value={f.heures}
-            onChange={e => upd('heures', e.target.value)}
-            placeholder="—"
-            className={fieldCls}
-          />
+          <input type="number" step="0.5" min="0" value={f.heures}
+            onChange={e => upd('heures', e.target.value)} placeholder="—" className={fieldCls} />
         </div>
+      </div>
+
+      {/* ── Tissus & matériaux commandés ───────────────────────── */}
+      <div className="mb-4 border-t border-line pt-4">
+        <div className="flex items-center justify-between mb-2">
+          <label className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted">
+            Tissus &amp; matériaux commandés
+          </label>
+          <button
+            onClick={addMat}
+            className="inline-flex items-center gap-1 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted border border-ink"
+          >
+            <Plus size={10} /> Ajouter
+          </button>
+        </div>
+
+        {f.materiaux.length === 0 ? (
+          <div className="border border-dashed border-ink/30 bg-bg px-4 py-3 font-sans text-[12px] text-muted text-center">
+            Aucun matériau — clique sur Ajouter pour lister tissus et fournitures commandées
+          </div>
+        ) : (
+          <div className="border border-ink bg-bg">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-ink">
+                  {['Matériau / Tissu', 'Référence', 'Fournisseur', 'Coloris', 'Quantité', 'Unité', ''].map((h, i) => (
+                    <th key={i} className="text-left px-3 py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {f.materiaux.map((row, i) => (
+                  <tr key={i} className="border-t border-dotted border-black/20">
+                    <td className="px-2 py-1.5">
+                      <input type="text" value={row.materiau} onChange={e => updMat(i, 'materiau', e.target.value)}
+                        placeholder="Tissu, tringle…" className="w-full px-2 py-1 bg-surface border border-line font-sans text-[13px] text-ink" />
+                    </td>
+                    <td className="px-2 py-1.5 w-28">
+                      <input type="text" value={row.ref} onChange={e => updMat(i, 'ref', e.target.value)}
+                        placeholder="—" className="w-full px-2 py-1 bg-surface border border-line font-mono text-[11px] text-ink" />
+                    </td>
+                    <td className="px-2 py-1.5 w-32">
+                      <input type="text" value={row.fournisseur} onChange={e => updMat(i, 'fournisseur', e.target.value)}
+                        placeholder="—" className="w-full px-2 py-1 bg-surface border border-line font-sans text-[12px] text-ink" />
+                    </td>
+                    <td className="px-2 py-1.5 w-28">
+                      <input type="text" value={row.coloris} onChange={e => updMat(i, 'coloris', e.target.value)}
+                        placeholder="—" className="w-full px-2 py-1 bg-surface border border-line font-sans text-[12px] text-ink" />
+                    </td>
+                    <td className="px-2 py-1.5 w-20">
+                      <input type="number" step="0.1" min="0" value={row.qte} onChange={e => updMat(i, 'qte', e.target.value)}
+                        placeholder="—" className="w-full px-2 py-1 bg-surface border border-line font-sans text-[13px] text-ink text-center" />
+                    </td>
+                    <td className="px-2 py-1.5 w-20">
+                      <select value={row.unite} onChange={e => updMat(i, 'unite', e.target.value)}
+                        className="w-full px-1 py-1 bg-surface border border-line font-mono text-[11px] text-ink">
+                        {UNITES_MAT.map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-2 py-1.5 w-8">
+                      <button onClick={() => delMat(i)} className="p-0.5 text-muted"><Trash2 size={12} /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Notes */}
       <div className="mb-5">
         <label className={labelCls}>Notes</label>
-        <textarea
-          value={f.notes} onChange={e => upd('notes', e.target.value)} rows={3}
-          className="w-full px-3 py-2 bg-bg border border-ink font-sans text-[13px] text-ink resize-none"
-        />
+        <textarea value={f.notes} onChange={e => upd('notes', e.target.value)} rows={3}
+          className="w-full px-3 py-2 bg-bg border border-ink font-sans text-[13px] text-ink resize-none" />
       </div>
 
       <div className="flex justify-end gap-2">
@@ -197,13 +280,13 @@ const formatDate = (d) => {
 };
 
 export default function VueRideaux() {
-  const [fiches, setFiches] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [fiches, setFiches]     = useState([]);
+  const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [search, setSearch] = useState('');
-  const [sortKey, setSortKey] = useState('date');
-  const [sortDir, setSortDir] = useState('desc');
+  const [editing, setEditing]   = useState(null);
+  const [search, setSearch]     = useState('');
+  const [sortKey, setSortKey]   = useState('date');
+  const [sortDir, setSortDir]   = useState('desc');
 
   const load = async () => {
     setLoading(true);
@@ -232,11 +315,10 @@ export default function VueRideaux() {
       (f.tissu || '').toLowerCase().includes(search.toLowerCase()) ||
       (f.coloris || '').toLowerCase().includes(search.toLowerCase())
     );
-    rows = [...rows].sort((a, b) => {
+    return [...rows].sort((a, b) => {
       const va = String(a[sortKey] || ''), vb = String(b[sortKey] || '');
       return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     });
-    return rows;
   }, [fiches, search, sortKey, sortDir]);
 
   function SortIcon({ k }) {
@@ -258,7 +340,6 @@ export default function VueRideaux() {
 
   return (
     <div>
-      {/* En-tête */}
       <div className="flex justify-between items-end mb-6">
         <div>
           <Kicker className="mb-2">Module 08</Kicker>
@@ -272,7 +353,6 @@ export default function VueRideaux() {
         </Btn>
       </div>
 
-      {/* Formulaire */}
       {(showForm || editing) && (
         <FormulaireRideaux
           initial={editing}
@@ -281,88 +361,86 @@ export default function VueRideaux() {
         />
       )}
 
-      {/* Recherche */}
       <div className="relative mb-3">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-muted text-[13px] pointer-events-none">⌕</span>
-        <input
-          type="text" value={search} onChange={e => setSearch(e.target.value)}
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Rechercher client, tissu, coloris…"
-          className="w-full pl-8 pr-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
-        />
+          className="w-full pl-8 pr-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink" />
       </div>
 
       <p className="font-mono text-[11px] text-muted mb-3 tnum">
         {filtered.length} {filtered.length !== 1 ? 'fiches affichées' : 'fiche affichée'}
       </p>
 
-      {/* Table */}
       <div className="border border-ink bg-surface">
         <table className="w-full">
           <thead>
             <tr className="bg-bg border-b border-ink">
               {COLS.map(col => (
-                <th
-                  key={col.key}
+                <th key={col.key}
                   className="text-left px-3 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted cursor-pointer select-none"
-                  onClick={() => toggleSort(col.key)}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    {col.label} <SortIcon k={col.key} />
-                  </span>
+                  onClick={() => toggleSort(col.key)}>
+                  <span className="inline-flex items-center gap-1">{col.label} <SortIcon k={col.key} /></span>
                 </th>
               ))}
+              <th className="px-3 py-3 w-8">
+                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">Mat.</span>
+              </th>
               <th className="px-3 py-3 w-24"></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(f => (
-              <tr key={f.id} className="group border-t border-dotted border-black/30 hover:bg-bg">
-                <td className="px-3 py-3 font-serif text-[14px] text-ink">{f.client}</td>
-                <td className="px-3 py-3 font-mono text-[11px] text-muted tnum whitespace-nowrap">{formatDate(f.date)}</td>
-                <td className="px-3 py-3 font-mono text-[11px] text-muted">{f.telephone || '—'}</td>
-                <td className="px-3 py-3 font-sans text-[12px] text-muted">{f.tissu || '—'}</td>
-                <td className="px-3 py-3 font-sans text-[12px] text-muted">{f.coloris || '—'}</td>
-                <td className="px-3 py-3 font-sans text-[12px] text-muted">{f.type_tete || '—'}</td>
-                <td className="px-3 py-3 font-serif tnum text-[14px] text-ink">
-                  {f.heures ? `${f.heures}h` : '—'}
-                </td>
-                <td className="px-3 py-3">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                    <Link
-                      href={`/rideaux/${f.id}/print`}
-                      target="_blank"
-                      className="p-1.5 text-muted"
-                      title="Imprimer"
-                    >
-                      <Printer size={13} />
-                    </Link>
-                    <button
-                      onClick={() => {
-                        setEditing({ ...f, pieces: JSON.parse(f.pieces_json || '[]') });
-                        setShowForm(false);
-                      }}
-                      className="p-1.5 text-muted"
-                      title="Modifier"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(f.id)}
-                      className="p-1.5 text-muted"
-                      title="Supprimer"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {filtered.map(f => {
+              const nbMat = (() => { try { return JSON.parse(f.materiaux_json || '[]').length; } catch { return 0; } })();
+              return (
+                <tr key={f.id} className="group border-t border-dotted border-black/30 hover:bg-bg">
+                  <td className="px-3 py-3 font-serif text-[14px] text-ink">
+                    {f.client}
+                    {f.dossier_id && (
+                      <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.1em] px-1 py-0.5 border border-ink/40 text-muted">dossier lié</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3 font-mono text-[11px] text-muted tnum whitespace-nowrap">{formatDate(f.date)}</td>
+                  <td className="px-3 py-3 font-mono text-[11px] text-muted">{f.telephone || '—'}</td>
+                  <td className="px-3 py-3 font-sans text-[12px] text-muted">{f.tissu || '—'}</td>
+                  <td className="px-3 py-3 font-sans text-[12px] text-muted">{f.coloris || '—'}</td>
+                  <td className="px-3 py-3 font-sans text-[12px] text-muted">{f.type_tete || '—'}</td>
+                  <td className="px-3 py-3 font-serif tnum text-[14px] text-ink">{f.heures ? `${f.heures}h` : '—'}</td>
+                  <td className="px-3 py-3">
+                    {nbMat > 0 && (
+                      <span className="font-mono text-[10px] tnum text-muted">{nbMat}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                      <Link href={`/rideaux/${f.id}/print`} target="_blank" className="p-1.5 text-muted" title="Imprimer">
+                        <Printer size={13} />
+                      </Link>
+                      <button
+                        onClick={() => {
+                          setEditing({
+                            ...f,
+                            pieces:   JSON.parse(f.pieces_json   || '[]'),
+                            materiaux: JSON.parse(f.materiaux_json || '[]'),
+                          });
+                          setShowForm(false);
+                        }}
+                        className="p-1.5 text-muted" title="Modifier"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button onClick={() => handleDelete(f.id)} className="p-1.5 text-muted" title="Supprimer">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center font-sans text-[13px] text-muted">
-                  {fiches.length === 0
-                    ? 'Aucune fiche rideaux — crée la première.'
-                    : 'Aucun résultat pour cette recherche.'}
+                <td colSpan={9} className="px-4 py-12 text-center font-sans text-[13px] text-muted">
+                  {fiches.length === 0 ? 'Aucune fiche rideaux — crée la première.' : 'Aucun résultat pour cette recherche.'}
                 </td>
               </tr>
             )}

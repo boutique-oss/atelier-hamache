@@ -198,10 +198,11 @@ function CarteOperateur({ stat }) {
 }
 
 export default function HeuresModule({ dossierId = null, heuresPrevues = 0 }) {
-  const [data, setData]         = useState({ heures: [], stats: [], synthese: null });
-  const [dossiers, setDossiers] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  const [data, setData]             = useState({ heures: [], stats: [], synthese: null });
+  const [dossiers, setDossiers]     = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [showForm, setShowForm]     = useState(false);
+  const [ficheRideaux, setFicheRideaux] = useState(undefined); // undefined = pas encore chargé
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -209,6 +210,15 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0 }) {
     const r = await fetch(url);
     setData(await r.json());
     setLoading(false);
+  }, [dossierId]);
+
+  // Charge la fiche rideaux liée au dossier (si mode dossier précis)
+  useEffect(() => {
+    if (dossierId) {
+      fetch(`/api/interventions-rideaux?dossier_id=${dossierId}`)
+        .then(r => r.json())
+        .then(d => setFicheRideaux(d.fiche || null));
+    }
   }, [dossierId]);
 
   useEffect(() => { load(); }, [load]);
@@ -258,6 +268,23 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0 }) {
       {dossierId && prevues === 0 && (
         <div className="border border-ink bg-bg px-3 py-2 font-sans text-[13px] text-ink mb-4">
           Pas d&apos;heures prévues — édite le dossier pour ajouter un devis horaire.
+        </div>
+      )}
+
+      {/* Mention Atelier — fiche rideaux liée */}
+      {dossierId && ficheRideaux !== undefined && (
+        <div className="flex items-center gap-3 mb-4 border border-ink px-4 py-2.5 bg-bg">
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted">Atelier</span>
+          <span className="w-px h-4 bg-ink/20" />
+          {ficheRideaux ? (
+            <span className="font-mono text-[11px] text-ink">
+              ✓ Fiche créée · {ficheRideaux.client}
+              {ficheRideaux.type_tete ? ` · ${ficheRideaux.type_tete}` : ''}
+              {ficheRideaux.heures ? ` · ${ficheRideaux.heures}h estimées` : ''}
+            </span>
+          ) : (
+            <span className="font-mono text-[11px] text-muted">○ Aucune fiche rideaux liée à ce dossier</span>
+          )}
         </div>
       )}
 
