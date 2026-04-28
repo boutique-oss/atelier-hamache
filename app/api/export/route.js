@@ -381,7 +381,6 @@ function sectionRapport(db) {
       LEFT JOIN heures h ON h.dossier_id = d.id
       WHERE d.statut != 'Clos'
       GROUP BY d.id
-      HAVING prevues > 0 OR reelles > 0
       ORDER BY (reelles - prevues) DESC
     `).all().map(r => ({
       ...r,
