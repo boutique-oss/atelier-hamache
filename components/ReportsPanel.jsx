@@ -1,226 +1,247 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
 
-function KpiCard({ label, value, sub }) {
+const PIPELINE = ['Nouveau', 'Devis envoyé', 'Validé', 'En atelier', 'Prêt à poser'];
+const QUOTAS   = { 'Nouveau': 6, 'Devis envoyé': 5, 'Validé': 4, 'En atelier': 10, 'Prêt à poser': 6 };
+const TAUX     = 55;
+
+// ── Hook count-up ────────────────────────────────────────────────────────────
+function useCountUp(target, active, ms = 700) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!active) { setVal(0); return; }
+    let elapsed = 0;
+    const id = setInterval(() => {
+      elapsed += 16;
+      const p = Math.min(elapsed / ms, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(ease * target));
+      if (p >= 1) clearInterval(id);
+    }, 16);
+    return () => clearInterval(id);
+  }, [target, active, ms]);
+  return val;
+}
+
+// ── Barre quota animée ───────────────────────────────────────────────────────
+function QuotaBar({ ratio, danger, delay }) {
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setW(Math.min(ratio * 100, 100)), delay + 200);
+    return () => clearTimeout(t);
+  }, [ratio, delay]);
   return (
-    <div className="bg-surface border border-line p-5 flex-1" style={{ minWidth: 160 }}>
-      <Kicker className="mb-2">{label}</Kicker>
-      <p className="font-serif tnum text-[44px] leading-none text-ink">{value}</p>
-      {sub && <p className="font-mono text-[10px] text-muted mt-2 tnum">{sub}</p>}
+    <div style={{ height: 3, background: '#E5E5E5', marginTop: 8 }}>
+      <div style={{
+        height: '100%',
+        width: `${w}%`,
+        backgroundColor: danger ? '#FF0000' : '#000',
+        transition: 'width 0.9s cubic-bezier(0.4,0,0.2,1)',
+      }} />
     </div>
   );
 }
 
-function TableStatuts({ data }) {
+// ── Carte statut ─────────────────────────────────────────────────────────────
+function StatutCard({ statut, nb, heures, quota, delay, visible }) {
+  const animNb = useCountUp(nb, visible, 650);
+  const ratio  = quota > 0 ? nb / quota : 0;
+  const danger = ratio > 1;
   return (
-    <div className="bg-surface border border-line p-5 flex-1">
-      <Kicker className="mb-3">Répartition par statut</Kicker>
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-ink">
-            {['Statut', 'Nb', 'CA HT', 'H prévues'].map((h, i) => (
-              <th key={i} className={`py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted ${i > 0 ? 'text-right' : 'text-left'}`}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map(row => (
-            <tr key={row.statut} className="border-t border-dotted border-black/30">
-              <td className="py-2 font-serif text-[13px] text-ink">{row.statut}</td>
-              <td className="py-2 text-right font-serif tnum text-[14px] text-ink">{row.nb}</td>
-              <td className="py-2 text-right font-mono tnum text-[11px] text-muted">
-                {(row.total_ht || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-              </td>
-              <td className="py-2 text-right font-mono tnum text-[11px] text-muted">{row.heures_prevues || 0}h</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function TableHeuresComparaison({ data }) {
-  if (!data || data.length === 0) return (
-    <div className="bg-bg border border-ink p-5 flex-1">
-      <Kicker className="mb-2">Heures prévues vs réelles</Kicker>
-      <p className="font-sans text-[13px] text-muted mt-2">
-        Aucune saisie d&apos;heures pour le moment.{' '}
-        Va dans un dossier et clique <strong>«&nbsp;Saisir des heures&nbsp;»</strong> pour démarrer.
+    <div style={{
+      flex: 1, minWidth: 130,
+      padding: 16,
+      border: `1px solid ${danger ? '#FF0000' : '#E5E5E5'}`,
+      background: '#FAFAFA',
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'translateY(0)' : 'translateY(10px)',
+      transition: `opacity 0.45s ease ${delay}ms, transform 0.45s ease ${delay}ms`,
+    }}>
+      <Kicker className="mb-2">{statut}</Kicker>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+        <span style={{
+          fontFamily: 'Georgia, serif',
+          fontSize: 44,
+          lineHeight: 1,
+          color: danger ? '#FF0000' : '#000',
+          fontVariantNumeric: 'tabular-nums',
+        }}>{animNb}</span>
+        <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#737373' }}>dossiers</span>
+      </div>
+      <p style={{ fontFamily: 'monospace', fontSize: 10, color: '#737373', marginTop: 4 }}>
+        {heures}h prévues
+      </p>
+      <QuotaBar ratio={ratio} danger={danger} delay={delay} />
+      <p style={{ fontFamily: 'monospace', fontSize: 9, marginTop: 5, color: danger ? '#FF0000' : '#aaa' }}>
+        {nb} / {quota} quota{danger ? ' — SEUIL DÉPASSÉ' : ''}
       </p>
     </div>
   );
+}
+
+// ── Graphique barres heures ──────────────────────────────────────────────────
+function HeuresChart({ parStatut, visible }) {
+  const actifs = PIPELINE.map(s => parStatut.find(r => r.statut === s) || { statut: s, heures_prevues: 0 });
+  const max    = Math.max(...actifs.map(s => s.heures_prevues || 0), 1);
+  const [heights, setHeights] = useState(actifs.map(() => 0));
+
+  useEffect(() => {
+    if (!visible) return;
+    const t = setTimeout(() => {
+      setHeights(actifs.map(s => ((s.heures_prevues || 0) / max) * 56));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [visible]); // eslint-disable-line
 
   return (
-    <div className="bg-surface border border-line p-5 flex-1">
-      <Kicker className="mb-3">Heures prévues vs réelles — dossiers actifs</Kicker>
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-ink">
-            {['Client', 'Statut', 'H.prévues', 'CA prévu', 'H.réelles', 'CA réel', 'Écart'].map((h, i) => (
-              <th key={i} className={`py-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted ${i > 1 ? 'text-right' : 'text-left'}`}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.slice(0, 12).map(row => {
-            const depasse = row.ecart > 0;
-            const manque  = row.prevues > 0 && row.reelles === 0;
-            return (
-              <tr key={row.id} className="border-t border-dotted border-black/30">
-                <td className="py-1.5">
-                  <p className="font-serif text-[13px] text-ink">{row.nom_client}</p>
-                  <p className="font-mono text-[10px] text-muted">{row.ref_dossier}</p>
-                </td>
-                <td className="py-1.5">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] border border-line px-1.5 py-0.5 text-muted">
-                    {row.statut}
-                  </span>
-                </td>
-                <td className="py-1.5 text-right font-serif tnum text-[13px] text-ink">{row.prevues}h</td>
-                <td className="py-1.5 text-right font-mono tnum text-[11px] text-muted">
-                  {row.ca_prevu > 0 ? row.ca_prevu.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }) : '—'}
-                </td>
-                <td className="py-1.5 text-right font-serif tnum text-[13px] text-ink">
-                  {row.reelles > 0 ? `${row.reelles}h` : '—'}
-                </td>
-                <td className="py-1.5 text-right font-mono tnum text-[11px] text-muted">
-                  {row.ca_reel > 0 ? row.ca_reel.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }) : '—'}
-                </td>
-                <td className="py-1.5 text-right font-mono tnum text-[11px]"
-                    style={{ color: manque ? '#737373' : depasse ? '#FF0000' : '#000', fontWeight: depasse ? 700 : 400 }}>
-                  {manque ? '—' : depasse ? `+${row.ecart}h` : `-${Math.abs(row.ecart)}h`}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div style={{ background: '#FAFAFA', border: '1px solid #E5E5E5', padding: 20 }}>
+      <Kicker className="mb-5">Heures prévues par statut</Kicker>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 72 }}>
+        {actifs.map((s, i) => (
+          <div key={s.statut} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 9, color: '#737373' }}>
+              {s.heures_prevues || 0}h
+            </span>
+            <div style={{
+              width: '100%',
+              height: `${heights[i]}px`,
+              backgroundColor: '#000',
+              minHeight: 1,
+              transition: 'height 0.9s cubic-bezier(0.4,0,0.2,1)',
+            }} />
+            <span style={{ fontFamily: 'monospace', fontSize: 8, color: '#737373', textAlign: 'center', lineHeight: 1.3 }}>
+              {s.statut.replace('envoyé', 'env.').replace('atelier', 'atl.')}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function BarresTypes({ data }) {
-  const max = Math.max(...data.map(d => d.nb), 1);
+// ── Carte pertes / rentables ─────────────────────────────────────────────────
+function FluxCard({ title, icon: Icon, items, mode }) {
+  const isPertes = mode === 'pertes';
   return (
-    <div className="bg-surface border border-line p-5 flex-1" style={{ minWidth: 220 }}>
-      <Kicker className="mb-4">Par type d&apos;intervention</Kicker>
-      {data.map(row => (
-        <div key={row.type_intervention} className="mb-3">
-          <div className="flex justify-between font-sans text-[13px] mb-1">
-            <span className="text-ink">{row.type_intervention}</span>
-            <span className="font-mono tnum text-[11px] text-muted">{row.nb} dossiers</span>
+    <div style={{ flex: 1, background: '#FAFAFA', border: '1px solid #E5E5E5', padding: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <Icon size={13} />
+        <Kicker>{title}</Kicker>
+      </div>
+      {items.length === 0 && (
+        <p style={{ fontFamily: 'monospace', fontSize: 11, color: '#737373' }}>
+          {isPertes ? 'Aucun dépassement d\'heures' : 'Aucun dossier en avance'}
+        </p>
+      )}
+      {items.map(d => {
+        const montant = Math.abs(d.ecart) * TAUX;
+        return (
+          <div key={d.id} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+            padding: '10px 0',
+            borderTop: '1px dotted #ccc',
+          }}>
+            <div>
+              <p style={{ fontFamily: 'Georgia, serif', fontSize: 14, color: '#000', margin: 0 }}>{d.nom_client}</p>
+              <p style={{ fontFamily: 'monospace', fontSize: 10, color: '#737373', margin: 0 }}>{d.ref_dossier}</p>
+            </div>
+            <span style={{
+              fontFamily: 'Georgia, serif',
+              fontSize: 20,
+              fontVariantNumeric: 'tabular-nums',
+              color: isPertes ? '#FF0000' : '#000',
+            }}>
+              {isPertes ? '−' : '+'}{montant.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+            </span>
           </div>
-          <div className="bg-line h-1.5">
-            <div className="h-full bg-ink" style={{ width: `${(row.nb / max) * 100}%` }} />
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-function TableFournisseurs({ data }) {
-  return (
-    <div className="bg-surface border border-line p-5 flex-1" style={{ minWidth: 240 }}>
-      <Kicker className="mb-3">Top fournisseurs</Kicker>
-      {data.map((f, i) => (
-        <div key={f.fournisseur} className="flex justify-between items-center py-2 border-t border-dotted border-black/30 first:border-0">
-          <div className="flex items-center gap-3">
-            <span className="font-serif text-[18px] tnum text-muted w-6">{i + 1}</span>
-            <span className="font-serif text-[13px] text-ink">{f.fournisseur}</span>
-          </div>
-          <span className="font-mono text-[11px] tnum text-muted">{f.nb_cmd} cmd.</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
+// ── Composant principal ──────────────────────────────────────────────────────
 export default function ReportsPanel() {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
+  const [visible, setVisible] = useState(false);
 
   const load = async () => {
     setLoading(true);
+    setVisible(false);
     const r = await fetch('/api/reports');
     setData(await r.json());
     setLoading(false);
+    setTimeout(() => setVisible(true), 40);
   };
 
   useEffect(() => { load(); }, []);
 
   if (loading) return (
-    <div className="p-10 text-center font-sans text-[13px] text-muted">Chargement des rapports…</div>
+    <div style={{ padding: 40, textAlign: 'center', fontFamily: 'monospace', fontSize: 13, color: '#737373' }}>
+      Chargement…
+    </div>
   );
   if (!data) return null;
 
-  const { kpi, parStatut, parType, heuresComparaison, heuresParOp, topFournisseurs } = data;
+  const { parStatut = [], heuresComparaison = [] } = data;
+  const statutMap = Object.fromEntries((parStatut).map(s => [s.statut, s]));
+
+  const pertes = heuresComparaison
+    .filter(d => d.ecart > 0 && d.reelles > 0)
+    .sort((a, b) => b.ecart - a.ecart)
+    .slice(0, 3);
+
+  const rentables = heuresComparaison
+    .filter(d => d.ecart < 0 && d.reelles > 0)
+    .sort((a, b) => a.ecart - b.ecart)
+    .slice(0, 3);
+
+  const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <div>
       {/* En-tête */}
       <div className="flex items-end justify-between mb-6">
         <div>
-          <Kicker className="mb-2">Module 05</Kicker>
-          <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">Rapports</h2>
+          <Kicker className="mb-2">Module 05 — Pilotage hebdo</Kicker>
+          <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink capitalize">{today}</h2>
         </div>
         <Btn variant="outline" onClick={load}>
           <RefreshCw size={12} /> Actualiser
         </Btn>
       </div>
 
-      {/* 4 KPI géants */}
-      <div className="flex gap-3 flex-wrap mb-5">
-        <KpiCard label="Dossiers actifs"  value={kpi.dossiers_actifs}
-          sub={`${kpi.total_dossiers} au total`} />
-        <KpiCard label="CA prévu (devis)"
-          value={(kpi.ca_pipeline || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-          sub={`${kpi.total_heures_prevues || 0}h × 55€ HT`} />
-        <KpiCard label="CA réalisé"
-          value={(kpi.ca_realise || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-          sub={`${kpi.total_heures_reelles || 0}h réelles`} />
-        <KpiCard label="Opérateurs"
-          value={kpi.nb_operateurs || 0}
-          sub={`${kpi.dossiers_avec_heures || 0} dossiers avec saisies`} />
-        {kpi.nb_urgent > 0 && (
-          <KpiCard label="Urgents" value={kpi.nb_urgent} sub={`${kpi.nb_sav} SAV`} />
-        )}
+      {/* 5 cartes statut pipeline */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+        {PIPELINE.map((statut, i) => {
+          const s = statutMap[statut] || { nb: 0, heures_prevues: 0 };
+          return (
+            <StatutCard
+              key={statut}
+              statut={statut}
+              nb={s.nb || 0}
+              heures={s.heures_prevues || 0}
+              quota={QUOTAS[statut]}
+              delay={i * 90}
+              visible={visible}
+            />
+          );
+        })}
       </div>
 
-      {/* Statuts + types */}
-      <div className="flex gap-4 flex-wrap mb-4">
-        <TableStatuts data={parStatut} />
-        <BarresTypes data={parType} />
+      {/* Graphique heures */}
+      <div style={{ marginBottom: 14 }}>
+        <HeuresChart parStatut={parStatut} visible={visible} />
       </div>
 
-      {/* Heures comparaison */}
-      <div className="flex gap-4 flex-wrap mb-4">
-        <TableHeuresComparaison data={heuresComparaison} />
-      </div>
-
-      {/* Opérateurs + fournisseurs */}
-      <div className="flex gap-4 flex-wrap">
-        {heuresParOp.length > 0 && (
-          <div className="bg-surface border border-line p-5 flex-1" style={{ minWidth: 220 }}>
-            <Kicker className="mb-3">Heures par opérateur</Kicker>
-            {heuresParOp.map(op => (
-              <div key={op.operateur} className="mb-4">
-                <div className="flex justify-between items-baseline mb-0.5">
-                  <span className="font-serif text-[14px] text-ink">{op.operateur}</span>
-                  <span className="font-serif tnum text-[20px] text-ink">{op.total}h</span>
-                </div>
-                <p className="font-mono text-[10px] text-muted">
-                  {op.nb_saisies} saisies · {op.nb_dossiers} dossiers · dernière le {op.derniere_saisie}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-        <TableFournisseurs data={topFournisseurs} />
+      {/* Bas : pertes + rentables */}
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        <FluxCard title="3 dossiers en perte" icon={TrendingDown} items={pertes} mode="pertes" />
+        <FluxCard title="3 dossiers rentables" icon={TrendingUp} items={rentables} mode="rentables" />
       </div>
     </div>
   );
