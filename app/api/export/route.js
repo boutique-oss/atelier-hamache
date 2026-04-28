@@ -210,7 +210,7 @@ ${body}
 
 function sectionDossiers(db) {
   const rows = db.prepare(`
-    SELECT nom_dossier, client_nom, statut, flags, type_intervention,
+    SELECT id, nom_dossier, client_nom, statut, flags, type_intervention,
            date_ouverture, telephone, adresse,
            heures_a_realiser,
            etape_devis, etape_cmde, etape_atelier, etape_print, etape_realise,
@@ -228,16 +228,19 @@ function sectionDossiers(db) {
   `).all();
 
   const archived = db.prepare(`SELECT COUNT(*) as n FROM dossiers WHERE statut='Clos'`).get().n;
-
-  // Stats rapides
   const byStatut = db.prepare(`SELECT statut, COUNT(*) as n FROM dossiers WHERE statut!='Clos' GROUP BY statut`).all();
-  const totH = db.prepare(`SELECT ROUND(SUM(heures_a_realiser),1) as t FROM dossiers WHERE statut!='Clos'`).get().t || 0;
+  const totH     = db.prepare(`SELECT ROUND(SUM(heures_a_realiser),1) as t FROM dossiers WHERE statut!='Clos'`).get().t || 0;
+
+  const tap  = rows.filter(r => r.type_intervention !== 'Rideaux');
+  const cout = rows.filter(r => r.type_intervention === 'Rideaux');
+  const hTap  = tap.reduce((s, r)  => s + (parseFloat(r.heures_a_realiser) || 0), 0);
+  const hCout = cout.reduce((s, r) => s + (parseFloat(r.heures_a_realiser) || 0), 0);
 
   const statsHtml = `<div class="stats-grid">
-    ${statCard('Dossiers actifs', rows.length, '#1A1814')}
+    ${statCard('Total actifs', rows.length, '#1A1814')}
+    ${statCard('Atelier TAP', tap.length + ' dossiers', '#9B5E2A')}
+    ${statCard('Atelier COUT', cout.length + ' dossiers', '#2D5F7C')}
     ${statCard('En atelier', byStatut.find(r=>r.statut==='En atelier')?.n || 0, '#B8702F')}
-    ${statCard('Prêts à poser', byStatut.find(r=>r.statut==='Prêt à poser')?.n || 0, '#5C7A4D')}
-    ${statCard('Heures prévues', totH + 'h', '#9B5E2A')}
   </div>`;
 
   const etapeDots = r => {
@@ -251,8 +254,11 @@ function sectionDossiers(db) {
     ).join('');
   };
 
-  const cols = [
-    { label: 'Dossier / Client', render: r => `<b>${esc(r.nom_dossier)}</b>${r.client_nom !== r.nom_dossier ? `<br><span style="color:#9A9387;font-size:9px">${esc(r.client_nom)}</span>` : ''}` },
+  const atelier_mention = (color, label) =>
+    `<span style="display:inline-block;background:${color};color:#fff;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:2px;margin-right:4px">${label}</span>`;
+
+  const colsTap = [
+    { label: 'Dossier / Client', render: r => `<b>${esc(r.nom_dossier)}</b>${r.client_nom && r.client_nom !== r.nom_dossier ? `<br><span style="color:#9A9387;font-size:9px">${esc(r.client_nom)}</span>` : ''}` },
     { label: 'Statut', render: r => badge(r.statut) },
     { label: 'Type', render: r => esc(r.type_intervention) },
     { label: 'H.prévues', render: r => fmtH(r.heures_a_realiser), num: true },
@@ -262,9 +268,25 @@ function sectionDossiers(db) {
     { label: 'Flags', render: r => flagBadges(r.flags) },
   ];
 
+  const colsCout = [
+    { label: 'Dossier / Client', render: r => `<b>${esc(r.nom_dossier)}</b>${r.client_nom && r.client_nom !== r.nom_dossier ? `<br><span style="color:#9A9387;font-size:9px">${esc(r.client_nom)}</span>` : ''}` },
+    { label: 'Statut', render: r => badge(r.statut) },
+    { label: 'H.prévues', render: r => fmtH(r.heures_a_realiser), num: true },
+    { label: 'Date', render: r => fmtDate(r.date_ouverture) },
+    { label: 'Téléphone', render: r => esc(r.telephone) },
+    { label: 'Avancement', render: r => etapeDots(r) },
+    { label: 'Flags', render: r => flagBadges(r.flags) },
+  ];
+
+  const bannerTap  = `<div style="background:#F5E9DC;border-left:4px solid #9B5E2A;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:#9B5E2A">— ATELIER TAP —&nbsp; Tapisserie d'ameublement</span><span style="font-size:11px;color:#9B5E2A">${tap.length} dossier${tap.length!==1?'s':''} · ${Math.round(hTap*10)/10}h prévues</span></div>`;
+  const bannerCout = `<div style="background:#E5EDF3;border-left:4px solid #2D5F7C;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:13px;font-weight:700;color:#2D5F7C">— ATELIER COUT —&nbsp; Rideaux &amp; Couture</span><span style="font-size:11px;color:#2D5F7C">${cout.length} dossier${cout.length!==1?'s':''} · ${Math.round(hCout*10)/10}h prévues</span></div>`;
+
   return `${statsHtml}
-  <div class="section-title">Dossiers actifs <span class="section-count">${rows.length} dossiers · ${archived} archivé(s)</span></div>
-  ${tableHtml(cols, rows, 'Aucun dossier actif')}`;
+  <div class="section-title">Compilation dossiers actifs <span class="section-count">${rows.length} dossiers · ${archived} archivé(s) · ${totH}h total</span></div>
+  ${bannerTap}
+  ${tableHtml(colsTap, tap, 'Aucun dossier Atelier TAP en cours')}
+  ${bannerCout}
+  ${tableHtml(colsCout, cout, 'Aucun dossier Atelier COUT en cours')}`;
 }
 
 function sectionCommandes(db) {
