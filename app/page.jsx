@@ -8,6 +8,8 @@ import ImportExportPanel from '../components/ImportExportPanel';
 import ReportsPanel from '../components/ReportsPanel';
 import FicheAtelierModal from '../components/FicheAtelierModal';
 import PredevisModule from '../components/PredevisModule';
+import VueRideaux from '../components/VueRideaux';
+import VueTodo from '../components/VueTodo';
 import Kicker from '../components/ui/Kicker';
 import Btn from '../components/ui/Btn';
 
@@ -703,12 +705,19 @@ function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
   const [clientFilter, setClientFilter] = useState('all');
   const [fournFilter, setFournFilter] = useState('all');
   const [statutLivFilter, setStatutLivFilter] = useState('all');
+  const [sortKey, setSortKey] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
 
   const fournUniques = useMemo(() => [...new Set(commandes.map(c => c.fournisseur))].sort(), [commandes]);
   const clientsUniques = useMemo(() => [...new Set(commandes.map(c => c.client).filter(Boolean))].sort(), [commandes]);
 
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
+  };
+
   const filtered = useMemo(() => {
-    return commandes.filter(c => {
+    let rows = commandes.filter(c => {
       if (search && !c.client?.toLowerCase().includes(search.toLowerCase()) && !c.designation?.toLowerCase().includes(search.toLowerCase()) && !c.reference?.toLowerCase().includes(search.toLowerCase())) return false;
       if (clientFilter !== 'all' && c.client !== clientFilter) return false;
       if (fournFilter !== 'all' && c.fournisseur !== fournFilter) return false;
@@ -717,7 +726,14 @@ function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
       if (statutLivFilter === 'attente' && livree) return false;
       return true;
     });
-  }, [commandes, search, clientFilter, fournFilter, statutLivFilter]);
+    if (sortKey) {
+      rows = [...rows].sort((a, b) => {
+        const va = String(a[sortKey] || ''), vb = String(b[sortKey] || '');
+        return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+      });
+    }
+    return rows;
+  }, [commandes, search, clientFilter, fournFilter, statutLivFilter, sortKey, sortDir]);
 
   const stats = useMemo(() => {
     const livrees = commandes.filter(c => c.qte_livree && c.qte_livree > 0).length;
@@ -837,8 +853,32 @@ function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
         <table className="w-full">
           <thead>
             <tr className="bg-bg border-b border-ink">
-              {['Fournisseur','Client','Désignation','Référence','Coloris','Quantité','Date cde','Livraison',''].map((h, i) => (
-                <th key={i} className="text-left px-3 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{h}</th>
+              {[
+                { key: 'fournisseur', label: 'Fournisseur' },
+                { key: 'client',      label: 'Client' },
+                { key: 'designation', label: 'Désignation' },
+                { key: 'reference',   label: 'Référence' },
+                { key: 'coloris',     label: 'Coloris' },
+                { key: 'qte',         label: 'Quantité' },
+                { key: 'date_cde',    label: 'Date cde' },
+                { key: 'date_livraison', label: 'Livraison' },
+                { key: '', label: '' },
+              ].map((col, i) => (
+                <th
+                  key={i}
+                  className="text-left px-3 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted"
+                  style={{ cursor: col.key ? 'pointer' : 'default', userSelect: 'none' }}
+                  onClick={() => col.key && toggleSort(col.key)}
+                >
+                  {col.key ? (
+                    <span className="inline-flex items-center gap-1">
+                      {col.label}
+                      {sortKey === col.key
+                        ? (sortDir === 'asc' ? ' ↑' : ' ↓')
+                        : <span style={{ color: '#ccc' }}>↕</span>}
+                    </span>
+                  ) : col.label}
+                </th>
               ))}
             </tr>
           </thead>
@@ -1041,6 +1081,8 @@ export default function Page() {
     { key: 'rapports',  num: '05', label: 'Rapports',   count: null },
     { key: 'import',    num: '06', label: 'Export PDF', count: null },
     { key: 'predevis',  num: '07', label: 'Prédevis',   count: null },
+    { key: 'rideaux',   num: '08', label: 'Rideaux',    count: null },
+    { key: 'todo',      num: '09', label: 'À faire',    count: null },
   ];
 
   const now = new Date();
@@ -1130,6 +1172,8 @@ export default function Page() {
         {view === 'rapports'  && <ReportsPanel />}
         {view === 'import'    && <ImportExportPanel onDataChanged={reload} />}
         {view === 'predevis'  && <PredevisModule />}
+        {view === 'rideaux'   && <VueRideaux />}
+        {view === 'todo'      && <VueTodo />}
 
         <footer className="mt-10 pt-4 pb-6 border-t border-ink">
           <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">

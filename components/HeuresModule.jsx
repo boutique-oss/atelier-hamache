@@ -88,9 +88,16 @@ function FormulaireHeure({ dossierId, dossiers, onSaved }) {
               className="px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
             >
               <option value="">— Choisir un dossier —</option>
-              {dossiers.map(d => (
+              {dossiers.filter(d => d.statut !== 'Clos').map(d => (
                 <option key={d.id} value={d.id}>{d.client_nom || d.nom_dossier} — {d.nom_dossier}</option>
               ))}
+              {dossiers.some(d => d.statut === 'Clos') && (
+                <optgroup label="── Dossiers clos ──">
+                  {dossiers.filter(d => d.statut === 'Clos').map(d => (
+                    <option key={d.id} value={d.id}>[CLOS] {d.client_nom || d.nom_dossier} — {d.nom_dossier}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
         )}
@@ -210,7 +217,7 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0 }) {
     if (!dossierId) {
       fetch('/api/dossiers')
         .then(r => r.json())
-        .then(d => setDossiers((Array.isArray(d) ? d : d.dossiers || []).filter(x => x.statut !== 'Clos')));
+        .then(d => setDossiers(Array.isArray(d) ? d : d.dossiers || []));
     }
   }, [dossierId]);
 
@@ -312,7 +319,12 @@ export default function HeuresModule({ dossierId = null, heuresPrevues = 0 }) {
                       </td>
                       <td className="px-3 py-2 font-sans text-[12px] text-muted">{h.type_travail}</td>
                       <td className="px-3 py-2 font-sans text-[13px] text-ink">{h.description}</td>
-                      <td className="px-3 py-2 font-sans text-[12px] text-muted truncate max-w-[120px]">{h.nom_client}</td>
+                      <td className="px-3 py-2 font-sans text-[12px] text-muted truncate max-w-[160px]">
+                        {h.nom_client}
+                        {h.statut === 'Clos' && (
+                          <span className="ml-1 font-mono text-[9px] uppercase tracking-[0.1em] px-1 py-0.5 border border-ink/40 text-muted">clos</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2">
                         <button onClick={() => handleDelete(h.id)} className="p-1 text-muted">
                           <Trash2 size={13} />

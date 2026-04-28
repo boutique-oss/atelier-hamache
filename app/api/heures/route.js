@@ -19,7 +19,8 @@ export async function GET(request) {
     // Entrées filtrées
     let q = `
       SELECT h.*, d.client_nom AS nom_client, d.nom_dossier AS ref_dossier,
-             COALESCE(d.heures_a_realiser, 0) AS prevues
+             COALESCE(d.heures_a_realiser, 0) AS prevues,
+             d.statut AS statut
       FROM heures h
       LEFT JOIN dossiers d ON h.dossier_id = d.id
       WHERE 1=1
