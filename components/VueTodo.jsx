@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, Check, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Plus, Trash2, Check, ChevronDown, ChevronUp, X, Download } from 'lucide-react';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
 
@@ -89,6 +89,26 @@ export default function VueTodo() {
     });
   }, [tasks, filterType, filterStatut, sortKey, sortDir]);
 
+  const exportCSV = () => {
+    const rows = filtered;
+    const header = ['Titre', 'Type', 'Notes', 'Statut', 'Créée le'];
+    const lines = [
+      header.join(';'),
+      ...rows.map(t => [
+        `"${(t.titre || '').replace(/"/g, '""')}"`,
+        TYPES.find(x => x.key === t.type)?.label || t.type,
+        `"${(t.notes || '').replace(/"/g, '""')}"`,
+        t.statut === 'done' ? 'Terminée' : 'En attente',
+        formatDate(t.created_at),
+      ].join(';')),
+    ];
+    const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `taches-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
   function SortIcon({ k }) {
     if (sortKey !== k) return <span className="text-[#ccc] ml-0.5">↕</span>;
     return sortDir === 'asc' ? <ChevronUp size={10} /> : <ChevronDown size={10} />;
@@ -115,9 +135,21 @@ export default function VueTodo() {
             <span className="font-serif tnum">{counts.done}</span> terminée{counts.done !== 1 ? 's' : ''}
           </p>
         </div>
-        <Btn onClick={() => setShowForm(f => !f)}>
-          {showForm ? <><X size={14} /> Fermer</> : <><Plus size={14} /> Nouvelle tâche</>}
-        </Btn>
+        <div className="flex gap-2">
+          {filtered.length > 0 && (
+            <>
+              <Btn variant="outline" onClick={() => window.open('/api/export?type=tasks', '_blank')}>
+                <Download size={14} /> PDF
+              </Btn>
+              <Btn variant="outline" onClick={exportCSV}>
+                <Download size={14} /> CSV
+              </Btn>
+            </>
+          )}
+          <Btn onClick={() => setShowForm(f => !f)}>
+            {showForm ? <><X size={14} /> Fermer</> : <><Plus size={14} /> Nouvelle tâche</>}
+          </Btn>
+        </div>
       </div>
 
       {/* Formulaire */}
