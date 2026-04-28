@@ -43,7 +43,8 @@ export default async function RideauxPrintPage({ params }) {
     return <div style={{ padding: 40, fontFamily: 'sans-serif' }}>Fiche introuvable (id={params.id})</div>;
   }
 
-  const pieces = JSON.parse(row.pieces_json || '[]');
+  const pieces    = JSON.parse(row.pieces_json    || '[]');
+  const materiaux = JSON.parse(row.materiaux_json || '[]');
   // Garantit au moins 4 lignes dans le tableau des pièces
   const pieceRows = [...pieces];
   while (pieceRows.length < 4) pieceRows.push({ baie: '', nb_rideaux: '', dimensions: '' });
@@ -200,6 +201,34 @@ export default async function RideauxPrintPage({ params }) {
             </tr>
           </tbody>
         </table>
+
+        {/* ── Matériaux commandés ───────────────────────────────── */}
+        {materiaux.length > 0 && (
+          <table style={{ marginBottom: 12 }}>
+            <thead>
+              <tr>
+                <td style={{ ...th, width: '28%' }}>Matériau / Tissu</td>
+                <td style={{ ...th, width: '18%' }}>Référence</td>
+                <td style={{ ...th, width: '22%' }}>Fournisseur</td>
+                <td style={{ ...th, width: '18%' }}>Coloris</td>
+                <td style={{ ...th, width: '14%', textAlign: 'center' }}>Qté</td>
+              </tr>
+            </thead>
+            <tbody>
+              {materiaux.map((m, i) => (
+                <tr key={i}>
+                  <td style={td}>{m.materiau || ''}</td>
+                  <td style={{ ...td, fontFamily: MONO, fontSize: 11 }}>{m.ref || ''}</td>
+                  <td style={td}>{m.fournisseur || ''}</td>
+                  <td style={td}>{m.coloris || ''}</td>
+                  <td style={{ ...td, textAlign: 'center', fontFamily: MONO, fontSize: 11 }}>
+                    {m.qte ? `${m.qte} ${m.unite || ''}` : ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
 
         {/* ── Notes ─────────────────────────────────────────────── */}
         <table>

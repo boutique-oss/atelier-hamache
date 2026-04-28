@@ -322,7 +322,12 @@ function DossierModal({ dossier, onSave, onDelete, onClose, onReload }) {
   );
 }
 
-function VueDossiers({ dossiers, onEdit, onNew, onFiche }) {
+function VueDossiers({ dossiers, onEdit, onNew, onFiche, rideauxFiches = [] }) {
+  // Set des dossier_id qui ont une fiche rideaux liée
+  const ficheRideauxIds = useMemo(
+    () => new Set(rideauxFiches.filter(f => f.dossier_id).map(f => f.dossier_id)),
+    [rideauxFiches]
+  );
   const [search, setSearch] = useState('');
   const [clientFilter, setClientFilter] = useState('all');
   const [statutFilter, setStatutFilter] = useState('all');
@@ -507,7 +512,17 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche }) {
                   <StatutBadge statut={d.statut} />
                 </td>
                 <td className="px-4 py-3 font-sans text-[13px] text-muted cursor-pointer" onClick={() => onEdit(d)}>
-                  {d.type_intervention || '—'}
+                  <span>{d.type_intervention || '—'}</span>
+                  {d.type_intervention === 'Rideaux' && (
+                    <span
+                      className="ml-2 font-mono text-[9px] uppercase tracking-[0.1em] px-1 py-0.5 border"
+                      style={ficheRideauxIds.has(d.id)
+                        ? { borderColor: '#000', background: '#000', color: '#fff' }
+                        : { borderColor: '#ccc', color: '#999' }}
+                    >
+                      {ficheRideauxIds.has(d.id) ? '✓ fiche' : '○ fiche'}
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 cursor-pointer" onClick={() => onEdit(d)}>
                   <EtapesDots etapes={d.etapes} />
@@ -1000,11 +1015,12 @@ function VueArchives({ dossiers, onEdit }) {
 }
 
 export default function Page() {
-  const [dossiers, setDossiers] = useState([]);
-  const [commandes, setCommandes] = useState([]);
-  const [fournisseurs, setFournisseurs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null);
+  const [dossiers, setDossiers]           = useState([]);
+  const [commandes, setCommandes]         = useState([]);
+  const [fournisseurs, setFournisseurs]   = useState([]);
+  const [rideauxFiches, setRideauxFiches] = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [editing, setEditing]             = useState(null);
   const [editingCommande, setEditingCommande] = useState(null);
   const [ficheForDossier, setFicheForDossier] = useState(null);
   const [view, setView] = useState('dossiers');
@@ -1015,14 +1031,16 @@ export default function Page() {
     ref_dossier: d.nom_dossier,
   });
   const reload = async () => {
-    const [d, c, f] = await Promise.all([
+    const [d, c, f, r] = await Promise.all([
       fetch('/api/dossiers').then(r => r.json()),
       fetch('/api/commandes').then(r => r.json()),
       fetch('/api/fournisseurs').then(r => r.json()),
+      fetch('/api/interventions-rideaux').then(r => r.json()),
     ]);
     setDossiers(d);
     setCommandes(c);
     setFournisseurs(f);
+    setRideauxFiches(Array.isArray(r) ? r : []);
   };
 
   useEffect(() => {
@@ -1081,7 +1099,7 @@ export default function Page() {
     { key: 'rapports',  num: '05', label: 'Rapports',   count: null },
     { key: 'import',    num: '06', label: 'Export PDF', count: null },
     { key: 'predevis',  num: '07', label: 'Prédevis',   count: null },
-    { key: 'rideaux',   num: '08', label: 'Rideaux',    count: null },
+    { key: 'rideaux',   num: '08', label: 'Rideaux',    count: rideauxFiches.length },
     { key: 'todo',      num: '09', label: 'À faire',    count: null },
   ];
 
@@ -1165,7 +1183,7 @@ export default function Page() {
           </Link>
         </nav>
 
-        {view === 'dossiers'  && <VueDossiers dossiers={dossiers} onEdit={setEditing} onNew={() => setEditing({})} onFiche={openFiche} />}
+        {view === 'dossiers'  && <VueDossiers dossiers={dossiers} onEdit={setEditing} onNew={() => setEditing({})} onFiche={openFiche} rideauxFiches={rideauxFiches} />}
         {view === 'commandes' && <VueCommandes commandes={commandes} fournisseurs={fournisseurs} onNew={() => setEditingCommande({})} onEdit={setEditingCommande} />}
         {view === 'archives'  && <VueArchives dossiers={dossiers} onEdit={setEditing} />}
         {view === 'heures'    && <HeuresModule />}
