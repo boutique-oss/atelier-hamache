@@ -23,6 +23,22 @@ function parseTapOps(raw) {
 export default function PredevisPrintView({ predevis, onClose }) {
   const [generating, setGenerating] = useState(false);
 
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.id = 'print-predevis';
+    style.textContent = `
+      @media print {
+        @page { size: A4; margin: 12mm 14mm; }
+        body > * { display: none !important; }
+        #predevis-print-root { display: block !important; position: static !important; overflow: visible !important; background: none !important; padding: 0 !important; }
+        #predevis-print-toolbar { display: none !important; }
+        #predevis-pdf-content { box-shadow: none !important; }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.getElementById('print-predevis')?.remove();
+  }, []);
+
   const tapOps = parseTapOps(predevis.tapisserie_ops);
   const tissus = parseJSON(predevis.tissus);
   const fournitures = parseJSON(predevis.fournitures);
@@ -76,13 +92,13 @@ export default function PredevisPrintView({ predevis, onClose }) {
   const tapOpsOps = formatTapOps();
 
   return (
-    <div className="fixed inset-0 z-[400] overflow-y-auto p-4 bg-black/40" onClick={onClose}>
+    <div id="predevis-print-root" className="fixed inset-0 z-[400] overflow-y-auto p-4 bg-black/40" onClick={onClose}>
       <div
         className="bg-surface border-2 border-ink max-w-[900px] mx-auto my-8 shadow-lg"
         onClick={e => e.stopPropagation()}
       >
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-ink bg-bg">
+        <div id="predevis-print-toolbar" className="flex items-center justify-between px-6 py-4 border-b border-ink bg-bg">
           <h3 className="font-serif text-[18px] text-ink">Prévisualisation — {predevis.reference}</h3>
           <div className="flex gap-2">
             <button
@@ -292,13 +308,6 @@ export default function PredevisPrintView({ predevis, onClose }) {
         </div>
       </div>
 
-      <style jsx>{`
-        @media print {
-          body { margin: 0; padding: 0; }
-          #predevis-pdf-content { margin: 0; padding: 0; }
-          .fixed { position: static; }
-        }
-      `}</style>
     </div>
   );
 }
