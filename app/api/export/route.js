@@ -431,7 +431,53 @@ function sectionRapport(db) {
   ${tableHtml(statutCols, statutRows)}`;
 }
 
-// ── GET /api/export?type=dossiers|commandes|heures|rapport|complet ────────────
+function sectionRideaux(db) {
+  let rows = [];
+  try {
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS interventions_rideaux (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client TEXT, telephone TEXT, adresse TEXT, date TEXT,
+        pieces_json TEXT DEFAULT '[]', tissu TEXT, ref_tissu TEXT,
+        coloris TEXT, metrage TEXT, type_tete TEXT, heures TEXT, notes TEXT,
+        created_at TEXT, updated_at TEXT, dossier_id INTEGER, materiaux_json TEXT DEFAULT '[]'
+      )
+    `).run();
+    rows = db.prepare(`
+      SELECT id, client, telephone, adresse, date,
+             pieces_json, tissu, ref_tissu, coloris, metrage,
+             type_tete, heures, notes, materiaux_json
+      FROM interventions_rideaux
+      ORDER BY date DESC, created_at DESC
+    `).all();
+  } catch { return `<div class="section-title">Atelier COUT</div><p class="empty">Table interventions_rideaux non disponible.</p>`; }
+
+  if (!rows.length) return `<div class="section-title">Atelier COUT — Rideaux</div><p class="empty">Aucune fiche rideaux enregistrée.</p>`;
+
+  const statsHtml = `<div class="stats-grid">
+    ${statCard('Fiches rideaux', rows.length)}
+    ${statCard('Avec tissu renseigné', rows.filter(r => r.tissu || r.ref_tissu).length, '#5C7A4D')}
+    ${statCard('Avec heures', rows.filter(r => r.heures && parseFloat(r.heures) > 0).length, '#9B5E2A')}
+    ${statCard('Total heures', Math.round(rows.reduce((s, r) => s + (parseFloat(r.heures) || 0), 0) * 10) / 10 + 'h', '#B8702F')}
+  </div>`;
+
+  const cols = [
+    { label: 'Client', render: r => `<b>${esc(r.client)}</b>${r.adresse ? `<br><span style="color:#9A9387;font-size:9px">${esc(r.adresse)}</span>` : ''}` },
+    { label: 'Date', render: r => fmtDate(r.date) },
+    { label: 'Tissu / Réf', render: r => [r.tissu, r.ref_tissu].filter(Boolean).map(v => esc(v)).join('<br>') || '<span class="nd">—</span>' },
+    { label: 'Coloris', render: r => esc(r.coloris) },
+    { label: 'Métrage', render: r => esc(r.metrage) },
+    { label: 'Tête', render: r => esc(r.type_tete) },
+    { label: 'H.estimées', render: r => r.heures ? `<b>${esc(r.heures)}h</b>` : '<span class="nd">—</span>', num: true },
+    { label: 'Notes', render: r => r.notes ? `<span style="font-size:9px">${esc(r.notes).substring(0, 60)}${r.notes.length > 60 ? '…' : ''}</span>` : '<span class="nd">—</span>' },
+  ];
+
+  return `${statsHtml}
+  <div class="section-title">Atelier COUT — Fiches rideaux <span class="section-count">${rows.length} fiches</span></div>
+  ${tableHtml(cols, rows, 'Aucune fiche rideaux')}`;
+}
+
+// ── GET /api/export?type=dossiers|commandes|heures|rideaux|rapport|complet ────
 export async function GET(request) {
   const db = getDb();
   try {
@@ -440,8 +486,12 @@ export async function GET(request) {
     let title, body, landscape;
 
     if (type === 'dossiers') {
-      title = 'Dossiers actifs';
+      title = 'Atelier TAP — Dossiers actifs';
       body = sectionDossiers(db);
+      landscape = true;
+    } else if (type === 'rideaux') {
+      title = 'Atelier COUT — Fiches rideaux';
+      body = sectionRideaux(db);
       landscape = true;
     } else if (type === 'commandes') {
       title = 'Commandes tissu';
@@ -460,6 +510,8 @@ export async function GET(request) {
       title = 'Export complet';
       body = `
         ${sectionDossiers(db)}
+        <div class="page-break"></div>
+        ${sectionRideaux(db)}
         <div class="page-break"></div>
         ${sectionCommandes(db)}
         <div class="page-break"></div>
