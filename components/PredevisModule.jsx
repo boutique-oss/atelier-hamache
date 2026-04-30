@@ -333,9 +333,19 @@ export default function PredevisModule() {
           <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">Prédevis</h2>
           <p className="font-sans text-[13px] text-muted mt-1">{list.length} chiffrage{list.length > 1 ? 's' : ''}</p>
         </div>
-        <Btn onClick={() => setEditing({})}>
-          <Plus size={14} /> Nouveau prédevis
-        </Btn>
+        <div className="flex items-center gap-2">
+          <a
+            href="/predevis/imprimer"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 font-sans text-[13px] font-medium bg-surface text-ink border border-ink"
+          >
+            <Printer size={14} /> Imprimer formulaire vierge
+          </a>
+          <Btn onClick={() => setEditing({})}>
+            <Plus size={14} /> Nouveau prédevis
+          </Btn>
+        </div>
       </div>
 
       {/* Stats */}
