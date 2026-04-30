@@ -2,23 +2,14 @@
 
 /*
  * DETTE TECHNIQUE — Saisie unique non respectée
- * Les constantes ci-dessous (FOURNISSEURS, TYPES_INTERVENTION, TAPISSERIE_OPS,
- * FINITION_OPTIONS, TVA_OPTIONS) sont dupliquées depuis :
- *   C:/Users/Utilisateur/Desktop/erp/PREDEVIS/PredevisPage.jsx (lignes 12-59)
- * À refactorer en module partagé (lib/predevis-constants.js) lors de
- * l'intégration du module prédevis dans atelier-app.
+ * Les constantes ci-dessous (TYPES_INTERVENTION, TAPISSERIE_OPS, FINITION_OPTIONS)
+ * sont dupliquées depuis components/PredevisModule.jsx.
+ * À refactorer en module partagé (lib/predevis-constants.js).
  */
 
 const TYPES_INTERVENTION = [
   'Tapisserie', 'Rideaux', 'Stores', 'Tête de lit',
   'Habillage de lit', 'Coussins', 'Pose seule', 'Autre',
-];
-
-const FOURNISSEURS = [
-  'CASAL', 'CASAMANCE', 'Camengo', 'Casadeco', 'Dedar', 'Designers Guild',
-  'Élitis', 'Houlès', 'Jean Paul Gaultier', 'Lelièvre', 'Lizzo', 'Manuel Canovas',
-  'Misia', 'Nobilis', 'Osborne & Little', 'Pierre Frey', 'Romo', 'Rubelli',
-  'Sahco', 'Sanderson', 'Zimmer + Rohde', 'Zoffany', 'Autre',
 ];
 
 const TAPISSERIE_OPS = [
@@ -27,11 +18,6 @@ const TAPISSERIE_OPS = [
 ];
 
 const FINITION_OPTIONS = ['Galons', 'Frange', 'Pose invisible', 'Clous', 'Griffe'];
-
-const TVA_OPTIONS = [
-  '20 % standard',
-  '10 % rénovation logement > 2 ans',
-];
 
 const Case = ({ children }) => (
   <span className="checkbox-label">
@@ -46,14 +32,11 @@ const Tissu = ({ n, principal }) => (
       Tissu {n}{principal ? ' — principal' : ''}
     </div>
 
-    <div className="bloc-sous-titre">Fournisseur</div>
-    <div className="grid-fourn">
-      {FOURNISSEURS.map((f) => (
-        <Case key={f}>{f === 'Autre' ? <>Autre&nbsp;: <span className="ligne ligne-inline" /></> : f}</Case>
-      ))}
-    </div>
-
-    <div className="grid-2 tissu-row">
+    <div className="grid-3 tissu-row">
+      <div>
+        <span className="field-label">Fournisseur</span>
+        <span className="ligne ligne-grow" />
+      </div>
       <div>
         <span className="field-label">Référence</span>
         <span className="ligne ligne-grow" />
@@ -109,8 +92,8 @@ export default function PredevisImprimerPage() {
           display: flex;
           justify-content: space-between;
           align-items: flex-end;
-          padding-bottom: 8px;
-          margin-bottom: 10px;
+          padding-bottom: 5px;
+          margin-bottom: 6px;
           border-bottom: 1.5px solid #000;
         }
         .doc-header .surlignage {
@@ -121,7 +104,7 @@ export default function PredevisImprimerPage() {
         }
         .doc-header h1 {
           font-family: 'Fraunces', Georgia, serif;
-          font-size: 26px;
+          font-size: 22px;
           margin: 0;
           line-height: 1.1;
           font-weight: 500;
@@ -137,24 +120,24 @@ export default function PredevisImprimerPage() {
         /* ==== BLOCS ==== */
         .bloc {
           border: 1px solid #000;
-          padding: 7px 10px 8px;
-          margin-bottom: 7px;
+          padding: 5px 8px 6px;
+          margin-bottom: 5px;
           page-break-inside: avoid;
           break-inside: avoid;
         }
         .bloc-titre {
           font-family: 'Fraunces', Georgia, serif;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 500;
-          margin: 0 0 6px;
-          padding-bottom: 4px;
+          margin: 0 0 4px;
+          padding-bottom: 3px;
           border-bottom: 1px solid #000;
         }
         .bloc-sous-titre {
-          font-size: 9.5px;
+          font-size: 9px;
           text-transform: uppercase;
           letter-spacing: 0.12em;
-          margin: 6px 0 4px;
+          margin: 4px 0 3px;
           font-weight: 600;
         }
 
@@ -180,14 +163,14 @@ export default function PredevisImprimerPage() {
         .ligne {
           display: inline-block;
           border-bottom: 1px solid #000;
-          height: 16px;
+          height: 14px;
           vertical-align: bottom;
         }
         .ligne-pleine {
           display: block;
           border-bottom: 1px solid #000;
-          height: 18px;
-          margin-bottom: 5px;
+          height: 14px;
+          margin-bottom: 3px;
         }
         .ligne-court { width: 50px; }
         .ligne-mid { width: 100px; }
@@ -213,21 +196,9 @@ export default function PredevisImprimerPage() {
           gap: 3px 8px;
         }
 
-        /* ==== FOURNISSEURS — 4 COLONNES COMPACTES ==== */
-        .grid-fourn {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr 1fr;
-          gap: 2px 8px;
-          margin-bottom: 5px;
-        }
-        .grid-fourn .checkbox-label {
-          font-size: 10px;
-          margin-right: 0;
-        }
-
         /* ==== TISSU SOUS-BLOC ==== */
         .tissu {
-          padding: 5px 0 6px;
+          padding: 3px 0 4px;
           border-top: 1px dashed #000;
         }
         .tissu:first-of-type {
@@ -236,11 +207,11 @@ export default function PredevisImprimerPage() {
         }
         .tissu-titre {
           font-family: 'Fraunces', Georgia, serif;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 500;
-          margin-bottom: 3px;
+          margin-bottom: 2px;
         }
-        .tissu-row { margin-top: 4px; }
+        .tissu-row { margin-top: 3px; }
 
         /* ==== TAPISSERIE — sous-blocs ==== */
         .tapisserie-sub {
@@ -380,17 +351,21 @@ export default function PredevisImprimerPage() {
 
           <div className="grid-2" style={{ marginBottom: 4 }}>
             <div>
-              <span className="field-label">Téléphone</span>
+              <span className="field-label">Téléphone 1</span>
               <span className="ligne ligne-grow" />
             </div>
             <div>
-              <span className="field-label">Email</span>
+              <span className="field-label">Téléphone 2</span>
               <span className="ligne ligne-grow" />
             </div>
           </div>
 
+          <div style={{ marginBottom: 4 }}>
+            <span className="field-label">Email</span>
+            <span className="ligne" style={{ width: 'calc(100% - 50px)' }} />
+          </div>
+
           <div className="bloc-sous-titre">Description du projet</div>
-          <div className="ligne-pleine" />
           <div className="ligne-pleine" />
           <div className="ligne-pleine" />
 
@@ -402,13 +377,6 @@ export default function PredevisImprimerPage() {
                   <>Autre&nbsp;: <span className="ligne" style={{ width: 90 }} /></>
                 ) : t}
               </Case>
-            ))}
-          </div>
-
-          <div className="bloc-sous-titre">TVA</div>
-          <div>
-            {TVA_OPTIONS.map((opt) => (
-              <Case key={opt}>{opt}</Case>
             ))}
           </div>
         </section>
@@ -476,7 +444,7 @@ export default function PredevisImprimerPage() {
               </tr>
             </thead>
             <tbody>
-              {[1, 2, 3, 4, 5, 6].map((i) => (
+              {[1, 2, 3, 4].map((i) => (
                 <tr key={i}>
                   <td>&nbsp;</td>
                   <td>&nbsp;</td>
@@ -510,7 +478,6 @@ export default function PredevisImprimerPage() {
           <div className="bloc-sous-titre">Notes libres</div>
           <div className="ligne-pleine" />
           <div className="ligne-pleine" />
-          <div className="ligne-pleine" />
         </section>
 
         {/* ============ BLOC 6 — RÉCAPITULATIF ============ */}
@@ -535,14 +502,6 @@ export default function PredevisImprimerPage() {
           </div>
           <div className="recap-row total">
             <span>Total HT</span>
-            <span className="recap-val">€</span>
-          </div>
-          <div className="recap-row">
-            <span>TVA (<span className="ligne" style={{ width: 30 }} /> %)</span>
-            <span className="recap-val">€</span>
-          </div>
-          <div className="recap-row total">
-            <span>Total TTC</span>
             <span className="recap-val">€</span>
           </div>
         </section>
