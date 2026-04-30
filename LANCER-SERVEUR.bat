@@ -15,5 +15,9 @@ echo Pour arreter le serveur, ferme cette fenetre ou fais Ctrl+C.
 echo ============================================================
 echo.
 cd /d "%~dp0"
+echo Construction de l'application...
+call npm run build
+echo.
+echo Demarrage du serveur...
 call npm start
 pause
