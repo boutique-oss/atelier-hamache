@@ -340,7 +340,7 @@ export default function PredevisModule() {
             rel="noreferrer"
             className="inline-flex items-center gap-2 px-4 py-2 font-sans text-[13px] font-medium bg-surface text-ink border border-ink"
           >
-            <Printer size={14} /> Imprimer formulaire vierge
+            <Printer size={14} /> Page vierge
           </a>
           <Btn onClick={() => setEditing({})}>
             <Plus size={14} /> Nouveau prédevis
