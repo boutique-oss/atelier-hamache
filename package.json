@@ -4,9 +4,9 @@
   "description": "Application interne de gestion - Atelier Stéphan Hamache",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build",
-    "start": "next start -H 0.0.0.0",
+    "start": "next start -H 0.0.0.0 -p 3001",
     "init-db": "node scripts/init-db.mjs",
     "first-run": "npm install && npm run init-db && npm run build && npm start"
   },
