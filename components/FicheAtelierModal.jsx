@@ -234,18 +234,26 @@ export default function FicheAtelierModal({ dossier, onClose }) {
   const handleSave = async () => {
     setSaving(true);
     const contenuComplet = { ...contenu, etapes_custom: etapes, tissus_list: tissus };
-    await fetch('/api/fiches', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dossier_id: dossier.id,
-        type_intervention: typeIntervention,
-        contenu_json: contenuComplet,
-        notes_libres: notes,
-      }),
-    });
-    setSaving(false);
-    setSaved(true);
+    try {
+      const r = await fetch('/api/fiches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dossier_id: dossier.id,
+          type_intervention: typeIntervention,
+          contenu_json: contenuComplet,
+          notes_libres: notes,
+        }),
+      });
+      const res = await r.json();
+      if (!r.ok) throw new Error(res.error || 'Erreur serveur');
+      if (res.id) setFicheId(res.id);
+      setSaved(true);
+    } catch (err) {
+      alert(`Erreur lors de l'enregistrement : ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const champsActuels = schemas[typeIntervention] || [];

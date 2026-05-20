@@ -121,7 +121,9 @@ export async function GET(request) {
       ...fiche,
       nom_client: fiche.dossiers?.client_nom,
       ref_dossier: fiche.dossiers?.id ? `DE${String(fiche.dossiers.id).padStart(8, '0')}` : null,
-      type_intervention: fiche.dossiers?.type_intervention,
+      // Conserver le type_intervention de la fiche elle-même (pas du dossier)
+      // Fallback sur le dossier si la fiche n'a pas de type (anciennes données)
+      type_intervention: fiche.type_intervention || fiche.dossiers?.type_intervention,
       statut: fiche.dossiers?.statut,
       heures_a_realiser: fiche.dossiers?.heures_a_realiser,
       dossiers: undefined,

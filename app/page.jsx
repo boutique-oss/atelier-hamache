@@ -332,6 +332,7 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche, rideauxFiches = [] }) {
   const [statutFilter, setStatutFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [flagFilter, setFlagFilter] = useState('all');
+  const [sortAlpha, setSortAlpha] = useState(false);
 
   const actifs = useMemo(() => dossiers.filter(d => d.statut !== 'Clos'), [dossiers]);
 
@@ -350,9 +351,10 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche, rideauxFiches = [] }) {
     }).sort((a, b) => {
       const sa = STATUTS.indexOf(a.statut), sb = STATUTS.indexOf(b.statut);
       if (sa !== sb) return sa - sb;
+      if (sortAlpha) return a.nom_dossier.localeCompare(b.nom_dossier, 'fr', { sensitivity: 'base' });
       return (b.date_ouverture || '').localeCompare(a.date_ouverture || '');
     });
-  }, [actifs, search, clientFilter, statutFilter, typeFilter, flagFilter]);
+  }, [actifs, search, clientFilter, statutFilter, typeFilter, flagFilter, sortAlpha]);
 
   const stats = useMemo(() => {
     const out = {};
@@ -360,7 +362,7 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche, rideauxFiches = [] }) {
     return out;
   }, [actifs]);
 
-  const hasFilters = clientFilter !== 'all' || statutFilter !== 'all' || typeFilter !== 'all' || flagFilter !== 'all' || search;
+  const hasFilters = clientFilter !== 'all' || statutFilter !== 'all' || typeFilter !== 'all' || flagFilter !== 'all' || search || sortAlpha;
 
   return (
     <div>
@@ -437,6 +439,14 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche, rideauxFiches = [] }) {
           <option value="all">Tous flags</option>
           {FLAGS.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
+        <button
+          onClick={() => setSortAlpha(a => !a)}
+          className="px-3 py-2 font-mono text-[11px] uppercase tracking-[0.1em] border border-ink whitespace-nowrap"
+          style={{ background: sortAlpha ? '#000' : 'transparent', color: sortAlpha ? '#FFF' : '#000' }}
+          title="Trier par nom A→Z (sinon : par date)"
+        >
+          A→Z
+        </button>
       </div>
 
       {/* Chips filtres actifs */}
@@ -474,7 +484,7 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche, rideauxFiches = [] }) {
             </span>
           )}
           <button
-            onClick={() => { setSearch(''); setClientFilter('all'); setStatutFilter('all'); setTypeFilter('all'); setFlagFilter('all'); }}
+            onClick={() => { setSearch(''); setClientFilter('all'); setStatutFilter('all'); setTypeFilter('all'); setFlagFilter('all'); setSortAlpha(false); }}
             className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted underline"
           >
             Tout effacer
@@ -949,7 +959,11 @@ function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
 function VueArchives({ dossiers, onEdit }) {
   const [search, setSearch] = useState('');
   const archives = useMemo(() => dossiers.filter(d => d.statut === 'Clos'), [dossiers]);
-  const filtered = useMemo(() => archives.filter(d => !search || d.nom_dossier.toLowerCase().includes(search.toLowerCase()) || d.client_nom?.toLowerCase().includes(search.toLowerCase())), [archives, search]);
+  const filtered = useMemo(() =>
+    archives
+      .filter(d => !search || d.nom_dossier.toLowerCase().includes(search.toLowerCase()) || d.client_nom?.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => a.nom_dossier.localeCompare(b.nom_dossier, 'fr', { sensitivity: 'base' })),
+  [archives, search]);
 
   return (
     <div>
