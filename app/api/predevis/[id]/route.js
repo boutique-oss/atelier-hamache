@@ -1,58 +1,53 @@
 import { NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request, { params }) {
-  const db = getDb();
-  const row = db.prepare('SELECT * FROM predevis WHERE id = ?').get(parseInt(params.id));
-  if (!row) return NextResponse.json({ error: 'not found' }, { status: 404 });
-  return NextResponse.json(row);
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('predevis').select('*').eq('id', parseInt(params.id)).single();
+  if (error) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  return NextResponse.json(data);
 }
 
 export async function PUT(request, { params }) {
-  const db = getDb();
+  const supabase = createClient();
   const id = parseInt(params.id);
   const body = await request.json();
 
-  db.prepare(`
-    UPDATE predevis SET
-      statut=?, dossier_id=?, client_nom=?, client_tel=?, client_email=?, client_adresse=?,
-      description=?, type_intervention=?, tapisserie_ops=?, urgent=?,
-      tissus=?, fournitures=?, heures_estimees=?, taux_horaire=?, forfait_pose=?,
-      km_deplacement=?, tarif_km=?, taux_tva=?, notes=?, total_ht=?, total_ttc=?,
-      updated_at=CURRENT_TIMESTAMP
-    WHERE id=?
-  `).run(
-    body.statut || 'brouillon',
-    body.dossier_id || null,
-    body.client_nom || '',
-    body.client_tel || '',
-    body.client_email || '',
-    body.client_adresse || '',
-    body.description || '',
-    body.type_intervention || 'Tapisserie',
-    body.tapisserie_ops ? JSON.stringify(body.tapisserie_ops) : null,
-    body.urgent ? 1 : 0,
-    body.tissus ? JSON.stringify(body.tissus) : null,
-    body.fournitures ? JSON.stringify(body.fournitures) : null,
-    parseFloat(body.heures_estimees) || 0,
-    parseFloat(body.taux_horaire) || 55,
-    parseFloat(body.forfait_pose) || 0,
-    parseFloat(body.km_deplacement) || 0,
-    parseFloat(body.tarif_km) || 0.5,
-    parseFloat(body.taux_tva) || 0.20,
-    body.notes || '',
-    parseFloat(body.total_ht) || 0,
-    parseFloat(body.total_ttc) || 0,
-    id,
-  );
+  const { error } = await supabase.from('predevis').update({
+    statut: body.statut || 'brouillon',
+    dossier_id: body.dossier_id || null,
+    client_nom: body.client_nom || '',
+    client_tel: body.client_tel || '',
+    client_email: body.client_email || '',
+    client_adresse: body.client_adresse || '',
+    description: body.description || '',
+    type_intervention: body.type_intervention || 'Tapisserie',
+    tapisserie_ops: body.tapisserie_ops ? JSON.stringify(body.tapisserie_ops) : null,
+    urgent: !!body.urgent,
+    tissus: body.tissus ? JSON.stringify(body.tissus) : null,
+    fournitures: body.fournitures ? JSON.stringify(body.fournitures) : null,
+    heures_estimees: parseFloat(body.heures_estimees) || 0,
+    taux_horaire: parseFloat(body.taux_horaire) || 55,
+    forfait_pose: parseFloat(body.forfait_pose) || 0,
+    km_deplacement: parseFloat(body.km_deplacement) || 0,
+    tarif_km: parseFloat(body.tarif_km) || 0.5,
+    taux_tva: parseFloat(body.taux_tva) || 0.20,
+    notes: body.notes || '',
+    total_ht: parseFloat(body.total_ht) || 0,
+    total_ttc: parseFloat(body.total_ttc) || 0,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id);
 
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request, { params }) {
-  const db = getDb();
-  db.prepare('DELETE FROM predevis WHERE id = ?').run(parseInt(params.id));
+  const supabase = createClient();
+  const { error } = await supabase.from('predevis').delete().eq('id', parseInt(params.id));
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

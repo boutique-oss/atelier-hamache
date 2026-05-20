@@ -1,120 +1,88 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-function getDb() {
-  const db = new Database(path.join(process.cwd(), 'data', 'atelier.db'));
-  db.prepare(`
-    CREATE TABLE IF NOT EXISTS interventions_rideaux (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      client TEXT NOT NULL,
-      telephone TEXT DEFAULT '',
-      adresse TEXT DEFAULT '',
-      date TEXT DEFAULT '',
-      pieces_json TEXT DEFAULT '[]',
-      tissu TEXT DEFAULT '',
-      ref_tissu TEXT DEFAULT '',
-      coloris TEXT DEFAULT '',
-      metrage TEXT DEFAULT '',
-      type_tete TEXT DEFAULT '',
-      heures TEXT DEFAULT '',
-      notes TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    )
-  `).run();
-  // Migrations colonnes optionnelles (silencieuses si déjà présentes)
-  try { db.prepare("ALTER TABLE interventions_rideaux ADD COLUMN dossier_id INTEGER").run(); } catch {}
-  try { db.prepare("ALTER TABLE interventions_rideaux ADD COLUMN materiaux_json TEXT DEFAULT '[]'").run(); } catch {}
-  return db;
-}
-
 export async function GET(request) {
-  const db = getDb();
-  try {
-    const { searchParams } = new URL(request.url);
-    const dossierId = searchParams.get('dossier_id');
+  const supabase = createClient();
+  const { searchParams } = new URL(request.url);
+  const dossierId = searchParams.get('dossier_id');
 
-    if (dossierId) {
-      // Retourne la fiche liée à ce dossier (ou null)
-      const row = db.prepare(
-        'SELECT * FROM interventions_rideaux WHERE dossier_id = ? ORDER BY created_at DESC LIMIT 1'
-      ).get(dossierId);
-      return NextResponse.json({ fiche: row || null });
-    }
-
-    const rows = db.prepare(
-      'SELECT * FROM interventions_rideaux ORDER BY date DESC, created_at DESC'
-    ).all();
-    return NextResponse.json(rows);
-  } finally {
-    db.close();
+  if (dossierId) {
+    const { data } = await supabase
+      .from('interventions_rideaux')
+      .select('*')
+      .eq('dossier_id', dossierId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return NextResponse.json({ fiche: data || null });
   }
+
+  const { data, error } = await supabase
+    .from('interventions_rideaux')
+    .select('*')
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data);
 }
 
 export async function POST(request) {
-  const db = getDb();
-  try {
-    const {
-      client, telephone, adresse, date, pieces_json,
-      tissu, ref_tissu, coloris, metrage, type_tete, heures, notes,
-      dossier_id, materiaux_json,
-    } = await request.json();
-    if (!client) return NextResponse.json({ error: 'client requis' }, { status: 400 });
-    const r = db.prepare(`
-      INSERT INTO interventions_rideaux
-        (client, telephone, adresse, date, pieces_json, tissu, ref_tissu, coloris, metrage, type_tete, heures, notes, dossier_id, materiaux_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      client, telephone || '', adresse || '', date || '',
-      pieces_json || '[]', tissu || '', ref_tissu || '',
-      coloris || '', metrage || '', type_tete || '', heures || '', notes || '',
-      dossier_id || null, materiaux_json || '[]',
-    );
-    return NextResponse.json({ id: r.lastInsertRowid });
-  } finally {
-    db.close();
-  }
+  const supabase = createClient();
+  const body = await request.json();
+  if (!body.client) return NextResponse.json({ error: 'client requis' }, { status: 400 });
+
+  const { data, error } = await supabase.from('interventions_rideaux').insert({
+    client: body.client,
+    telephone: body.telephone || '',
+    adresse: body.adresse || '',
+    date: body.date || '',
+    pieces_json: body.pieces_json || '[]',
+    tissu: body.tissu || '',
+    ref_tissu: body.ref_tissu || '',
+    coloris: body.coloris || '',
+    metrage: body.metrage || '',
+    type_tete: body.type_tete || '',
+    heures: body.heures || '',
+    notes: body.notes || '',
+    dossier_id: body.dossier_id || null,
+    materiaux_json: body.materiaux_json || '[]',
+  }).select().single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ id: data.id });
 }
 
 export async function PUT(request) {
-  const db = getDb();
-  try {
-    const id = new URL(request.url).searchParams.get('id');
-    const {
-      client, telephone, adresse, date, pieces_json,
-      tissu, ref_tissu, coloris, metrage, type_tete, heures, notes,
-      dossier_id, materiaux_json,
-    } = await request.json();
-    db.prepare(`
-      UPDATE interventions_rideaux
-      SET client=?, telephone=?, adresse=?, date=?, pieces_json=?,
-          tissu=?, ref_tissu=?, coloris=?, metrage=?, type_tete=?, heures=?, notes=?,
-          dossier_id=?, materiaux_json=?,
-          updated_at=datetime('now')
-      WHERE id=?
-    `).run(
-      client, telephone || '', adresse || '', date || '',
-      pieces_json || '[]', tissu || '', ref_tissu || '',
-      coloris || '', metrage || '', type_tete || '', heures || '', notes || '',
-      dossier_id || null, materiaux_json || '[]',
-      id,
-    );
-    return NextResponse.json({ ok: true });
-  } finally {
-    db.close();
-  }
+  const supabase = createClient();
+  const id = new URL(request.url).searchParams.get('id');
+  const body = await request.json();
+
+  const { error } = await supabase.from('interventions_rideaux').update({
+    client: body.client,
+    telephone: body.telephone || '',
+    adresse: body.adresse || '',
+    date: body.date || '',
+    pieces_json: body.pieces_json || '[]',
+    tissu: body.tissu || '',
+    ref_tissu: body.ref_tissu || '',
+    coloris: body.coloris || '',
+    metrage: body.metrage || '',
+    type_tete: body.type_tete || '',
+    heures: body.heures || '',
+    notes: body.notes || '',
+    dossier_id: body.dossier_id || null,
+    materiaux_json: body.materiaux_json || '[]',
+    updated_at: new Date().toISOString(),
+  }).eq('id', id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request) {
-  const db = getDb();
-  try {
-    const id = new URL(request.url).searchParams.get('id');
-    db.prepare('DELETE FROM interventions_rideaux WHERE id=?').run(id);
-    return NextResponse.json({ ok: true });
-  } finally {
-    db.close();
-  }
+  const supabase = createClient();
+  const id = new URL(request.url).searchParams.get('id');
+  const { error } = await supabase.from('interventions_rideaux').delete().eq('id', id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

@@ -1,12 +1,7 @@
-import Database from 'better-sqlite3';
-import path from 'path';
+import { createClient } from '@/lib/supabase/server';
 import PrintButton from './PrintButton';
 
 export const dynamic = 'force-dynamic';
-
-function getDb() {
-  return new Database(path.join(process.cwd(), 'data', 'atelier.db'));
-}
 
 // ── Étapes prédéfinies par type d'intervention ────────────────────────────
 const ETAPES_PAR_TYPE = {
@@ -119,10 +114,11 @@ function typePhone(tel) {
 }
 
 export default async function FicheImpressionPage({ params }) {
-  const db = getDb();
-  const row = db.prepare('SELECT * FROM dossiers WHERE id = ?').get(params.id);
-  const ficheRow = db.prepare('SELECT * FROM fiches_atelier WHERE dossier_id = ?').get(params.id);
-  db.close();
+  const supabase = createClient();
+  const [{ data: row }, { data: ficheRow }] = await Promise.all([
+    supabase.from('dossiers').select('*').eq('id', params.id).maybeSingle(),
+    supabase.from('fiches_atelier').select('*').eq('dossier_id', params.id).maybeSingle(),
+  ]);
 
   if (!row) {
     return <div style={{ padding: 40, fontFamily: 'sans-serif' }}>Dossier introuvable (id={params.id})</div>;

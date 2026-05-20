@@ -1,7 +1,8 @@
 node_modules/
 .next/
-data/atelier.db-journal
-data/atelier.db-wal
-data/atelier.db-shm
+data/
+.env.local
+.env*.local
 .DS_Store
 *.log
+.claude/worktrees/

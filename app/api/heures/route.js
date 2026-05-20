@@ -1,124 +1,98 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-function getDb() {
-  return new Database(path.join(process.cwd(), 'data', 'atelier.db'));
-}
-
-// ── GET : liste + stats ──────────────────────────────────────────────────
 export async function GET(request) {
-  const db = getDb();
-  try {
-    const { searchParams } = new URL(request.url);
-    const dossierId = searchParams.get('dossier_id');
-    const operateur  = searchParams.get('operateur');
+  const supabase = createClient();
+  const { searchParams } = new URL(request.url);
+  const dossierId = searchParams.get('dossier_id');
+  const operateur = searchParams.get('operateur');
 
-    // Entrées filtrées
-    let q = `
-      SELECT h.*, d.client_nom AS nom_client, d.nom_dossier AS ref_dossier,
-             COALESCE(d.heures_a_realiser, 0) AS prevues,
-             d.statut AS statut
-      FROM heures h
-      LEFT JOIN dossiers d ON h.dossier_id = d.id
-      WHERE 1=1
-    `;
-    const params = [];
-    if (dossierId) { q += ' AND h.dossier_id = ?'; params.push(dossierId); }
-    if (operateur)  { q += ' AND h.operateur = ?';  params.push(operateur); }
-    q += ' ORDER BY h.date DESC, h.created_at DESC';
-    const heures = db.prepare(q).all(...params);
+  let query = supabase
+    .from('heures')
+    .select('*, dossiers(client_nom, nom_dossier, heures_a_realiser, statut)')
+    .order('date', { ascending: false })
+    .order('created_at', { ascending: false });
 
-    // Stats par opérateur (scope identique)
-    let qs = `
-      SELECT operateur,
-        ROUND(SUM(heures_passees), 2) as total_heures,
-        COUNT(*) as nb_saisies,
-        COUNT(DISTINCT dossier_id) as nb_dossiers
-      FROM heures
-    `;
-    const paramsS = [];
-    if (dossierId) { qs += ' WHERE dossier_id = ?'; paramsS.push(dossierId); }
-    qs += ' GROUP BY operateur ORDER BY total_heures DESC';
-    const stats = db.prepare(qs).all(...paramsS);
+  if (dossierId) query = query.eq('dossier_id', dossierId);
+  if (operateur) query = query.eq('operateur', operateur);
 
-    // Synthèse prévues vs réelles (si dossier précis)
-    let synthese = null;
-    if (dossierId) {
-      synthese = db.prepare(`
-        SELECT
-          COALESCE(d.heures_a_realiser, 0) as prevues,
-          ROUND(COALESCE(SUM(h.heures_passees), 0), 2) as reelles,
-          ROUND(COALESCE(SUM(h.heures_passees), 0) - COALESCE(d.heures_a_realiser, 0), 2) as ecart
-        FROM dossiers d
-        LEFT JOIN heures h ON h.dossier_id = d.id
-        WHERE d.id = ?
-        GROUP BY d.id
-      `).get(dossierId);
-    }
+  const { data: heuresRaw, error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ heures, stats, synthese });
-  } finally {
-    db.close();
+  const heures = heuresRaw.map(h => ({
+    ...h,
+    nom_client: h.dossiers?.client_nom,
+    ref_dossier: h.dossiers?.nom_dossier,
+    prevues: h.dossiers?.heures_a_realiser || 0,
+    statut: h.dossiers?.statut,
+    dossiers: undefined,
+  }));
+
+  // Stats par opérateur
+  const statsMap = {};
+  (dossierId ? heures : heures).forEach(h => {
+    const op = h.operateur;
+    if (!statsMap[op]) statsMap[op] = { operateur: op, total_heures: 0, nb_saisies: 0, nb_dossiers: new Set() };
+    statsMap[op].total_heures += h.heures_passees || 0;
+    statsMap[op].nb_saisies++;
+    if (h.dossier_id) statsMap[op].nb_dossiers.add(h.dossier_id);
+  });
+  const stats = Object.values(statsMap).map(s => ({
+    operateur: s.operateur,
+    total_heures: Math.round(s.total_heures * 100) / 100,
+    nb_saisies: s.nb_saisies,
+    nb_dossiers: s.nb_dossiers.size,
+  })).sort((a, b) => b.total_heures - a.total_heures);
+
+  // Synthèse prévues vs réelles si dossier précis
+  let synthese = null;
+  if (dossierId) {
+    const { data: dossier } = await supabase
+      .from('dossiers').select('heures_a_realiser').eq('id', dossierId).single();
+    const prevues = dossier?.heures_a_realiser || 0;
+    const reelles = Math.round(heures.reduce((s, h) => s + (h.heures_passees || 0), 0) * 100) / 100;
+    synthese = { prevues, reelles, ecart: Math.round((reelles - prevues) * 100) / 100 };
   }
+
+  return NextResponse.json({ heures, stats, synthese });
 }
 
-// ── POST : créer une saisie ──────────────────────────────────────────────
 export async function POST(request) {
-  const db = getDb();
-  try {
-    const { dossier_id, operateur, date, heures_passees, type_travail, description } = await request.json();
-    if (!dossier_id || !operateur || !date || !heures_passees) {
-      return NextResponse.json({ error: 'Champs requis : dossier_id, operateur, date, heures_passees' }, { status: 400 });
-    }
-    const r = db.prepare(`
-      INSERT INTO heures (dossier_id, operateur, date, heures_passees, type_travail, description)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(dossier_id, operateur, date, parseFloat(heures_passees), type_travail || 'Atelier', description || '');
-
-    // Broadcast update to all connected clients
-    fetch(new URL('/api/sync?action=broadcast', request.url).toString()).catch(() => {});
-
-    return NextResponse.json({ id: r.lastInsertRowid });
-  } finally {
-    db.close();
+  const supabase = createClient();
+  const { dossier_id, operateur, date, heures_passees, type_travail, description } = await request.json();
+  if (!dossier_id || !operateur || !date || !heures_passees) {
+    return NextResponse.json({ error: 'Champs requis : dossier_id, operateur, date, heures_passees' }, { status: 400 });
   }
+
+  const { data, error } = await supabase.from('heures').insert({
+    dossier_id, operateur, date,
+    heures_passees: parseFloat(heures_passees),
+    type_travail: type_travail || 'Atelier',
+    description: description || '',
+  }).select().single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ id: data.id });
 }
 
-// ── PUT : modifier une saisie ────────────────────────────────────────────
 export async function PUT(request) {
-  const db = getDb();
-  try {
-    const { id, operateur, date, heures_passees, type_travail, description } = await request.json();
-    db.prepare(`
-      UPDATE heures
-      SET operateur=?, date=?, heures_passees=?, type_travail=?, description=?
-      WHERE id=?
-    `).run(operateur, date, parseFloat(heures_passees), type_travail, description, id);
+  const supabase = createClient();
+  const { id, operateur, date, heures_passees, type_travail, description } = await request.json();
 
-    // Broadcast update to all connected clients
-    fetch(new URL('/api/sync?action=broadcast', request.url).toString()).catch(() => {});
-
-    return NextResponse.json({ ok: true });
-  } finally {
-    db.close();
-  }
+  const { error } = await supabase.from('heures').update({
+    operateur, date,
+    heures_passees: parseFloat(heures_passees),
+    type_travail, description,
+  }).eq('id', id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }
 
-// ── DELETE ───────────────────────────────────────────────────────────────
 export async function DELETE(request) {
-  const db = getDb();
-  try {
-    const id = new URL(request.url).searchParams.get('id');
-    db.prepare('DELETE FROM heures WHERE id=?').run(id);
-
-    // Broadcast update to all connected clients
-    fetch(new URL('/api/sync?action=broadcast', request.url).toString()).catch(() => {});
-
-    return NextResponse.json({ ok: true });
-  } finally {
-    db.close();
-  }
+  const supabase = createClient();
+  const id = new URL(request.url).searchParams.get('id');
+  const { error } = await supabase.from('heures').delete().eq('id', id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

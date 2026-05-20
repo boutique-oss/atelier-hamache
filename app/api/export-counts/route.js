@@ -1,48 +1,39 @@
-import Database from 'better-sqlite3';
-import path from 'path';
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-function getDb() {
-  return new Database(path.join(process.cwd(), 'data', 'atelier.db'));
-}
-
 export async function GET() {
-  const db = getDb();
-  try {
-    const dossiersActifs = db.prepare(`SELECT COUNT(*) as n FROM dossiers WHERE statut != 'Clos'`).get().n;
-    const enAtelier     = db.prepare(`SELECT COUNT(*) as n FROM dossiers WHERE statut = 'En atelier'`).get().n;
-    const pretAPoser    = db.prepare(`SELECT COUNT(*) as n FROM dossiers WHERE statut = 'Prêt à poser'`).get().n;
+  const supabase = createClient();
 
-    const commandes      = db.prepare(`SELECT COUNT(*) as n FROM commandes`).get().n;
-    const cmdEnAttente   = db.prepare(`SELECT COUNT(*) as n FROM commandes WHERE (qte_livree IS NULL OR qte_livree = 0)`).get().n;
+  const [
+    { count: dossiersActifs },
+    { count: enAtelier },
+    { count: pretAPoser },
+    { count: commandes },
+    { count: cmdEnAttente },
+    { count: heuresSaisies },
+    { count: rideaux },
+    { data: fichesEnAtelier },
+  ] = await Promise.all([
+    supabase.from('dossiers').select('*', { count: 'exact', head: true }).neq('statut', 'Clos'),
+    supabase.from('dossiers').select('*', { count: 'exact', head: true }).eq('statut', 'En atelier'),
+    supabase.from('dossiers').select('*', { count: 'exact', head: true }).eq('statut', 'Prêt à poser'),
+    supabase.from('commandes').select('*', { count: 'exact', head: true }),
+    supabase.from('commandes').select('*', { count: 'exact', head: true }).or('qte_livree.is.null,qte_livree.eq.0'),
+    supabase.from('heures').select('*', { count: 'exact', head: true }),
+    supabase.from('interventions_rideaux').select('*', { count: 'exact', head: true }),
+    supabase.from('dossiers')
+      .select('id, nom_dossier, client_nom, type_intervention, heures_a_realiser')
+      .eq('statut', 'En atelier')
+      .order('date_ouverture', { ascending: false }),
+  ]);
 
-    let heuresSaisies = 0;
-    try { heuresSaisies = db.prepare(`SELECT COUNT(*) as n FROM heures`).get().n; } catch {}
-
-    let rideaux = 0;
-    try {
-      db.prepare(`CREATE TABLE IF NOT EXISTS interventions_rideaux (id INTEGER PRIMARY KEY)`).run();
-      rideaux = db.prepare(`SELECT COUNT(*) as n FROM interventions_rideaux`).get().n;
-    } catch {}
-
-    // Dossiers "En atelier" pour la zone fiches individuelles
-    const fichesEnAtelier = db.prepare(`
-      SELECT id, nom_dossier, client_nom, type_intervention, heures_a_realiser
-      FROM dossiers
-      WHERE statut = 'En atelier'
-      ORDER BY date_ouverture DESC
-    `).all();
-
-    return NextResponse.json({
-      dossiers:       { total: dossiersActifs, enAtelier, pretAPoser },
-      commandes:      { total: commandes, enAttente: cmdEnAttente },
-      heures:         { saisies: heuresSaisies },
-      rideaux:        { total: rideaux },
-      fichesEnAtelier,
-    });
-  } finally {
-    db.close();
-  }
+  return NextResponse.json({
+    dossiers: { total: dossiersActifs || 0, enAtelier: enAtelier || 0, pretAPoser: pretAPoser || 0 },
+    commandes: { total: commandes || 0, enAttente: cmdEnAttente || 0 },
+    heures: { saisies: heuresSaisies || 0 },
+    rideaux: { total: rideaux || 0 },
+    fichesEnAtelier: fichesEnAtelier || [],
+  });
 }

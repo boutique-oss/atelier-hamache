@@ -1,73 +1,56 @@
 import { NextResponse } from 'next/server';
-import { getDb, row2dossier } from '@/lib/db';
+import { createClient } from '@/lib/supabase/server';
+import { row2dossier } from '@/lib/db';
 
 export async function PUT(request, { params }) {
+  const supabase = createClient();
   const id = parseInt(params.id);
   const body = await request.json();
-  const db = getDb();
 
-  // Merge avec l'existant pour les mises à jour partielles (ex: kanban → date_planifiee seule)
-  const existing = db.prepare('SELECT * FROM dossiers WHERE id = ?').get(id);
-  if (!existing) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  const { data: existing, error: fetchErr } = await supabase
+    .from('dossiers').select('*').eq('id', id).single();
+  if (fetchErr) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
   const merged = { ...existing, ...body };
   const e = merged.etapes || {};
 
-  const stmt = db.prepare(`
-    UPDATE dossiers SET
-      nom_dossier = ?, client_nom = ?, statut = ?, flags = ?,
-      type_intervention = ?, date_ouverture = ?,
-      etape_devis = ?, etape_cmde = ?, etape_atelier = ?, etape_print = ?, etape_realise = ?,
-      lien_dossier_externe = ?, commentaires = ?,
-      adresse = ?, telephone = ?, email = ?,
-      heures_a_realiser = ?,
-      date_planifiee = ?,
-      updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `);
+  const { data, error } = await supabase
+    .from('dossiers')
+    .update({
+      nom_dossier: merged.nom_dossier,
+      client_nom: merged.client_nom || merged.nom_dossier,
+      statut: merged.statut,
+      flags: typeof merged.flags === 'string' ? merged.flags : JSON.stringify(merged.flags || []),
+      type_intervention: merged.type_intervention || 'Autre',
+      date_ouverture: merged.date_ouverture || null,
+      etape_devis: e.devis !== undefined ? !!e.devis : !!merged.etape_devis,
+      etape_cmde: e.cmde !== undefined ? !!e.cmde : !!merged.etape_cmde,
+      etape_atelier: e.atelier !== undefined ? !!e.atelier : !!merged.etape_atelier,
+      etape_print: e.print !== undefined ? !!e.print : !!merged.etape_print,
+      etape_realise: e.realise !== undefined ? !!e.realise : !!merged.etape_realise,
+      lien_dossier_externe: merged.lien || merged.lien_dossier_externe || '',
+      commentaires: merged.comm || merged.commentaires || '',
+      adresse: merged.adresse || '',
+      telephone: merged.telephone || '',
+      email: merged.email || '',
+      heures_a_realiser: parseFloat(merged.heures_a_realiser) || 0,
+      date_planifiee: 'date_planifiee' in body ? body.date_planifiee : existing.date_planifiee,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select()
+    .single();
 
-  stmt.run(
-    merged.nom_dossier,
-    merged.client_nom || merged.nom_dossier,
-    merged.statut,
-    typeof merged.flags === 'string' ? merged.flags : JSON.stringify(merged.flags || []),
-    merged.type_intervention || 'Autre',
-    merged.date_ouverture || null,
-    e.devis ? 1 : (merged.etape_devis ?? 0),
-    e.cmde  ? 1 : (merged.etape_cmde  ?? 0),
-    e.atelier ? 1 : (merged.etape_atelier ?? 0),
-    e.print ? 1 : (merged.etape_print ?? 0),
-    e.realise ? 1 : (merged.etape_realise ?? 0),
-    merged.lien || merged.lien_dossier_externe || '',
-    merged.comm || merged.commentaires || '',
-    merged.adresse || '', merged.telephone || '', merged.email || '',
-    parseFloat(merged.heures_a_realiser) || 0,
-    'date_planifiee' in body ? body.date_planifiee : existing.date_planifiee,
-    id
-  );
-  
-  const updated = db.prepare('SELECT * FROM dossiers WHERE id = ?').get(id);
-
-  // Broadcast update to all connected clients
-  fetch(new URL('/api/sync?action=broadcast', request.url).toString()).catch(() => {});
-
-  return NextResponse.json(row2dossier(updated));
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(row2dossier(data));
 }
 
 export async function DELETE(request, { params }) {
-  try {
-    const id = parseInt(params.id);
-    const db = getDb();
-    db.transaction(() => {
-      db.prepare('DELETE FROM heures WHERE dossier_id = ?').run(id);
-      db.prepare('DELETE FROM dossiers WHERE id = ?').run(id);
-    })();
+  const supabase = createClient();
+  const id = parseInt(params.id);
 
-    // Broadcast update to all connected clients
-    fetch(new URL('/api/sync?action=broadcast', request.url).toString()).catch(() => {});
-
-    return NextResponse.json({ deleted: id });
-  } catch(e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
+  // heures supprimés par CASCADE dans Supabase (ON DELETE CASCADE)
+  const { error } = await supabase.from('dossiers').delete().eq('id', id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ deleted: id });
 }

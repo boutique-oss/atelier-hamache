@@ -1,122 +1,127 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-import path from 'path';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-const TAUX_HORAIRE = 55; // € HT / heure
+const TAUX_HORAIRE = 55;
 
-function getDb() {
-  return new Database(path.join(process.cwd(), 'data', 'atelier.db'));
-}
-
-// ── GET /api/reports ─────────────────────────────────────────────────────
 export async function GET() {
-  const db = getDb();
-  try {
-    // KPIs globaux
-    const kpi = db.prepare(`
-      SELECT
-        COUNT(*)                                                                     AS total_dossiers,
-        COUNT(CASE WHEN statut NOT IN ('Clos') THEN 1 END)                          AS dossiers_actifs,
-        ROUND(SUM(CASE WHEN statut NOT IN ('Clos') THEN COALESCE(heures_a_realiser,0) ELSE 0 END) * ${TAUX_HORAIRE}, 0) AS ca_pipeline,
-        ROUND(SUM(CASE WHEN statut = 'Clos' THEN COALESCE(heures_a_realiser,0) ELSE 0 END) * ${TAUX_HORAIRE}, 0)       AS ca_clos,
-        ROUND(SUM(COALESCE(heures_a_realiser, 0)), 1)                               AS total_heures_prevues,
-        COUNT(CASE WHEN flags LIKE '%Urgent%'  THEN 1 END)                          AS nb_urgent,
-        COUNT(CASE WHEN flags LIKE '%SAV%'     THEN 1 END)                          AS nb_sav
-      FROM dossiers
-    `).get();
+  const supabase = createClient();
 
-    // KPIs heures
-    const kpiHeures = db.prepare(`
-      SELECT
-        ROUND(SUM(heures_passees), 1)                               AS total_heures_reelles,
-        ROUND(SUM(heures_passees) * ${TAUX_HORAIRE}, 0)             AS ca_realise,
-        COUNT(DISTINCT operateur)                                    AS nb_operateurs,
-        COUNT(DISTINCT dossier_id)                                   AS dossiers_avec_heures
-      FROM heures
-    `).get();
+  const [
+    { data: dossiers },
+    { data: heures },
+    { data: commandes },
+  ] = await Promise.all([
+    supabase.from('dossiers').select('*'),
+    supabase.from('heures').select('*'),
+    supabase.from('commandes').select('fournisseur, montant'),
+  ]);
 
-    // Répartition par statut
-    const parStatut = db.prepare(`
-      SELECT statut, COUNT(*) AS nb, 0 AS total_ht,
-        ROUND(SUM(COALESCE(heures_a_realiser, 0)), 1) AS heures_prevues
-      FROM dossiers GROUP BY statut ORDER BY
-        CASE statut
-          WHEN 'Nouveau'       THEN 1
-          WHEN 'Devis envoyé'  THEN 2
-          WHEN 'Validé'        THEN 3
-          WHEN 'En atelier'    THEN 4
-          WHEN 'Prêt à poser'  THEN 5
-          WHEN 'Clos'          THEN 6
-          ELSE 7 END
-    `).all();
+  const d = dossiers || [];
+  const h = heures || [];
+  const c = commandes || [];
 
-    // Répartition par type
-    const parType = db.prepare(`
-      SELECT type_intervention, COUNT(*) AS nb, 0 AS total_ht
-      FROM dossiers GROUP BY type_intervention ORDER BY nb DESC
-    `).all();
+  const parseFlags = f => { try { return JSON.parse(f || '[]'); } catch { return []; } };
 
-    // Heures : prévues vs réelles par dossier (actifs uniquement, triés par écart)
-    const heuresComparaison = db.prepare(`
-      SELECT
-        d.id,
-        d.nom_dossier  AS ref_dossier,
-        d.client_nom   AS nom_client,
-        d.statut, d.type_intervention,
-        COALESCE(d.heures_a_realiser, 0)                                                  AS prevues,
-        ROUND(COALESCE(SUM(h.heures_passees), 0), 2)                                      AS reelles,
-        ROUND(COALESCE(SUM(h.heures_passees), 0) - COALESCE(d.heures_a_realiser, 0), 2)  AS ecart,
-        ROUND(COALESCE(d.heures_a_realiser, 0) * ${TAUX_HORAIRE}, 0)                      AS ca_prevu,
-        ROUND(COALESCE(SUM(h.heures_passees), 0) * ${TAUX_HORAIRE}, 0)                    AS ca_reel
-      FROM dossiers d
-      LEFT JOIN heures h ON h.dossier_id = d.id
-      WHERE d.statut NOT IN ('Clos')
-      GROUP BY d.id
-      HAVING prevues > 0 OR reelles > 0
-      ORDER BY ABS(COALESCE(SUM(h.heures_passees), 0) - COALESCE(d.heures_a_realiser, 0)) DESC
-      LIMIT 20
-    `).all();
+  // KPI dossiers
+  const dossiersActifs = d.filter(x => x.statut !== 'Clos');
+  const kpi = {
+    total_dossiers: d.length,
+    dossiers_actifs: dossiersActifs.length,
+    ca_pipeline: Math.round(dossiersActifs.reduce((s, x) => s + (x.heures_a_realiser || 0), 0) * TAUX_HORAIRE),
+    ca_clos: Math.round(d.filter(x => x.statut === 'Clos').reduce((s, x) => s + (x.heures_a_realiser || 0), 0) * TAUX_HORAIRE),
+    total_heures_prevues: Math.round(d.reduce((s, x) => s + (x.heures_a_realiser || 0), 0) * 10) / 10,
+    nb_urgent: d.filter(x => parseFlags(x.flags).includes('Urgent')).length,
+    nb_sav: d.filter(x => parseFlags(x.flags).includes('SAV')).length,
+    total_heures_reelles: Math.round(h.reduce((s, x) => s + (x.heures_passees || 0), 0) * 10) / 10,
+    ca_realise: Math.round(h.reduce((s, x) => s + (x.heures_passees || 0), 0) * TAUX_HORAIRE),
+    nb_operateurs: new Set(h.map(x => x.operateur)).size,
+    dossiers_avec_heures: new Set(h.map(x => x.dossier_id)).size,
+  };
 
-    // Heures par opérateur (global)
-    const heuresParOp = db.prepare(`
-      SELECT operateur,
-        ROUND(SUM(heures_passees),1)         AS total,
-        COUNT(*)                              AS nb_saisies,
-        COUNT(DISTINCT dossier_id)            AS nb_dossiers,
-        MAX(date)                             AS derniere_saisie
-      FROM heures GROUP BY operateur ORDER BY total DESC
-    `).all();
+  // Répartition par statut
+  const statutOrder = ['Nouveau','Devis envoyé','Validé','En atelier','Prêt à poser','Clos'];
+  const parStatutMap = {};
+  d.forEach(x => {
+    if (!parStatutMap[x.statut]) parStatutMap[x.statut] = { statut: x.statut, nb: 0, total_ht: 0, heures_prevues: 0 };
+    parStatutMap[x.statut].nb++;
+    parStatutMap[x.statut].heures_prevues += x.heures_a_realiser || 0;
+  });
+  const parStatut = Object.values(parStatutMap)
+    .map(s => ({ ...s, heures_prevues: Math.round(s.heures_prevues * 10) / 10 }))
+    .sort((a, b) => (statutOrder.indexOf(a.statut) + 1 || 99) - (statutOrder.indexOf(b.statut) + 1 || 99));
 
-    // Top 10 fournisseurs
-    const topFournisseurs = db.prepare(`
-      SELECT fournisseur, COUNT(*) AS nb_cmd, ROUND(SUM(COALESCE(montant, 0)), 2) AS total_ht
-      FROM commandes GROUP BY fournisseur ORDER BY nb_cmd DESC LIMIT 10
-    `).all();
+  // Répartition par type
+  const parTypeMap = {};
+  d.forEach(x => {
+    const t = x.type_intervention || 'Autre';
+    if (!parTypeMap[t]) parTypeMap[t] = { type_intervention: t, nb: 0, total_ht: 0 };
+    parTypeMap[t].nb++;
+  });
+  const parType = Object.values(parTypeMap).sort((a, b) => b.nb - a.nb);
 
-    // Dossiers ouverts par mois (basé sur date_ouverture)
-    const caMensuel = db.prepare(`
-      SELECT
-        substr(date_ouverture, 1, 7) AS mois,
-        COUNT(*)                     AS nb,
-        0                            AS ca_ht
-      FROM dossiers
-      WHERE date_ouverture IS NOT NULL AND date_ouverture != ''
-      GROUP BY substr(date_ouverture, 1, 7)
-      ORDER BY mois DESC LIMIT 12
-    `).all();
+  // Heures comparaison (actifs)
+  const heuresByDossier = {};
+  h.forEach(x => {
+    if (!heuresByDossier[x.dossier_id]) heuresByDossier[x.dossier_id] = 0;
+    heuresByDossier[x.dossier_id] += x.heures_passees || 0;
+  });
+  const heuresComparaison = d
+    .filter(x => x.statut !== 'Clos')
+    .map(x => {
+      const prevues = x.heures_a_realiser || 0;
+      const reelles = Math.round((heuresByDossier[x.id] || 0) * 100) / 100;
+      return {
+        id: x.id, ref_dossier: x.nom_dossier, nom_client: x.client_nom,
+        statut: x.statut, type_intervention: x.type_intervention,
+        prevues, reelles,
+        ecart: Math.round((reelles - prevues) * 100) / 100,
+        ca_prevu: Math.round(prevues * TAUX_HORAIRE),
+        ca_reel: Math.round(reelles * TAUX_HORAIRE),
+      };
+    })
+    .filter(x => x.prevues > 0 || x.reelles > 0)
+    .sort((a, b) => Math.abs(b.ecart) - Math.abs(a.ecart))
+    .slice(0, 20);
 
-    return NextResponse.json({
-      kpi: { ...kpi, ...kpiHeures },
-      parStatut,
-      parType,
-      heuresComparaison,
-      heuresParOp,
-      topFournisseurs,
-      caMensuel,
-    });
-  } finally {
-    db.close();
-  }
+  // Heures par opérateur
+  const opsMap = {};
+  h.forEach(x => {
+    if (!opsMap[x.operateur]) opsMap[x.operateur] = { operateur: x.operateur, total: 0, nb_saisies: 0, nb_dossiers: new Set(), derniere_saisie: '' };
+    opsMap[x.operateur].total += x.heures_passees || 0;
+    opsMap[x.operateur].nb_saisies++;
+    opsMap[x.operateur].nb_dossiers.add(x.dossier_id);
+    if (x.date > opsMap[x.operateur].derniere_saisie) opsMap[x.operateur].derniere_saisie = x.date;
+  });
+  const heuresParOp = Object.values(opsMap).map(o => ({
+    operateur: o.operateur,
+    total: Math.round(o.total * 10) / 10,
+    nb_saisies: o.nb_saisies,
+    nb_dossiers: o.nb_dossiers.size,
+    derniere_saisie: o.derniere_saisie,
+  })).sort((a, b) => b.total - a.total);
+
+  // Top fournisseurs
+  const fournMap = {};
+  c.forEach(x => {
+    if (!fournMap[x.fournisseur]) fournMap[x.fournisseur] = { fournisseur: x.fournisseur, nb_cmd: 0, total_ht: 0 };
+    fournMap[x.fournisseur].nb_cmd++;
+    fournMap[x.fournisseur].total_ht += x.montant || 0;
+  });
+  const topFournisseurs = Object.values(fournMap)
+    .sort((a, b) => b.nb_cmd - a.nb_cmd)
+    .slice(0, 10)
+    .map(f => ({ ...f, total_ht: Math.round(f.total_ht * 100) / 100 }));
+
+  // Dossiers par mois
+  const moisMap = {};
+  d.filter(x => x.date_ouverture).forEach(x => {
+    const mois = x.date_ouverture.slice(0, 7);
+    if (!moisMap[mois]) moisMap[mois] = { mois, nb: 0, ca_ht: 0 };
+    moisMap[mois].nb++;
+  });
+  const caMensuel = Object.values(moisMap).sort((a, b) => b.mois.localeCompare(a.mois)).slice(0, 12);
+
+  return NextResponse.json({ kpi, parStatut, parType, heuresComparaison, heuresParOp, topFournisseurs, caMensuel });
 }

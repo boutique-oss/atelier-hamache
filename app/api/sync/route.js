@@ -1,80 +1,46 @@
-import { getDb, row2dossier } from '@/lib/db';
-import Database from 'better-sqlite3';
-import path from 'path';
-
-const clients = new Set();
+import { createClient } from '@/lib/supabase/server';
+import { row2dossier } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-function getDatabase() {
-  return new Database(path.join(process.cwd(), 'data', 'atelier.db'));
+async function fetchAllDossiers(supabase) {
+  const { data } = await supabase
+    .from('dossiers').select('*').neq('statut', 'Clos').order('date_ouverture', { ascending: false });
+  return (data || []).map(row2dossier);
 }
 
-function fetchHeuresSynthese() {
-  const db = getDatabase();
-  const result = db.prepare(`
-    SELECT
-      ROUND(SUM(CASE WHEN d.statut != 'Clos' THEN COALESCE(d.heures_a_realiser, 0) ELSE 0 END), 2) as prevues,
-      ROUND(SUM(h.heures_passees), 2) as reelles
-    FROM dossiers d
-    LEFT JOIN heures h ON d.id = h.dossier_id
-  `).get();
-  db.close();
-  return result || { prevues: 0, reelles: 0 };
-}
-
-function fetchAllDossiers() {
-  const db = getDatabase();
-  const rows = db.prepare('SELECT * FROM dossiers WHERE statut != ? ORDER BY date_ouverture DESC').all('Clos');
-  db.close();
-  return rows.map(row2dossier);
+async function fetchHeuresSynthese(supabase) {
+  const [{ data: dossiers }, { data: heures }] = await Promise.all([
+    supabase.from('dossiers').select('statut, heures_a_realiser').neq('statut', 'Clos'),
+    supabase.from('heures').select('heures_passees'),
+  ]);
+  const prevues = (dossiers || []).reduce((s, d) => s + (d.heures_a_realiser || 0), 0);
+  const reelles = (heures || []).reduce((s, h) => s + (h.heures_passees || 0), 0);
+  return { prevues: Math.round(prevues * 100) / 100, reelles: Math.round(reelles * 100) / 100 };
 }
 
 export async function GET(request) {
-  const searchParams = request.nextUrl.searchParams;
-  const action = searchParams.get('action');
+  const supabase = createClient();
+  const action = new URL(request.url).searchParams.get('action');
+
+  if (action === 'broadcast') {
+    return Response.json({ broadcasted: 0 });
+  }
 
   if (action === 'subscribe') {
-    // Récupère et envoie les données actuelles d'abord
-    const dossiers = fetchAllDossiers();
-    const synthese = fetchHeuresSynthese();
-
-    const initialData = { dossiers, synthese };
+    const [dossiers, synthese] = await Promise.all([
+      fetchAllDossiers(supabase),
+      fetchHeuresSynthese(supabase),
+    ]);
+    const data = JSON.stringify({ dossiers, synthese });
 
     const stream = new ReadableStream({
       start(controller) {
-        // Envoie les données initiales
-        controller.enqueue(`event: initial\ndata: ${JSON.stringify(initialData)}\n\n`);
-
-        // Crée un client
-        const client = {
-          id: Math.random(),
-          send: (data) => {
-            try {
-              controller.enqueue(`event: update\ndata: ${JSON.stringify(data)}\n\n`);
-            } catch (e) {
-              // Connexion fermée
-            }
-          },
-        };
-
-        clients.add(client);
-
-        // Heartbeat pour garder la connexion alive
-        const heartbeat = setInterval(() => {
-          try {
-            controller.enqueue(`:heartbeat\n\n`);
-          } catch (e) {
-            clearInterval(heartbeat);
-            clients.delete(client);
-          }
-        }, 30000);
-
-        // Cleanup
-        request.signal.addEventListener('abort', () => {
-          clearInterval(heartbeat);
-          clients.delete(client);
-        });
+        controller.enqueue(`event: initial\ndata: ${data}\n\n`);
+        // Heartbeat unique puis fermeture (Vercel serverless)
+        setTimeout(() => {
+          try { controller.enqueue(':heartbeat\n\n'); controller.close(); } catch {}
+        }, 100);
       },
     });
 
@@ -83,21 +49,8 @@ export async function GET(request) {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
       },
     });
-  }
-
-  // Action: broadcast une mise à jour à tous les clients
-  if (action === 'broadcast') {
-    const dossiers = fetchAllDossiers();
-    const synthese = fetchHeuresSynthese();
-
-    const data = { dossiers, synthese };
-
-    clients.forEach(client => client.send(data));
-
-    return Response.json({ broadcasted: clients.size });
   }
 
   return Response.json({ error: 'Unknown action' }, { status: 400 });

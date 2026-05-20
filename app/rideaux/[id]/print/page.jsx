@@ -1,32 +1,7 @@
-import Database from 'better-sqlite3';
-import path from 'path';
+import { createClient } from '@/lib/supabase/server';
 import PrintButton from './PrintButton';
 
 export const dynamic = 'force-dynamic';
-
-function getDb() {
-  const db = new Database(path.join(process.cwd(), 'data', 'atelier.db'));
-  db.prepare(`
-    CREATE TABLE IF NOT EXISTS interventions_rideaux (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      client TEXT NOT NULL,
-      telephone TEXT DEFAULT '',
-      adresse TEXT DEFAULT '',
-      date TEXT DEFAULT '',
-      pieces_json TEXT DEFAULT '[]',
-      tissu TEXT DEFAULT '',
-      ref_tissu TEXT DEFAULT '',
-      coloris TEXT DEFAULT '',
-      metrage TEXT DEFAULT '',
-      type_tete TEXT DEFAULT '',
-      heures TEXT DEFAULT '',
-      notes TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    )
-  `).run();
-  return db;
-}
 
 function formatDate(d) {
   if (!d) return '';
@@ -35,9 +10,9 @@ function formatDate(d) {
 }
 
 export default async function RideauxPrintPage({ params }) {
-  const db = getDb();
-  const row = db.prepare('SELECT * FROM interventions_rideaux WHERE id = ?').get(params.id);
-  db.close();
+  const supabase = createClient();
+  const { data: row } = await supabase
+    .from('interventions_rideaux').select('*').eq('id', params.id).maybeSingle();
 
   if (!row) {
     return <div style={{ padding: 40, fontFamily: 'sans-serif' }}>Fiche introuvable (id={params.id})</div>;
