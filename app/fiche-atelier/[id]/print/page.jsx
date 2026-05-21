@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
-import { SCHEMAS } from '@/app/api/fiches/route';
+import { SCHEMAS } from '@/lib/fiches-schemas';
+import PrintButton from './PrintButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,9 +55,7 @@ export default async function FicheAtelierPrint({ params }) {
         .print-btn { position: fixed; bottom: 24px; right: 24px; background: #000; color: #fff; border: none; padding: 12px 20px; font-size: 13px; cursor: pointer; z-index: 100; }
       `}</style>
 
-      <button className="print-btn no-print" onClick={() => typeof window !== 'undefined' && window.print()}>
-        Imprimer / PDF
-      </button>
+      <PrintButton />
 
       <div className="page">
 
@@ -141,9 +140,6 @@ export default async function FicheAtelierPrint({ params }) {
         </div>
       </div>
 
-      <script dangerouslySetInnerHTML={{ __html: `
-        document.querySelector('.print-btn')?.addEventListener('click', () => window.print());
-      `}} />
     </>
   );
 }
