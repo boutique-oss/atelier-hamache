@@ -8,14 +8,17 @@ export const SCHEMAS = {
     { key: 'meuble',           label: 'Type de meuble',         type: 'text' },
     { key: 'epoque',           label: 'Époque / style',          type: 'text' },
     { key: 'nb_places',        label: 'Nb de places',            type: 'number' },
-    { key: 'garnissage',       label: 'Garnissage',              type: 'select', options: ['Ressorts', 'Mousse', 'Crin', 'Plumes', 'Mixte'] },
     { key: 'tissu_ref',        label: 'Référence tissu',         type: 'text' },
+    { key: 'tissu_coloris',    label: 'Coloris',                 type: 'text' },
     { key: 'tissu_fournisseur',label: 'Fournisseur tissu',       type: 'text' },
     { key: 'ml_tissu',         label: 'ML tissu prévu',          type: 'number', unit: 'm' },
+    { key: 'garnissage',       label: 'Garnissage',              type: 'select', options: ['Ressorts', 'Mousse', 'Crin', 'Plumes', 'Mixte'] },
+    { key: 'piquure_finition', label: 'Piqûre / finition',       type: 'select', options: ['Simple', 'Capitonnage', 'Passepoil', 'Clous déco', 'Sobafix', 'Autre'] },
     { key: 'cotes_largeur',    label: 'Largeur assise (cm)',     type: 'number', unit: 'cm' },
     { key: 'cotes_profondeur', label: 'Profondeur assise (cm)', type: 'number', unit: 'cm' },
     { key: 'etat_structure',   label: 'État structure',          type: 'select', options: ['Bon', 'Moyen', 'À consolider', 'À refaire'] },
     { key: 'depose_necessaire',label: 'Dépose nécessaire',       type: 'select', options: ['Non', 'Partielle', 'Complète'] },
+    { key: 'croquis',          label: 'Croquis / schéma',        type: 'textarea', hint: 'Décris la forme ou colle une note' },
     { key: 'observations',     label: 'Observations atelier',    type: 'textarea' },
   ],
   Rideaux: [
@@ -28,7 +31,9 @@ export const SCHEMAS = {
     { key: 'tissu_ref',        label: 'Référence tissu',         type: 'text' },
     { key: 'tissu_rapport',    label: 'Rapport de tissu (cm)',   type: 'number', unit: 'cm' },
     { key: 'type_tete',        label: 'Type de tête',            type: 'select', options: ['Pince simple', 'Pince triple', 'Œillets', 'Ruban fronceur', 'Accordéon', 'Passants'] },
-    { key: 'type_pose',        label: 'Type de pose',            type: 'select', options: ['Tringle', 'Rail', 'Motorisé', 'Tringle + embrasses'] },
+    { key: 'doublure',         label: 'Doublure / entoilage',    type: 'select', options: ['Non', 'Simple', 'Thermique', 'Obscurcissante', 'Thermique + obscurcissante'] },
+    { key: 'type_pose',        label: 'Tringle / rail',          type: 'select', options: ['Tringle', 'Rail', 'Motorisé', 'Tringle + embrasses'] },
+    { key: 'ref_tringle',      label: 'Réf. tringle / rail',     type: 'text' },
     { key: 'fournitures',      label: 'Fournitures diverses',    type: 'textarea' },
     { key: 'observations',     label: 'Observations atelier',    type: 'textarea' },
   ],
@@ -73,6 +78,7 @@ export const SCHEMAS = {
     { key: 'observations',label: 'Observations atelier', type: 'textarea' },
   ],
   'Pose seule': [
+    { key: 'adresse_pose',      label: 'Adresse de pose', type: 'text' },
     { key: 'type_pose',         label: 'Type de pose', type: 'text' },
     { key: 'fournitures_client',label: 'Fournitures apportées par client', type: 'select', options: ['Oui - complètes', 'Oui - partielles', 'Non'] },
     { key: 'nb_points_pose',    label: "Nb de points d'accroche", type: 'number' },
@@ -133,30 +139,18 @@ export async function GET(request) {
 export async function POST(request) {
   const supabase = createClient();
   const { dossier_id, type_intervention, contenu_json, notes_libres } = await request.json();
-  if (!dossier_id || !type_intervention) {
-    return NextResponse.json({ error: 'dossier_id et type_intervention requis' }, { status: 400 });
-  }
-
-  const { data: existing } = await supabase
-    .from('fiches_atelier').select('id').eq('dossier_id', dossier_id).maybeSingle();
-
-  if (existing) {
-    await supabase.from('fiches_atelier').update({
-      type_intervention,
-      contenu_json: JSON.stringify(contenu_json),
-      notes_libres: notes_libres || '',
-      updated_at: new Date().toISOString(),
-    }).eq('dossier_id', dossier_id);
-    return NextResponse.json({ id: existing.id, updated: true });
+  if (!type_intervention) {
+    return NextResponse.json({ error: 'type_intervention requis' }, { status: 400 });
   }
 
   const { data, error } = await supabase.from('fiches_atelier').insert({
-    dossier_id, type_intervention,
-    contenu_json: JSON.stringify(contenu_json),
+    dossier_id: dossier_id || null,
+    type_intervention,
+    contenu_json: JSON.stringify(contenu_json || {}),
     notes_libres: notes_libres || '',
   }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ id: data.id, updated: false });
+  return NextResponse.json({ id: data.id });
 }
 
 export async function DELETE(request) {

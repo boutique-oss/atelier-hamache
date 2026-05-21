@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Pencil, Trash2, X, ExternalLink, Truck, Check } from 'lucide-react';
 import VueTodo from '../components/VueTodo';
+import VueFiches from '../components/VueFiches';
 import Kicker from '../components/ui/Kicker';
 import Btn from '../components/ui/Btn';
 
@@ -428,6 +429,7 @@ export default function Page() {
   const TABS = [
     { key: 'commandes', num: '01', label: 'Commandes', count: commandes.length },
     { key: 'todo',      num: '02', label: 'Todo',      count: null },
+    { key: 'fiches',    num: '03', label: 'Fiches',    count: null },
   ];
 
   const now = new Date();
@@ -505,6 +507,7 @@ export default function Page() {
 
         {view === 'commandes' && <VueCommandes commandes={commandes} fournisseurs={fournisseurs} onNew={() => setEditingCommande({})} onEdit={setEditingCommande} />}
         {view === 'todo'      && <VueTodo />}
+        {view === 'fiches'    && <VueFiches />}
 
         <footer className="mt-10 pt-4 pb-6 border-t border-ink">
           <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
