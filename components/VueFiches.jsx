@@ -78,31 +78,60 @@ function DynField({ field, value, onChange }) {
 // ─── Modal éditeur ────────────────────────────────────────────────────────────
 function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
   const isNew = !fiche.id;
-  const [type, setType] = useState(fiche.type_intervention || '');
-  const [contenu, setContenu] = useState(() => {
+
+  const initContenu = (() => {
     try { return typeof fiche.contenu_json === 'string' ? JSON.parse(fiche.contenu_json) : (fiche.contenu_json || {}); }
     catch { return {}; }
-  });
-  const [notes, setNotes] = useState(fiche.notes_libres || '');
-  const [saving, setSaving] = useState(false);
-  const [collapsed, setCollapsed] = useState({});
+  })();
 
-  // Tout ouvrir quand on change de type
+  const [type, setType]           = useState(fiche.type_intervention || '');
+  const [contenu, setContenu]     = useState(initContenu);
+  const [notes, setNotes]         = useState(fiche.notes_libres || '');
+  const [saving, setSaving]       = useState(false);
+  const [collapsed, setCollapsed] = useState({});
+  const [etapes, setEtapes]       = useState(Array.isArray(initContenu.etapes_custom) ? initContenu.etapes_custom : []);
+  const [tissus, setTissus]       = useState(Array.isArray(initContenu.tissus_list) ? initContenu.tissus_list : []);
+  const [fournitures, setFournitures] = useState(Array.isArray(initContenu.fournitures_list) ? initContenu.fournitures_list : []);
+
   useEffect(() => { setCollapsed({}); }, [type]);
 
   const setField = (key, val) => setContenu(p => ({ ...p, [key]: val }));
   const schema = schemas[type] || [];
   const groups = groupBySection(schema);
+  const toggleSection = (title) => setCollapsed(p => ({ ...p, [title]: !p[title] }));
 
-  const toggleSection = (title) =>
-    setCollapsed(p => ({ ...p, [title]: !p[title] }));
+  // ── Étapes ──
+  const addEtape       = () => setEtapes(e => [...e, { etape: '', type: '' }]);
+  const setEtapeField  = (i, k, v) => setEtapes(e => e.map((x, j) => j === i ? { ...x, [k]: v } : x));
+  const delEtape       = (i) => setEtapes(e => e.filter((_, j) => j !== i));
+  const moveEtape      = (i, dir) => setEtapes(e => {
+    const a = [...e]; const ni = i + dir;
+    if (ni < 0 || ni >= a.length) return a;
+    [a[i], a[ni]] = [a[ni], a[i]]; return a;
+  });
+
+  // ── Tissus ──
+  const addTissu       = () => setTissus(t => [...t, { ref: '', coloris: '', placement: '', metrage: '' }]);
+  const setTissuField  = (i, k, v) => setTissus(t => t.map((x, j) => j === i ? { ...x, [k]: v } : x));
+  const delTissu       = (i) => setTissus(t => t.filter((_, j) => j !== i));
+
+  // ── Fournitures ──
+  const addFourniture      = () => setFournitures(f => [...f, { ref: '', coloris: '', placement: '', metrage: '' }]);
+  const setFournitureField = (i, k, v) => setFournitures(f => f.map((x, j) => j === i ? { ...x, [k]: v } : x));
+  const delFourniture      = (i) => setFournitures(f => f.filter((_, j) => j !== i));
 
   const handleSave = async () => {
     if (!type) return;
     setSaving(true);
-    await onSave({ id: fiche.id, type_intervention: type, contenu_json: contenu, notes_libres: notes });
+    const contenuComplet = { ...contenu, etapes_custom: etapes, tissus_list: tissus, fournitures_list: fournitures };
+    await onSave({ id: fiche.id, type_intervention: type, contenu_json: contenuComplet, notes_libres: notes });
     setSaving(false);
   };
+
+  const sectionHd = 'flex items-center justify-between px-4 py-2 border-b border-line bg-bg';
+  const sectionLbl = 'font-mono uppercase tracking-[0.16em] text-[10px] text-muted';
+  const addBtn = 'flex items-center justify-center w-5 h-5 border border-ink text-ink hover:bg-ink hover:text-surface transition-colors';
+  const fieldCls = 'w-full px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -197,6 +226,75 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
               )}
             </div>
           ))}
+
+          {/* ── Tissus ─────────────────────────────────────────────────────── */}
+          <div className="border-t border-ink pt-4 pb-2">
+            <div className={sectionHd} style={{ margin: '0 0 0 0' }}>
+              <span className={sectionLbl}>Tissus</span>
+              <button onClick={addTissu} className={addBtn} title="Ajouter un tissu"><Plus size={11} /></button>
+            </div>
+            <div className="pt-3 space-y-2">
+              {tissus.length === 0 && <p className="font-sans text-[12px] text-muted px-1">Aucun tissu.</p>}
+              {tissus.map((t, i) => (
+                <div key={i} className="grid gap-2" style={{ gridTemplateColumns: '1fr 1fr 1fr 72px 20px', alignItems: 'end' }}>
+                  <div><label className={labelCls}>Référence</label><input className={fieldCls} value={t.ref} onChange={e => setTissuField(i, 'ref', e.target.value)} placeholder="Ex: VELOURS-42" /></div>
+                  <div><label className={labelCls}>Coloris</label><input className={fieldCls} value={t.coloris || ''} onChange={e => setTissuField(i, 'coloris', e.target.value)} /></div>
+                  <div><label className={labelCls}>Placement</label><input className={fieldCls} value={t.placement || ''} onChange={e => setTissuField(i, 'placement', e.target.value)} /></div>
+                  <div><label className={labelCls}>Métrage</label><input type="number" step="0.1" className={fieldCls} value={t.metrage || ''} onChange={e => setTissuField(i, 'metrage', e.target.value)} /></div>
+                  <button onClick={() => delTissu(i)} className="text-muted self-end pb-0.5"><Trash2 size={13} /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Fournitures ─────────────────────────────────────────────────── */}
+          <div className="border-t border-ink pt-4 pb-2">
+            <div className={sectionHd}>
+              <span className={sectionLbl}>Fournitures diverses</span>
+              <button onClick={addFourniture} className={addBtn} title="Ajouter une fourniture"><Plus size={11} /></button>
+            </div>
+            <div className="pt-3 space-y-2">
+              {fournitures.length === 0 && <p className="font-sans text-[12px] text-muted px-1">Aucune fourniture.</p>}
+              {fournitures.map((f, i) => (
+                <div key={i} className="grid gap-2" style={{ gridTemplateColumns: '1fr 1fr 1fr 72px 20px', alignItems: 'end' }}>
+                  <div><label className={labelCls}>Référence</label><input className={fieldCls} value={f.ref} onChange={e => setFournitureField(i, 'ref', e.target.value)} /></div>
+                  <div><label className={labelCls}>Coloris</label><input className={fieldCls} value={f.coloris || ''} onChange={e => setFournitureField(i, 'coloris', e.target.value)} /></div>
+                  <div><label className={labelCls}>Placement</label><input className={fieldCls} value={f.placement || ''} onChange={e => setFournitureField(i, 'placement', e.target.value)} /></div>
+                  <div><label className={labelCls}>Métrage</label><input type="number" step="0.1" className={fieldCls} value={f.metrage || ''} onChange={e => setFournitureField(i, 'metrage', e.target.value)} /></div>
+                  <button onClick={() => delFourniture(i)} className="text-muted self-end pb-0.5"><Trash2 size={13} /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Étapes ──────────────────────────────────────────────────────── */}
+          <div className="border-t border-ink pt-4 pb-2">
+            <div className={sectionHd}>
+              <span className={sectionLbl}>Étapes</span>
+              <button onClick={addEtape} className={addBtn} title="Ajouter une étape"><Plus size={11} /></button>
+            </div>
+            <div className="pt-3 space-y-1.5">
+              {etapes.length === 0 && <p className="font-sans text-[12px] text-muted px-1">Aucune étape.</p>}
+              {etapes.length > 0 && (
+                <div className="flex gap-2 mb-1">
+                  <span className="flex-[2] font-mono text-[9px] uppercase tracking-[0.14em] text-muted pl-1">Désignation</span>
+                  <span className="flex-1 font-mono text-[9px] uppercase tracking-[0.14em] text-muted pl-1">Précision</span>
+                  <span style={{ width: 72 }} />
+                </div>
+              )}
+              {etapes.map((e, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input value={e.etape} onChange={ev => setEtapeField(i, 'etape', ev.target.value)} placeholder="Désignation"
+                    className="flex-[2] px-3 py-2 bg-surface border border-ink font-mono text-[11px] text-ink uppercase tracking-[0.08em]" />
+                  <input value={e.type} onChange={ev => setEtapeField(i, 'type', ev.target.value)} placeholder="Précision"
+                    className="flex-1 px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink" />
+                  <button onClick={() => moveEtape(i, -1)} disabled={i === 0} className="px-1.5 py-1 font-mono text-[12px] text-muted disabled:opacity-25 hover:text-ink">↑</button>
+                  <button onClick={() => moveEtape(i, 1)} disabled={i === etapes.length - 1} className="px-1.5 py-1 font-mono text-[12px] text-muted disabled:opacity-25 hover:text-ink">↓</button>
+                  <button onClick={() => delEtape(i)} className="p-1 text-muted hover:text-ink"><Trash2 size={12} /></button>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* ── Notes libres ─────────────────────────────────────────────── */}
           <div className="py-5 border-t border-ink">
