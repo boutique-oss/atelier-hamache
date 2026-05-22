@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, X, Printer, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, X, Printer, ChevronDown, ChevronRight } from 'lucide-react';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
 
@@ -387,46 +387,22 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
 
 // ─── Vue principale ───────────────────────────────────────────────────────────
 export default function VueFiches() {
-  const [fiches, setFiches] = useState([]);
-  const [schemas, setSchemas] = useState({});
+  const [fiches, setFiches]   = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null);
-  const [search, setSearch] = useState('');
+  const [search, setSearch]   = useState('');
 
   const reload = async () => {
-    const [f, s] = await Promise.all([
-      fetch('/api/fiches').then(r => r.json()),
-      fetch('/api/fiches?schemas=1').then(r => r.json()),
-    ]);
-    setFiches(Array.isArray(f) ? f : []);
-    setSchemas(s.schemas || {});
+    const data = await fetch('/api/fiches').then(r => r.json());
+    setFiches(Array.isArray(data) ? data : []);
   };
 
   useEffect(() => { reload().finally(() => setLoading(false)); }, []);
 
-  const handleSave = async (data) => {
-    if (data.id) {
-      await fetch(`/api/fiches/${data.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-    } else {
-      await fetch('/api/fiches', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-    }
-    await reload();
-    setEditing(null);
-  };
-
-  const handleDelete = async (id) => {
+  const handleDelete = async (e, id) => {
+    e.stopPropagation();
     if (!confirm('Supprimer cette fiche ?')) return;
     await fetch(`/api/fiches/${id}`, { method: 'DELETE' });
     await reload();
-    setEditing(null);
   };
 
   const filtered = fiches.filter(f => {
@@ -447,7 +423,7 @@ export default function VueFiches() {
           <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">Fiches atelier</h2>
           <p className="font-sans text-[13px] text-muted mt-1">{fiches.length} fiche{fiches.length > 1 ? 's' : ''}</p>
         </div>
-        <Btn onClick={() => setEditing({})}>
+        <Btn onClick={() => window.open('/fiches/new', '_blank')}>
           <Plus size={16} strokeWidth={2.5} /> Nouvelle fiche
         </Btn>
       </div>
@@ -465,7 +441,7 @@ export default function VueFiches() {
         <table className="w-full">
           <thead>
             <tr className="bg-bg border-b border-ink">
-              {['Type', 'Client', 'Date prévue', 'Heures', ''].map((h, i) => (
+              {['Type', 'Client', 'Date d\'impression', 'Heures', ''].map((h, i) => (
                 <th key={i} className="text-left px-4 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{h}</th>
               ))}
             </tr>
@@ -475,7 +451,8 @@ export default function VueFiches() {
               const c = (() => { try { return JSON.parse(f.contenu_json); } catch { return {}; } })();
 
               return (
-                <tr key={f.id} className="group hover:bg-bg border-t border-dotted border-black/30 cursor-pointer" onClick={() => setEditing(f)}>
+                <tr key={f.id} className="group hover:bg-bg border-t border-dotted border-black/30 cursor-pointer"
+                    onClick={() => window.open(`/fiches/${f.id}`, '_blank')}>
                   <td className="px-4 py-3">
                     <span className="font-mono text-[10px] uppercase tracking-[0.12em] px-2 py-0.5 border border-ink">
                       {f.type_intervention}
@@ -486,20 +463,20 @@ export default function VueFiches() {
                     {c.client_tel && <p className="font-mono text-[11px] text-muted">{c.client_tel}</p>}
                   </td>
                   <td className="px-4 py-3 font-mono text-[11px] text-muted whitespace-nowrap">
-                    {formatDate(c.date_prevue)}
+                    {formatDate(c.date_impression)}
                   </td>
                   <td className="px-4 py-3 font-serif text-[14px] text-ink">
                     {c.heures_estimees ? `${c.heures_estimees}h` : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
-                      <a href={`/fiche-atelier/${f.id}/print`} target="_blank" rel="noreferrer"
+                      <a href={`/fiche-impression/${f.id}`} target="_blank" rel="noreferrer"
                          onClick={e => e.stopPropagation()}
                          className="p-1.5 text-muted" title="Imprimer">
                         <Printer size={13} />
                       </a>
-                      <button onClick={() => setEditing(f)} className="p-1.5 text-muted" title="Modifier">
-                        <Pencil size={13} />
+                      <button onClick={e => handleDelete(e, f.id)} className="p-1.5 text-muted hover:text-red-600" title="Supprimer">
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </td>
@@ -515,15 +492,6 @@ export default function VueFiches() {
         </table>
       </div>
 
-      {editing !== null && (
-        <FicheModal
-          fiche={editing}
-          schemas={schemas}
-          onSave={handleSave}
-          onDelete={handleDelete}
-          onClose={() => setEditing(null)}
-        />
-      )}
     </div>
   );
 }
