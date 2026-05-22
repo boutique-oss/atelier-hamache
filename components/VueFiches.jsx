@@ -1,22 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, X, Printer } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Printer, ChevronDown, ChevronRight } from 'lucide-react';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
 
-const TYPES = ['Tapisserie', 'Rideaux', 'Stores', 'Tête de lit', 'Habillage de lit', 'Coussins', 'Pose seule', 'Autre'];
-
-const TYPE_COLORS = {
-  'Tapisserie':       '#000',
-  'Rideaux':          '#333',
-  'Stores':           '#444',
-  'Tête de lit':      '#555',
-  'Habillage de lit': '#666',
-  'Coussins':         '#777',
-  'Pose seule':       '#888',
-  'Autre':            '#999',
-};
+const TYPES = [
+  'Tapisserie', 'Rideaux', 'Stores',
+  'Tête de lit', 'Habillage de lit', 'Coussins',
+  'Galettes', 'Tenture murale', 'Pose seule', 'Autre',
+];
 
 const labelCls = 'font-mono uppercase tracking-[0.16em] text-[10px] text-muted block mb-1';
 const inputCls = 'w-full px-3 py-2 bg-bg border border-ink font-sans text-[13px] text-ink';
@@ -27,9 +20,62 @@ function formatDate(d) {
   return `${day}/${m}/${y}`;
 }
 
+// ─── Grouper par section ──────────────────────────────────────────────────────
+function groupBySection(schema) {
+  const groups = [];
+  let current = null;
+  for (const field of schema) {
+    if (field.sectionTitle) {
+      current = { title: field.sectionTitle, fields: [field] };
+      groups.push(current);
+    } else if (current) {
+      current.fields.push(field);
+    } else {
+      current = { title: null, fields: [field] };
+      groups.push(current);
+    }
+  }
+  return groups;
+}
+
 // ─── Champ dynamique selon type ───────────────────────────────────────────────
 function DynField({ field, value, onChange }) {
   const val = value ?? '';
+
+  if (field.type === 'checklist') {
+    const checked = Array.isArray(value) ? value : [];
+    return (
+      <div className="flex flex-wrap gap-x-5 gap-y-2.5 py-1">
+        {field.options.map(o => (
+          <label key={o} className="flex items-center gap-1.5 cursor-pointer select-none group">
+            <span
+              className="flex-shrink-0 w-4 h-4 border border-ink flex items-center justify-center"
+              style={{ background: checked.includes(o) ? '#000' : 'transparent' }}
+            >
+              {checked.includes(o) && (
+                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                  <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </span>
+            <input
+              type="checkbox"
+              checked={checked.includes(o)}
+              onChange={e => {
+                const next = e.target.checked
+                  ? [...checked, o]
+                  : checked.filter(x => x !== o);
+                onChange(field.key, next);
+              }}
+              className="sr-only"
+            />
+            <span className="font-mono text-[11px] text-ink group-hover:opacity-60">{o}</span>
+          </label>
+        ))}
+      </div>
+    );
+  }
+
   if (field.type === 'textarea') {
     return (
       <textarea
@@ -55,6 +101,7 @@ function DynField({ field, value, onChange }) {
         type={field.type === 'number' ? 'number' : 'text'}
         value={val}
         onChange={e => onChange(field.key, e.target.value)}
+        placeholder={field.hint || ''}
         className={inputCls}
       />
       {field.unit && <span className="font-mono text-[11px] text-muted whitespace-nowrap">{field.unit}</span>}
@@ -72,9 +119,17 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
   });
   const [notes, setNotes] = useState(fiche.notes_libres || '');
   const [saving, setSaving] = useState(false);
+  const [collapsed, setCollapsed] = useState({});
+
+  // Tout ouvrir quand on change de type
+  useEffect(() => { setCollapsed({}); }, [type]);
 
   const setField = (key, val) => setContenu(p => ({ ...p, [key]: val }));
   const schema = schemas[type] || [];
+  const groups = groupBySection(schema);
+
+  const toggleSection = (title) =>
+    setCollapsed(p => ({ ...p, [title]: !p[title] }));
 
   const handleSave = async () => {
     if (!type) return;
@@ -98,59 +153,87 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
           <button onClick={onClose} className="p-1.5 text-muted"><X size={18} /></button>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        <div className="px-6 py-5 space-y-0">
 
-          {/* Champs communs */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Client *</label>
-              <input type="text" value={contenu.client_nom || ''} onChange={e => setField('client_nom', e.target.value)} className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Téléphone</label>
-              <input type="text" value={contenu.client_tel || ''} onChange={e => setField('client_tel', e.target.value)} className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Date prévue</label>
-              <input type="date" value={contenu.date_prevue || ''} onChange={e => setField('date_prevue', e.target.value)} className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Heures estimées</label>
-              <input type="number" step="0.5" min="0" value={contenu.heures_estimees || ''} onChange={e => setField('heures_estimees', e.target.value)} className={inputCls} />
+          {/* ── Infos client ─────────────────────────────────────────────── */}
+          <div className="pb-5">
+            <Kicker className="mb-3">Intervention</Kicker>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Client *</label>
+                <input type="text" value={contenu.client_nom || ''} onChange={e => setField('client_nom', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Téléphone</label>
+                <input type="text" value={contenu.client_tel || ''} onChange={e => setField('client_tel', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Date prévue</label>
+                <input type="date" value={contenu.date_prevue || ''} onChange={e => setField('date_prevue', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Heures estimées</label>
+                <input type="number" step="0.5" min="0" value={contenu.heures_estimees || ''} onChange={e => setField('heures_estimees', e.target.value)} className={inputCls} />
+              </div>
             </div>
           </div>
 
-          {/* Sélecteur de type */}
-          <div>
+          {/* ── Type d'intervention ──────────────────────────────────────── */}
+          <div className="py-5 border-t border-ink">
             <label className={labelCls}>Type d&apos;intervention *</label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-1.5 mt-1">
               {TYPES.map(t => (
                 <button key={t} type="button" onClick={() => setType(t)}
-                  className="px-2 py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-center"
-                  style={{ background: type === t ? '#000' : 'transparent', color: type === t ? '#fff' : '#444', border: '1px solid #000' }}>
+                  className="px-1.5 py-2 font-mono text-[10px] uppercase tracking-[0.06em] text-center leading-tight"
+                  style={{
+                    background: type === t ? '#000' : 'transparent',
+                    color: type === t ? '#fff' : '#444',
+                    border: '1px solid #000',
+                  }}>
                   {t}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Champs spécifiques au type */}
-          {type && schema.length > 0 && (
-            <div className="pt-3 border-t border-ink">
-              <Kicker className="mb-4">{type}</Kicker>
-              <div className="grid grid-cols-2 gap-3">
-                {schema.map(field => (
-                  <div key={field.key} className={field.type === 'textarea' ? 'col-span-2' : ''}>
-                    <label className={labelCls}>{field.label}{field.unit ? ` (${field.unit})` : ''}</label>
-                    <DynField field={field} value={contenu[field.key]} onChange={setField} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* ── Sections dépliables ──────────────────────────────────────── */}
+          {type && groups.map(group => (
+            <div key={group.title || '__top__'} className="border-t border-ink">
+              {group.title ? (
+                <button
+                  type="button"
+                  onClick={() => toggleSection(group.title)}
+                  className="flex items-center justify-between w-full py-3 hover:opacity-60 transition-opacity"
+                >
+                  <Kicker>{group.title}</Kicker>
+                  <span className="text-muted flex-shrink-0">
+                    {collapsed[group.title]
+                      ? <ChevronRight size={14} />
+                      : <ChevronDown size={14} />}
+                  </span>
+                </button>
+              ) : (
+                <div className="py-3" />
+              )}
 
-          {/* Notes libres */}
-          <div className="pt-3 border-t border-ink">
+              {!collapsed[group.title] && (
+                <div className="pb-4 grid grid-cols-2 gap-3">
+                  {group.fields.map(field => (
+                    <div key={field.key}
+                         className={field.type === 'textarea' || field.type === 'checklist' ? 'col-span-2' : ''}>
+                      <label className={labelCls}>
+                        {field.label}{field.unit ? ` (${field.unit})` : ''}
+                      </label>
+                      <DynField field={field} value={contenu[field.key]} onChange={setField} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* ── Notes libres ─────────────────────────────────────────────── */}
+          <div className="py-5 border-t border-ink">
             <label className={labelCls}>Instructions / notes libres</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
                       className="w-full px-3 py-2 bg-bg border border-ink font-sans text-[13px] text-ink resize-none" />
@@ -229,7 +312,8 @@ export default function VueFiches() {
 
   const filtered = fiches.filter(f => {
     if (!search) return true;
-    const client = (f.contenu_json ? JSON.parse(f.contenu_json).client_nom : '') || '';
+    const c = (() => { try { return JSON.parse(f.contenu_json); } catch { return {}; } })();
+    const client = c.client_nom || '';
     return client.toLowerCase().includes(search.toLowerCase())
       || f.type_intervention.toLowerCase().includes(search.toLowerCase());
   });
@@ -262,7 +346,7 @@ export default function VueFiches() {
         <table className="w-full">
           <thead>
             <tr className="bg-bg border-b border-ink">
-              {['Type', 'Client', 'Date prévue', 'Heures', 'Notes', ''].map((h, i) => (
+              {['Type', 'Client', 'Date prévue', 'Heures', 'Avancement', ''].map((h, i) => (
                 <th key={i} className="text-left px-4 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{h}</th>
               ))}
             </tr>
@@ -270,6 +354,12 @@ export default function VueFiches() {
           <tbody>
             {filtered.map(f => {
               const c = (() => { try { return JSON.parse(f.contenu_json); } catch { return {}; } })();
+              const etapes = Array.isArray(c.etapes) ? c.etapes : [];
+              const schemaType = schemas[f.type_intervention] || [];
+              const etapesField = schemaType.find(s => s.key === 'etapes');
+              const total = etapesField?.options?.length || 0;
+              const done = etapes.length;
+
               return (
                 <tr key={f.id} className="group hover:bg-bg border-t border-dotted border-black/30 cursor-pointer" onClick={() => setEditing(f)}>
                   <td className="px-4 py-3">
@@ -287,8 +377,20 @@ export default function VueFiches() {
                   <td className="px-4 py-3 font-serif text-[14px] text-ink">
                     {c.heures_estimees ? `${c.heures_estimees}h` : '—'}
                   </td>
-                  <td className="px-4 py-3 font-sans text-[12px] text-muted max-w-xs truncate">
-                    {f.notes_libres || '—'}
+                  <td className="px-4 py-3">
+                    {total > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-black/10 overflow-hidden">
+                          <div className="h-full bg-black transition-all"
+                               style={{ width: `${Math.round((done / total) * 100)}%` }} />
+                        </div>
+                        <span className="font-mono text-[10px] text-muted whitespace-nowrap">{done}/{total}</span>
+                      </div>
+                    ) : (
+                      <span className="font-sans text-[12px] text-muted truncate block max-w-[120px]">
+                        {f.notes_libres || '—'}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
