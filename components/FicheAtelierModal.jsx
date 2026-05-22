@@ -9,7 +9,7 @@ const fieldCls = 'w-full px-3 py-2 bg-surface border border-ink font-sans text-[
 const textareaCls = `${fieldCls} resize-y`;
 
 // Clés gérées par leurs propres sections — ne pas rendre via Champ
-const SCHEMA_SKIP_KEYS = new Set(['tissu_ref', 'tissu_fournisseur', 'ml_tissu', 'tissu_rapport', 'etapes', 'fournitures']);
+const SCHEMA_SKIP_KEYS = new Set(['etapes', 'fournitures']);
 
 function Champ({ field, value, onChange }) {
   const label = <label className={labelCls}>{field.label}{field.unit ? ` (${field.unit})` : ''}</label>;
