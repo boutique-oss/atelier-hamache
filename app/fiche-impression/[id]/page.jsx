@@ -137,7 +137,8 @@ export default async function FicheImpressionPage({ params }) {
   const notes = ficheRow?.notes_libres || '';
   const etapes = buildEtapes(typeIntervention, contenu);
   const materiaux = extraireMateriaux(typeIntervention, contenu);
-  const fournitures = Array.isArray(contenu.fournitures_list) ? contenu.fournitures_list : [];
+  const fournitures  = Array.isArray(contenu.fournitures_list)  ? contenu.fournitures_list  : [];
+  const intervenants = Array.isArray(contenu.intervenants_list) ? contenu.intervenants_list : [];
 
   const SANS  = "'DM Sans', system-ui, sans-serif";
   const SERIF = "'Fraunces', Georgia, serif";
@@ -330,39 +331,41 @@ export default async function FicheImpressionPage({ params }) {
         <table>
           <thead>
             <tr>
-              <td style={{ ...th, width: '40%' }}>Nom opérateur</td>
-              <td style={{ ...th, width: '43%' }}>Heures réelles</td>
-              <td style={{ ...th, width: '17%', textAlign: 'center' }}>Terminé</td>
+              <td style={{ ...th, width: '55%' }}>Nom opérateur</td>
+              <td style={{ ...th, width: '45%' }}>Heures réelles</td>
             </tr>
           </thead>
           <tbody>
-            {[0, 1, 2].map(i => (
-              <tr key={i}>
-                <td style={{ ...td, height: 36 }}></td>
-                <td style={td}></td>
-                <td style={{ ...tdC, fontSize: 18 }}>□</td>
-              </tr>
-            ))}
+            {intervenants.length > 0
+              ? intervenants.map((v, i) => (
+                  <tr key={i}>
+                    <td style={{ ...td, height: 36 }}>{v.nom}</td>
+                    <td style={{ ...td, fontFamily: MONO, fontSize: 12 }}>{v.heures ? `${v.heures}h` : ''}</td>
+                  </tr>
+                ))
+              : [0, 1].map(i => (
+                  <tr key={i}>
+                    <td style={{ ...td, height: 36 }}></td>
+                    <td style={td}></td>
+                  </tr>
+                ))
+            }
             <tr>
-              <td colSpan={3} style={{ ...tdLabel, borderTop: BORDER_SOLID }}>Notes</td>
+              <td colSpan={2} style={{ ...tdLabel, borderTop: BORDER_SOLID }}>Notes</td>
             </tr>
             <tr>
-              <td colSpan={3} style={{ ...td, height: 90, verticalAlign: 'top', whiteSpace: 'pre-wrap', borderBottom: BORDER_SOLID }}>
+              <td colSpan={2} style={{ ...td, height: 90, verticalAlign: 'top', whiteSpace: 'pre-wrap', borderBottom: BORDER_SOLID }}>
                 {notes}
               </td>
             </tr>
           </tbody>
         </table>
 
-        {/* Signatures */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 8 }}>
-          {['Réalisé par', 'Contrôlé par'].map(label => (
-            <div key={label}>
-              <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#737373', marginBottom: 8 }}>{label}</p>
-              <div style={{ borderBottom: BORDER_SOLID, height: 28 }}></div>
-              <p style={{ fontFamily: MONO, fontSize: 9, color: '#737373', marginTop: 4 }}>Date : ___________</p>
-            </div>
-          ))}
+        {/* Signature */}
+        <div style={{ marginTop: 8, maxWidth: '48%' }}>
+          <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#737373', marginBottom: 8 }}>Réalisé par</p>
+          <div style={{ borderBottom: BORDER_SOLID, height: 28 }}></div>
+          <p style={{ fontFamily: MONO, fontSize: 9, color: '#737373', marginTop: 4 }}>Date : ___________</p>
         </div>
 
       </div>
