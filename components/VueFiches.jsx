@@ -42,40 +42,6 @@ function groupBySection(schema) {
 function DynField({ field, value, onChange }) {
   const val = value ?? '';
 
-  if (field.type === 'checklist') {
-    const checked = Array.isArray(value) ? value : [];
-    return (
-      <div className="flex flex-wrap gap-x-5 gap-y-2.5 py-1">
-        {field.options.map(o => (
-          <label key={o} className="flex items-center gap-1.5 cursor-pointer select-none group">
-            <span
-              className="flex-shrink-0 w-4 h-4 border border-ink flex items-center justify-center"
-              style={{ background: checked.includes(o) ? '#000' : 'transparent' }}
-            >
-              {checked.includes(o) && (
-                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-                  <path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              )}
-            </span>
-            <input
-              type="checkbox"
-              checked={checked.includes(o)}
-              onChange={e => {
-                const next = e.target.checked
-                  ? [...checked, o]
-                  : checked.filter(x => x !== o);
-                onChange(field.key, next);
-              }}
-              className="sr-only"
-            />
-            <span className="font-mono text-[11px] text-ink group-hover:opacity-60">{o}</span>
-          </label>
-        ))}
-      </div>
-    );
-  }
-
   if (field.type === 'textarea') {
     return (
       <textarea
@@ -220,7 +186,7 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
                 <div className="pb-4 grid grid-cols-2 gap-3">
                   {group.fields.map(field => (
                     <div key={field.key}
-                         className={field.type === 'textarea' || field.type === 'checklist' ? 'col-span-2' : ''}>
+                         className={field.type === 'textarea' ? 'col-span-2' : ''}>
                       <label className={labelCls}>
                         {field.label}{field.unit ? ` (${field.unit})` : ''}
                       </label>
@@ -346,7 +312,7 @@ export default function VueFiches() {
         <table className="w-full">
           <thead>
             <tr className="bg-bg border-b border-ink">
-              {['Type', 'Client', 'Date prévue', 'Heures', 'Avancement', ''].map((h, i) => (
+              {['Type', 'Client', 'Date prévue', 'Heures', ''].map((h, i) => (
                 <th key={i} className="text-left px-4 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{h}</th>
               ))}
             </tr>
@@ -354,11 +320,6 @@ export default function VueFiches() {
           <tbody>
             {filtered.map(f => {
               const c = (() => { try { return JSON.parse(f.contenu_json); } catch { return {}; } })();
-              const etapes = Array.isArray(c.etapes) ? c.etapes : [];
-              const schemaType = schemas[f.type_intervention] || [];
-              const etapesField = schemaType.find(s => s.key === 'etapes');
-              const total = etapesField?.options?.length || 0;
-              const done = etapes.length;
 
               return (
                 <tr key={f.id} className="group hover:bg-bg border-t border-dotted border-black/30 cursor-pointer" onClick={() => setEditing(f)}>
@@ -376,21 +337,6 @@ export default function VueFiches() {
                   </td>
                   <td className="px-4 py-3 font-serif text-[14px] text-ink">
                     {c.heures_estimees ? `${c.heures_estimees}h` : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    {total > 0 ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-black/10 overflow-hidden">
-                          <div className="h-full bg-black transition-all"
-                               style={{ width: `${Math.round((done / total) * 100)}%` }} />
-                        </div>
-                        <span className="font-mono text-[10px] text-muted whitespace-nowrap">{done}/{total}</span>
-                      </div>
-                    ) : (
-                      <span className="font-sans text-[12px] text-muted truncate block max-w-[120px]">
-                        {f.notes_libres || '—'}
-                      </span>
-                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
