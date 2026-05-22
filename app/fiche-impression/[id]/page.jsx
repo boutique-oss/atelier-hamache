@@ -56,10 +56,11 @@ const ETAPES_PAR_TYPE = {
 };
 
 function buildEtapes(typeIntervention, contenu) {
-  // Étapes personnalisées sauvegardées depuis le formulaire
-  if (Array.isArray(contenu.etapes_custom) && contenu.etapes_custom.length > 0) {
+  // Si des étapes ont été sauvegardées (même liste vide), les utiliser telles quelles
+  if (Array.isArray(contenu.etapes_custom)) {
     return contenu.etapes_custom;
   }
+  // Fallback pour fiches jamais sauvegardées
   const base = ETAPES_PAR_TYPE[typeIntervention] || ETAPES_PAR_TYPE['Autre'];
   if (typeIntervention === 'Rideaux' && contenu.type_tete) {
     return base.map(e => e.etape === 'TÊTES' ? { ...e, type: contenu.type_tete } : e);
@@ -71,12 +72,12 @@ function buildEtapes(typeIntervention, contenu) {
 }
 
 function extraireMateriaux(typeIntervention, contenu) {
-  // Tissus multiples avec zones (nouveau format)
+  // Tissus multiples (nouveau format)
   if (Array.isArray(contenu.tissus_list) && contenu.tissus_list.length > 0) {
     return contenu.tissus_list.map(t => ({
       materiau: 'TISSU',
-      ref: [t.ref, t.fournisseur].filter(Boolean).join(' · '),
-      dim: [t.ml ? `${t.ml}ML` : '', t.zone].filter(Boolean).join(' / '),
+      ref: [t.ref, t.coloris].filter(Boolean).join(' · '),
+      dim: [t.placement, t.metrage ? `${t.metrage}m` : ''].filter(Boolean).join(' / '),
     }));
   }
   // Fallback legacy — un seul tissu
@@ -85,7 +86,7 @@ function extraireMateriaux(typeIntervention, contenu) {
     materiaux.push({
       materiau: 'TISSU',
       ref: contenu.tissu_ref,
-      dim: contenu.ml_tissu ? `${contenu.ml_tissu}ML` : '',
+      dim: contenu.ml_tissu ? `${contenu.ml_tissu}m` : '',
     });
   }
   if (contenu.garnissage && ['Tapisserie', 'Tête de lit', 'Coussins'].includes(typeIntervention)) {
@@ -136,6 +137,7 @@ export default async function FicheImpressionPage({ params }) {
   const notes = ficheRow?.notes_libres || '';
   const etapes = buildEtapes(typeIntervention, contenu);
   const materiaux = extraireMateriaux(typeIntervention, contenu);
+  const fournitures = Array.isArray(contenu.fournitures_list) ? contenu.fournitures_list : [];
 
   const SANS  = "'DM Sans', system-ui, sans-serif";
   const SERIF = "'Fraunces', Georgia, serif";
@@ -299,6 +301,30 @@ export default async function FicheImpressionPage({ params }) {
             }
           </tbody>
         </table>
+
+        {/* ── FOURNITURES ─────────────────────────────────────────── */}
+        {fournitures.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <td style={{ ...th, width: '33%' }}>Fournitures</td>
+                <td style={{ ...th, width: '25%' }}>Coloris</td>
+                <td style={{ ...th, width: '25%' }}>Placement</td>
+                <td style={{ ...th, width: '17%' }}>Métrage</td>
+              </tr>
+            </thead>
+            <tbody>
+              {fournitures.map((f, i) => (
+                <tr key={i}>
+                  <td style={{ ...td, fontFamily: MONO, fontSize: 11 }}>{f.ref}</td>
+                  <td style={td}>{f.coloris}</td>
+                  <td style={td}>{f.placement}</td>
+                  <td style={{ ...td, fontFamily: MONO, fontSize: 11 }}>{f.metrage ? `${f.metrage}m` : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
 
         {/* ── RÉALISATION ─────────────────────────────────────────── */}
         <table>

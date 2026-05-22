@@ -8,59 +8,8 @@ const labelCls = 'font-mono uppercase tracking-[0.16em] text-[10px] text-muted b
 const fieldCls = 'w-full px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink';
 const textareaCls = `${fieldCls} resize-y`;
 
-const ETAPES_PAR_TYPE = {
-  Tapisserie: [
-    { etape: 'DÉCOUVERTURE', type: '' },
-    { etape: 'SANGLAGE', type: '' },
-    { etape: 'GARNISSAGE', type: '' },
-    { etape: 'POSE TISSU', type: '' },
-    { etape: 'FINITION', type: '' },
-  ],
-  Rideaux: [
-    { etape: 'COUPE', type: '' },
-    { etape: 'COUTURE', type: '' },
-    { etape: 'TÊTES', type: '' },
-    { etape: 'FINITIONS', type: '' },
-    { etape: 'POSE', type: '' },
-  ],
-  Stores: [
-    { etape: 'DÉCOUPE', type: '' },
-    { etape: 'MONTAGE', type: '' },
-    { etape: 'ESSAI', type: '' },
-    { etape: 'POSE', type: '' },
-  ],
-  'Tête de lit': [
-    { etape: 'DÉCOUPE', type: '' },
-    { etape: 'GARNISSAGE', type: '' },
-    { etape: 'POSE TISSU', type: '' },
-    { etape: 'FINITION', type: '' },
-  ],
-  'Habillage de lit': [
-    { etape: 'DÉCOUPE', type: '' },
-    { etape: 'COUTURE', type: '' },
-    { etape: 'ASSEMBLAGE', type: '' },
-    { etape: 'FINITION', type: '' },
-  ],
-  Coussins: [
-    { etape: 'DÉCOUPE', type: '' },
-    { etape: 'COUTURE', type: '' },
-    { etape: 'GARNISSAGE', type: '' },
-    { etape: 'FERMETURE', type: '' },
-  ],
-  'Pose seule': [
-    { etape: 'PRÉPARATION', type: '' },
-    { etape: 'POSE', type: '' },
-    { etape: 'VÉRIFICATION', type: '' },
-  ],
-  Autre: [
-    { etape: 'ÉTAPE 1', type: '' },
-    { etape: 'ÉTAPE 2', type: '' },
-    { etape: 'ÉTAPE 3', type: '' },
-  ],
-};
-
-// Ces clés sont gérées par la section Tissus dédiée — ne pas rendre via Champ
-const TISSU_KEYS = new Set(['tissu_ref', 'tissu_fournisseur', 'ml_tissu', 'tissu_rapport']);
+// Clés gérées par leurs propres sections — ne pas rendre via Champ
+const SCHEMA_SKIP_KEYS = new Set(['tissu_ref', 'tissu_fournisseur', 'ml_tissu', 'tissu_rapport', 'etapes', 'fournitures']);
 
 function Champ({ field, value, onChange }) {
   const label = <label className={labelCls}>{field.label}{field.unit ? ` (${field.unit})` : ''}</label>;
@@ -124,7 +73,7 @@ function VueImpression({ dossier, fiche, schema, onClose }) {
         </div>
 
         <div className="grid grid-cols-2 gap-x-5 gap-y-3 mb-5">
-          {champs.filter(f => f.type !== 'textarea' && !TISSU_KEYS.has(f.key)).map(f => (
+          {champs.filter(f => f.type !== 'textarea' && !SCHEMA_SKIP_KEYS.has(f.key)).map(f => (
             <div key={f.key}>
               <Kicker>{f.label}{f.unit ? ` (${f.unit})` : ''}</Kicker>
               <div className="font-serif text-[14px] text-ink py-1 border-b border-dotted border-black/30">
@@ -180,8 +129,9 @@ export default function FicheAtelierModal({ dossier, onClose }) {
   const [contenu, setContenu]       = useState({});
   const [notes, setNotes]           = useState('');
   const [typeIntervention, setType] = useState(initialType);
-  const [etapes, setEtapes]         = useState(ETAPES_PAR_TYPE[initialType] || ETAPES_PAR_TYPE['Autre']);
-  const [tissus, setTissus]         = useState([]); // [{ref, fournisseur, ml, zone}]
+  const [etapes, setEtapes]           = useState([]);
+  const [tissus, setTissus]           = useState([]);
+  const [fournitures, setFournitures] = useState([]);
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [showPrint, setShowPrint]   = useState(false);
@@ -199,12 +149,9 @@ export default function FicheAtelierModal({ dossier, onClose }) {
           const c = JSON.parse(fiche.contenu_json || '{}');
           setContenu(c);
           setNotes(fiche.notes_libres || '');
-          setEtapes(
-            Array.isArray(c.etapes_custom) && c.etapes_custom.length > 0
-              ? c.etapes_custom
-              : (ETAPES_PAR_TYPE[type] || ETAPES_PAR_TYPE['Autre'])
-          );
+          setEtapes(Array.isArray(c.etapes_custom) ? c.etapes_custom : []);
           setTissus(Array.isArray(c.tissus_list) ? c.tissus_list : []);
+          setFournitures(Array.isArray(c.fournitures_list) ? c.fournitures_list : []);
         }
       });
   }, [dossier.id]);
@@ -212,9 +159,14 @@ export default function FicheAtelierModal({ dossier, onClose }) {
   const handleChange = (key, value) => { setContenu(c => ({ ...c, [key]: value })); setSaved(false); };
 
   // ── Tissus ──────────────────────────────────────────────────────────────
-  const addTissu    = () => { setTissus(t => [...t, { ref: '', fournisseur: '', ml: '', zone: '' }]); setSaved(false); };
+  const addTissu    = () => { setTissus(t => [...t, { ref: '', coloris: '', placement: '', metrage: '' }]); setSaved(false); };
   const setTissuField = (i, k, v) => { setTissus(t => t.map((x, j) => j === i ? { ...x, [k]: v } : x)); setSaved(false); };
   const delTissu    = (i) => { setTissus(t => t.filter((_, j) => j !== i)); setSaved(false); };
+
+  // ── Fournitures ─────────────────────────────────────────────────────────
+  const addFourniture      = () => { setFournitures(f => [...f, { ref: '', coloris: '', placement: '', metrage: '' }]); setSaved(false); };
+  const setFournitureField = (i, k, v) => { setFournitures(f => f.map((x, j) => j === i ? { ...x, [k]: v } : x)); setSaved(false); };
+  const delFourniture      = (i) => { setFournitures(f => f.filter((_, j) => j !== i)); setSaved(false); };
 
   // ── Étapes ──────────────────────────────────────────────────────────────
   const addEtape    = () => { setEtapes(e => [...e, { etape: '', type: '' }]); setSaved(false); };
@@ -233,7 +185,7 @@ export default function FicheAtelierModal({ dossier, onClose }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const contenuComplet = { ...contenu, etapes_custom: etapes, tissus_list: tissus };
+    const contenuComplet = { ...contenu, etapes_custom: etapes, tissus_list: tissus, fournitures_list: fournitures };
     await fetch('/api/fiches', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -250,7 +202,7 @@ export default function FicheAtelierModal({ dossier, onClose }) {
 
   const champsActuels = schemas[typeIntervention] || [];
   const currentFiche  = ficheId
-    ? { type_intervention: typeIntervention, contenu_json: JSON.stringify({ ...contenu, etapes_custom: etapes, tissus_list: tissus }), notes_libres: notes }
+    ? { type_intervention: typeIntervention, contenu_json: JSON.stringify({ ...contenu, etapes_custom: etapes, tissus_list: tissus, fournitures_list: fournitures }), notes_libres: notes }
     : null;
 
   const btnDashed = 'flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted border border-dashed border-line px-3 py-1.5 mt-1 hover:bg-bg';
@@ -282,8 +234,9 @@ export default function FicheAtelierModal({ dossier, onClose }) {
                 const t = e.target.value;
                 setType(t);
                 setContenu({});
-                setEtapes(ETAPES_PAR_TYPE[t] || ETAPES_PAR_TYPE['Autre']);
+                setEtapes([]);
                 setTissus([]);
+                setFournitures([]);
                 setSaved(false);
               }}
               className={fieldCls}
@@ -297,9 +250,9 @@ export default function FicheAtelierModal({ dossier, onClose }) {
           </div>
 
           {/* Champs schéma (hors champs tissu gérés séparément) */}
-          {champsActuels.filter(f => !TISSU_KEYS.has(f.key)).length > 0 && (
+          {champsActuels.filter(f => !SCHEMA_SKIP_KEYS.has(f.key)).length > 0 && (
             <div className="grid grid-cols-2 gap-3 mb-5">
-              {champsActuels.filter(f => !TISSU_KEYS.has(f.key)).map(f => (
+              {champsActuels.filter(f => !SCHEMA_SKIP_KEYS.has(f.key)).map(f => (
                 <Champ key={f.key} field={f} value={contenu[f.key]} onChange={handleChange} />
               ))}
             </div>
@@ -312,22 +265,22 @@ export default function FicheAtelierModal({ dossier, onClose }) {
               <p className="font-sans text-[12px] text-muted mb-2">Aucun tissu — ajoutez-en un ci-dessous.</p>
             )}
             {tissus.map((t, i) => (
-              <div key={i} className="grid gap-2 mb-2" style={{ gridTemplateColumns: '1fr 1fr 72px 1fr 20px', alignItems: 'end' }}>
+              <div key={i} className="grid gap-2 mb-2" style={{ gridTemplateColumns: '1fr 1fr 1fr 72px 20px', alignItems: 'end' }}>
                 <div>
                   <label className={labelCls}>Référence</label>
                   <input className={fieldCls} value={t.ref} onChange={e => setTissuField(i, 'ref', e.target.value)} placeholder="Ex: VELOURS-42" />
                 </div>
                 <div>
-                  <label className={labelCls}>Fournisseur</label>
-                  <input className={fieldCls} value={t.fournisseur} onChange={e => setTissuField(i, 'fournisseur', e.target.value)} />
+                  <label className={labelCls}>Coloris</label>
+                  <input className={fieldCls} value={t.coloris || ''} onChange={e => setTissuField(i, 'coloris', e.target.value)} />
                 </div>
                 <div>
-                  <label className={labelCls}>ML</label>
-                  <input type="number" step="0.1" className={fieldCls} value={t.ml} onChange={e => setTissuField(i, 'ml', e.target.value)} />
+                  <label className={labelCls}>Placement</label>
+                  <input className={fieldCls} value={t.placement || ''} onChange={e => setTissuField(i, 'placement', e.target.value)} placeholder="Ex: Dossier, Assise…" />
                 </div>
                 <div>
-                  <label className={labelCls}>Zone à poser</label>
-                  <input className={fieldCls} value={t.zone} onChange={e => setTissuField(i, 'zone', e.target.value)} placeholder="Ex: Dossier, Assise…" />
+                  <label className={labelCls}>Métrage</label>
+                  <input type="number" step="0.1" className={fieldCls} value={t.metrage || ''} onChange={e => setTissuField(i, 'metrage', e.target.value)} />
                 </div>
                 <button onClick={() => delTissu(i)} className="text-muted pb-0.5 self-end"><Trash2 size={13} /></button>
               </div>
@@ -337,22 +290,64 @@ export default function FicheAtelierModal({ dossier, onClose }) {
             </button>
           </fieldset>
 
-          {/* ── Étapes atelier ── */}
+          {/* ── Fournitures diverses ── */}
           <fieldset className="mb-5 border border-line p-4">
-            <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Étapes atelier</legend>
+            <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Fournitures diverses</legend>
+            {fournitures.length === 0 && (
+              <p className="font-sans text-[12px] text-muted mb-2">Aucune fourniture — ajoutez-en une ci-dessous.</p>
+            )}
+            {fournitures.map((f, i) => (
+              <div key={i} className="grid gap-2 mb-2" style={{ gridTemplateColumns: '1fr 1fr 1fr 72px 20px', alignItems: 'end' }}>
+                <div>
+                  <label className={labelCls}>Référence</label>
+                  <input className={fieldCls} value={f.ref} onChange={e => setFournitureField(i, 'ref', e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelCls}>Coloris</label>
+                  <input className={fieldCls} value={f.coloris || ''} onChange={e => setFournitureField(i, 'coloris', e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelCls}>Placement</label>
+                  <input className={fieldCls} value={f.placement || ''} onChange={e => setFournitureField(i, 'placement', e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelCls}>Métrage</label>
+                  <input type="number" step="0.1" className={fieldCls} value={f.metrage || ''} onChange={e => setFournitureField(i, 'metrage', e.target.value)} />
+                </div>
+                <button onClick={() => delFourniture(i)} className="text-muted pb-0.5 self-end"><Trash2 size={13} /></button>
+              </div>
+            ))}
+            <button onClick={addFourniture} className={btnDashed}>
+              <Plus size={10} /> Ajouter une fourniture
+            </button>
+          </fieldset>
+
+          {/* ── Liste des étapes ── */}
+          <fieldset className="mb-5 border border-line p-4">
+            <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Liste des étapes</legend>
+            {etapes.length === 0 && (
+              <p className="font-sans text-[12px] text-muted mb-2">Aucune étape — cliquez ci-dessous pour en créer une.</p>
+            )}
+            {etapes.length > 0 && (
+              <div className="flex gap-2 mb-1">
+                <span className="flex-[2] font-mono text-[9px] uppercase tracking-[0.14em] text-muted pl-1">Désignation</span>
+                <span className="flex-1 font-mono text-[9px] uppercase tracking-[0.14em] text-muted pl-1">Précision</span>
+                <span style={{ width: 72 }} />
+              </div>
+            )}
             {etapes.map((e, i) => (
               <div key={i} className="flex gap-2 mb-1.5 items-center">
                 <input
                   value={e.etape}
                   onChange={ev => setEtapeField(i, 'etape', ev.target.value)}
-                  placeholder="ÉTAPE"
+                  placeholder="Désignation"
                   className="flex-[2] px-3 py-2 bg-surface border border-ink font-mono text-[11px] text-ink uppercase tracking-[0.08em]"
                 />
                 <input
                   value={e.type}
                   onChange={ev => setEtapeField(i, 'type', ev.target.value)}
-                  placeholder="Type / tissu"
-                  className="flex-1 px-3 py-2 bg-surface border border-line font-sans text-[13px] text-ink"
+                  placeholder="Précision"
+                  className="flex-1 px-3 py-2 bg-surface border border-ink font-sans text-[13px] text-ink"
                 />
                 <button
                   onClick={() => moveEtape(i, -1)}
@@ -370,7 +365,7 @@ export default function FicheAtelierModal({ dossier, onClose }) {
               </div>
             ))}
             <button onClick={addEtape} className={btnDashed}>
-              <Plus size={10} /> Ajouter étape
+              <Plus size={10} /> Ajouter une étape
             </button>
           </fieldset>
 
