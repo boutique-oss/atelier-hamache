@@ -46,6 +46,7 @@ export default function FichePage() {
   const isNew = id === 'new';
 
   const [loaded, setLoaded]     = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [type, setType]         = useState('');
   const [contenu, setContenu]   = useState({});
   const [notes, setNotes]       = useState('');
@@ -54,8 +55,9 @@ export default function FichePage() {
   const [fournitures, setFournitures]   = useState([]);
   const [intervenants, setIntervenants] = useState([]);
   const [collapsed, setCollapsed]       = useState({});
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty]   = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [dirty, setDirty]     = useState(false);
   const [savedAt, setSavedAt] = useState(null);
 
   const mark = () => setDirty(true);
@@ -65,7 +67,11 @@ export default function FichePage() {
     fetch(`/api/fiches/${id}`)
       .then(r => r.json())
       .then(fiche => {
-        if (!fiche || fiche.error) { setLoaded(true); return; }
+        if (!fiche || fiche.error) {
+          setLoadError(fiche?.error || 'Fiche introuvable');
+          setLoaded(true);
+          return;
+        }
         const c = typeof fiche.contenu_json === 'string'
           ? JSON.parse(fiche.contenu_json) : (fiche.contenu_json || {});
         setType(fiche.type_intervention || '');
@@ -76,7 +82,8 @@ export default function FichePage() {
         setFournitures(Array.isArray(c.fournitures_list) ? c.fournitures_list : []);
         setIntervenants(Array.isArray(c.intervenants_list) ? c.intervenants_list : []);
         setLoaded(true);
-      });
+      })
+      .catch(err => { setLoadError(err.message); setLoaded(true); });
   }, [id, isNew]);
 
   const setField = (key, val) => { setContenu(p => ({ ...p, [key]: val })); mark(); };
@@ -120,16 +127,24 @@ export default function FichePage() {
     };
     const body = JSON.stringify({ type_intervention: type, contenu_json: contenuComplet, notes_libres: notes });
 
+    setSaveError(null);
     if (isNew) {
       const res = await fetch('/api/fiches', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
       });
       const data = await res.json();
+      if (!res.ok) { setSaveError(data?.error || 'Erreur création'); setSaving(false); return; }
       if (data?.id) { router.replace(`/fiches/${data.id}`); }
     } else {
-      await fetch(`/api/fiches/${id}`, {
+      const res = await fetch(`/api/fiches/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body,
       });
+      if (!res.ok) {
+        const data = await res.json();
+        setSaveError(data?.error || 'Erreur sauvegarde');
+        setSaving(false);
+        return;
+      }
     }
     setSaving(false);
     setDirty(false);
@@ -155,6 +170,14 @@ export default function FichePage() {
     </div>
   );
 
+  if (loadError) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="border border-red-500 px-6 py-4 font-mono text-[12px] text-red-600">
+        Erreur chargement : {loadError}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-white">
 
@@ -172,10 +195,13 @@ export default function FichePage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {timeStr && !dirty && (
+          {saveError && (
+            <span className="font-mono text-[10px] text-red-600">Erreur : {saveError}</span>
+          )}
+          {timeStr && !dirty && !saveError && (
             <span className="font-mono text-[10px] text-black/40">Enregistré à {timeStr}</span>
           )}
-          {dirty && (
+          {dirty && !saveError && (
             <span className="font-mono text-[10px] text-amber-600">Modifications non enregistrées</span>
           )}
           {!isNew && (

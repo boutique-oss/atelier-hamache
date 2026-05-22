@@ -116,26 +116,50 @@ function typePhone(tel) {
 
 export default async function FicheImpressionPage({ params }) {
   const supabase = createClient();
-  const [{ data: row }, { data: ficheRow }] = await Promise.all([
-    supabase.from('dossiers').select('*').eq('id', params.id).maybeSingle(),
-    supabase.from('fiches_atelier').select('*').eq('dossier_id', params.id).maybeSingle(),
-  ]);
 
-  if (!row) {
-    return <div style={{ padding: 40, fontFamily: 'sans-serif' }}>Dossier introuvable (id={params.id})</div>;
+  // Stratégie 1 : fiche par clé primaire (nouveau système — VueFiches passe f.id)
+  let ficheRow = null;
+  let row = null;
+
+  const { data: ficheByPk } = await supabase
+    .from('fiches_atelier').select('*').eq('id', params.id).maybeSingle();
+
+  if (ficheByPk) {
+    ficheRow = ficheByPk;
+    if (ficheRow.dossier_id) {
+      const { data: dossier } = await supabase
+        .from('dossiers').select('*').eq('id', ficheRow.dossier_id).maybeSingle();
+      row = dossier;
+    }
+  } else {
+    // Stratégie 2 : ancien système (params.id = dossier_id)
+    const [{ data: dossier }, { data: ficheByDossier }] = await Promise.all([
+      supabase.from('dossiers').select('*').eq('id', params.id).maybeSingle(),
+      supabase.from('fiches_atelier').select('*').eq('dossier_id', params.id).maybeSingle(),
+    ]);
+    row = dossier;
+    ficheRow = ficheByDossier;
   }
 
-  const contenu = ficheRow ? JSON.parse(ficheRow.contenu_json || '{}') : {};
-  const typeIntervention = ficheRow?.type_intervention || row.type_intervention || 'Autre';
-  const clientNom = (contenu.client_nom || row.client_nom || row.nom_dossier || '').toUpperCase();
-  const reference  = contenu.reference || `DE${String(row.id).padStart(8, '0')}`;
+  if (!ficheRow && !row) {
+    return <div style={{ padding: 40, fontFamily: 'sans-serif' }}>Fiche introuvable (id={params.id})</div>;
+  }
+
+  const contenu = ficheRow
+    ? (typeof ficheRow.contenu_json === 'string'
+        ? JSON.parse(ficheRow.contenu_json || '{}')
+        : (ficheRow.contenu_json || {}))
+    : {};
+  const typeIntervention = ficheRow?.type_intervention || row?.type_intervention || 'Autre';
+  const clientNom = (contenu.client_nom || row?.client_nom || row?.nom_dossier || '').toUpperCase();
+  const reference  = contenu.reference || (row ? `DE${String(row.id).padStart(8, '0')}` : '');
   const heures = contenu.heures_estimees
     ? `${contenu.heures_estimees}H`
-    : row.heures_a_realiser > 0 ? `${row.heures_a_realiser}H` : '—';
-  const dateStr = row.date_ouverture
+    : (row?.heures_a_realiser > 0 ? `${row.heures_a_realiser}H` : '—');
+  const dateStr = row?.date_ouverture
     ? new Date(row.date_ouverture).toLocaleDateString('fr-FR') : '';
-  const { ville, cp } = extraireVilleCP(contenu.client_adresse || row.adresse || '');
-  const tel = contenu.client_tel || row.telephone || '';
+  const { ville, cp } = extraireVilleCP(contenu.client_adresse || row?.adresse || '');
+  const tel = contenu.client_tel || row?.telephone || '';
   const notes = ficheRow?.notes_libres || '';
   const etapes = buildEtapes(typeIntervention, contenu);
   const materiaux = extraireMateriaux(typeIntervention, contenu);
