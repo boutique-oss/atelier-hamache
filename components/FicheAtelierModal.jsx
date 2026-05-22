@@ -205,8 +205,6 @@ export default function FicheAtelierModal({ dossier, onClose }) {
     ? { type_intervention: typeIntervention, contenu_json: JSON.stringify({ ...contenu, etapes_custom: etapes, tissus_list: tissus, fournitures_list: fournitures }), notes_libres: notes }
     : null;
 
-  const btnDashed = 'flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted border border-dashed border-line px-3 py-1.5 mt-1 hover:bg-bg';
-
   return (
     <>
       <div className="fixed inset-0 z-[1000] flex items-center justify-center" style={{ background: 'rgba(0,0,0,.5)' }}>
@@ -259,83 +257,97 @@ export default function FicheAtelierModal({ dossier, onClose }) {
           )}
 
           {/* ── Tissus ── */}
-          <fieldset className="mb-5 border border-line p-4">
-            <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Tissus</legend>
-            {tissus.length === 0 && (
-              <p className="font-sans text-[12px] text-muted mb-2">Aucun tissu — ajoutez-en un ci-dessous.</p>
-            )}
-            {tissus.map((t, i) => (
-              <div key={i} className="grid gap-2 mb-2" style={{ gridTemplateColumns: '1fr 1fr 1fr 72px 20px', alignItems: 'end' }}>
-                <div>
-                  <label className={labelCls}>Référence</label>
-                  <input className={fieldCls} value={t.ref} onChange={e => setTissuField(i, 'ref', e.target.value)} placeholder="Ex: VELOURS-42" />
+          <div className="mb-5 border border-line">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-line bg-bg">
+              <span className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted">Tissus</span>
+              <button onClick={addTissu} className="flex items-center justify-center w-5 h-5 border border-ink text-ink hover:bg-ink hover:text-surface transition-colors" title="Ajouter un tissu">
+                <Plus size={11} />
+              </button>
+            </div>
+            <div className="p-4">
+              {tissus.length === 0 && (
+                <p className="font-sans text-[12px] text-muted">Aucun tissu.</p>
+              )}
+              {tissus.map((t, i) => (
+                <div key={i} className="grid gap-2 mb-2" style={{ gridTemplateColumns: '1fr 1fr 1fr 72px 20px', alignItems: 'end' }}>
+                  <div>
+                    <label className={labelCls}>Référence</label>
+                    <input className={fieldCls} value={t.ref} onChange={e => setTissuField(i, 'ref', e.target.value)} placeholder="Ex: VELOURS-42" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Coloris</label>
+                    <input className={fieldCls} value={t.coloris || ''} onChange={e => setTissuField(i, 'coloris', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Placement</label>
+                    <input className={fieldCls} value={t.placement || ''} onChange={e => setTissuField(i, 'placement', e.target.value)} placeholder="Ex: Dossier, Assise…" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Métrage</label>
+                    <input type="number" step="0.1" className={fieldCls} value={t.metrage || ''} onChange={e => setTissuField(i, 'metrage', e.target.value)} />
+                  </div>
+                  <button onClick={() => delTissu(i)} className="text-muted pb-0.5 self-end"><Trash2 size={13} /></button>
                 </div>
-                <div>
-                  <label className={labelCls}>Coloris</label>
-                  <input className={fieldCls} value={t.coloris || ''} onChange={e => setTissuField(i, 'coloris', e.target.value)} />
-                </div>
-                <div>
-                  <label className={labelCls}>Placement</label>
-                  <input className={fieldCls} value={t.placement || ''} onChange={e => setTissuField(i, 'placement', e.target.value)} placeholder="Ex: Dossier, Assise…" />
-                </div>
-                <div>
-                  <label className={labelCls}>Métrage</label>
-                  <input type="number" step="0.1" className={fieldCls} value={t.metrage || ''} onChange={e => setTissuField(i, 'metrage', e.target.value)} />
-                </div>
-                <button onClick={() => delTissu(i)} className="text-muted pb-0.5 self-end"><Trash2 size={13} /></button>
-              </div>
-            ))}
-            <button onClick={addTissu} className={btnDashed}>
-              <Plus size={10} /> Ajouter tissu
-            </button>
-          </fieldset>
+              ))}
+            </div>
+          </div>
 
           {/* ── Fournitures diverses ── */}
-          <fieldset className="mb-5 border border-line p-4">
-            <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Fournitures diverses</legend>
-            {fournitures.length === 0 && (
-              <p className="font-sans text-[12px] text-muted mb-2">Aucune fourniture — ajoutez-en une ci-dessous.</p>
-            )}
-            {fournitures.map((f, i) => (
-              <div key={i} className="grid gap-2 mb-2" style={{ gridTemplateColumns: '1fr 1fr 1fr 72px 20px', alignItems: 'end' }}>
-                <div>
-                  <label className={labelCls}>Référence</label>
-                  <input className={fieldCls} value={f.ref} onChange={e => setFournitureField(i, 'ref', e.target.value)} />
+          <div className="mb-5 border border-line">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-line bg-bg">
+              <span className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted">Fournitures diverses</span>
+              <button onClick={addFourniture} className="flex items-center justify-center w-5 h-5 border border-ink text-ink hover:bg-ink hover:text-surface transition-colors" title="Ajouter une fourniture">
+                <Plus size={11} />
+              </button>
+            </div>
+            <div className="p-4">
+              {fournitures.length === 0 && (
+                <p className="font-sans text-[12px] text-muted">Aucune fourniture.</p>
+              )}
+              {fournitures.map((f, i) => (
+                <div key={i} className="grid gap-2 mb-2" style={{ gridTemplateColumns: '1fr 1fr 1fr 72px 20px', alignItems: 'end' }}>
+                  <div>
+                    <label className={labelCls}>Référence</label>
+                    <input className={fieldCls} value={f.ref} onChange={e => setFournitureField(i, 'ref', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Coloris</label>
+                    <input className={fieldCls} value={f.coloris || ''} onChange={e => setFournitureField(i, 'coloris', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Placement</label>
+                    <input className={fieldCls} value={f.placement || ''} onChange={e => setFournitureField(i, 'placement', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Métrage</label>
+                    <input type="number" step="0.1" className={fieldCls} value={f.metrage || ''} onChange={e => setFournitureField(i, 'metrage', e.target.value)} />
+                  </div>
+                  <button onClick={() => delFourniture(i)} className="text-muted pb-0.5 self-end"><Trash2 size={13} /></button>
                 </div>
-                <div>
-                  <label className={labelCls}>Coloris</label>
-                  <input className={fieldCls} value={f.coloris || ''} onChange={e => setFournitureField(i, 'coloris', e.target.value)} />
-                </div>
-                <div>
-                  <label className={labelCls}>Placement</label>
-                  <input className={fieldCls} value={f.placement || ''} onChange={e => setFournitureField(i, 'placement', e.target.value)} />
-                </div>
-                <div>
-                  <label className={labelCls}>Métrage</label>
-                  <input type="number" step="0.1" className={fieldCls} value={f.metrage || ''} onChange={e => setFournitureField(i, 'metrage', e.target.value)} />
-                </div>
-                <button onClick={() => delFourniture(i)} className="text-muted pb-0.5 self-end"><Trash2 size={13} /></button>
-              </div>
-            ))}
-            <button onClick={addFourniture} className={btnDashed}>
-              <Plus size={10} /> Ajouter une fourniture
-            </button>
-          </fieldset>
+              ))}
+            </div>
+          </div>
 
           {/* ── Liste des étapes ── */}
-          <fieldset className="mb-5 border border-line p-4">
-            <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Liste des étapes</legend>
-            {etapes.length === 0 && (
-              <p className="font-sans text-[12px] text-muted mb-2">Aucune étape — cliquez ci-dessous pour en créer une.</p>
-            )}
-            {etapes.length > 0 && (
-              <div className="flex gap-2 mb-1">
-                <span className="flex-[2] font-mono text-[9px] uppercase tracking-[0.14em] text-muted pl-1">Désignation</span>
-                <span className="flex-1 font-mono text-[9px] uppercase tracking-[0.14em] text-muted pl-1">Précision</span>
-                <span style={{ width: 72 }} />
-              </div>
-            )}
-            {etapes.map((e, i) => (
+          <div className="mb-5 border border-line">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-line bg-bg">
+              <span className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted">Étapes</span>
+              <button onClick={addEtape} className="flex items-center justify-center w-5 h-5 border border-ink text-ink hover:bg-ink hover:text-surface transition-colors" title="Ajouter une étape">
+                <Plus size={11} />
+              </button>
+            </div>
+            <div className="p-4">
+              {etapes.length === 0 && (
+                <p className="font-sans text-[12px] text-muted">Aucune étape.</p>
+              )}
+              {etapes.length > 0 && (
+                <div className="flex gap-2 mb-1">
+                  <span className="flex-[2] font-mono text-[9px] uppercase tracking-[0.14em] text-muted pl-1">Désignation</span>
+                  <span className="flex-1 font-mono text-[9px] uppercase tracking-[0.14em] text-muted pl-1">Précision</span>
+                  <span style={{ width: 72 }} />
+                </div>
+              )}
+              {etapes.map((e, i) => (
               <div key={i} className="flex gap-2 mb-1.5 items-center">
                 <input
                   value={e.etape}
@@ -364,10 +376,8 @@ export default function FicheAtelierModal({ dossier, onClose }) {
                 <button onClick={() => delEtape(i)} className="p-1 text-muted hover:text-ink"><Trash2 size={12} /></button>
               </div>
             ))}
-            <button onClick={addEtape} className={btnDashed}>
-              <Plus size={10} /> Ajouter une étape
-            </button>
-          </fieldset>
+            </div>
+          </div>
 
           {/* Notes libres */}
           <div className="mb-5">
