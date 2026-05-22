@@ -89,9 +89,10 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
   const [notes, setNotes]         = useState(fiche.notes_libres || '');
   const [saving, setSaving]       = useState(false);
   const [collapsed, setCollapsed] = useState({});
-  const [etapes, setEtapes]       = useState(Array.isArray(initContenu.etapes_custom) ? initContenu.etapes_custom : []);
-  const [tissus, setTissus]       = useState(Array.isArray(initContenu.tissus_list) ? initContenu.tissus_list : []);
+  const [etapes, setEtapes]           = useState(Array.isArray(initContenu.etapes_custom) ? initContenu.etapes_custom : []);
+  const [tissus, setTissus]           = useState(Array.isArray(initContenu.tissus_list) ? initContenu.tissus_list : []);
   const [fournitures, setFournitures] = useState(Array.isArray(initContenu.fournitures_list) ? initContenu.fournitures_list : []);
+  const [intervenants, setIntervenants] = useState(Array.isArray(initContenu.intervenants_list) ? initContenu.intervenants_list : []);
 
   useEffect(() => { setCollapsed({}); }, [type]);
 
@@ -115,6 +116,11 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
   const setTissuField  = (i, k, v) => setTissus(t => t.map((x, j) => j === i ? { ...x, [k]: v } : x));
   const delTissu       = (i) => setTissus(t => t.filter((_, j) => j !== i));
 
+  // ── Intervenants ──
+  const addIntervenant       = () => setIntervenants(v => [...v, { nom: '', heures: '' }]);
+  const setIntervenantField  = (i, k, v) => setIntervenants(a => a.map((x, j) => j === i ? { ...x, [k]: v } : x));
+  const delIntervenant       = (i) => setIntervenants(a => a.filter((_, j) => j !== i));
+
   // ── Fournitures ──
   const addFourniture      = () => setFournitures(f => [...f, { ref: '', coloris: '', placement: '', metrage: '' }]);
   const setFournitureField = (i, k, v) => setFournitures(f => f.map((x, j) => j === i ? { ...x, [k]: v } : x));
@@ -123,7 +129,7 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
   const handleSave = async () => {
     if (!type) return;
     setSaving(true);
-    const contenuComplet = { ...contenu, etapes_custom: etapes, tissus_list: tissus, fournitures_list: fournitures };
+    const contenuComplet = { ...contenu, etapes_custom: etapes, tissus_list: tissus, fournitures_list: fournitures, intervenants_list: intervenants };
     await onSave({ id: fiche.id, type_intervention: type, contenu_json: contenuComplet, notes_libres: notes });
     setSaving(false);
   };
@@ -162,9 +168,17 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
                 <label className={labelCls}>Téléphone</label>
                 <input type="text" value={contenu.client_tel || ''} onChange={e => setField('client_tel', e.target.value)} className={inputCls} />
               </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <label className={labelCls}>Adresse</label>
+                <input type="text" value={contenu.client_adresse || ''} onChange={e => setField('client_adresse', e.target.value)} className={inputCls} />
+              </div>
               <div>
-                <label className={labelCls}>Date prévue</label>
-                <input type="date" value={contenu.date_prevue || ''} onChange={e => setField('date_prevue', e.target.value)} className={inputCls} />
+                <label className={labelCls}>Email</label>
+                <input type="email" value={contenu.client_email || ''} onChange={e => setField('client_email', e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Date d&apos;impression</label>
+                <input type="date" value={contenu.date_impression || ''} onChange={e => setField('date_impression', e.target.value)} className={inputCls} />
               </div>
               <div>
                 <label className={labelCls}>Heures estimées</label>
@@ -301,6 +315,47 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
             <label className={labelCls}>Instructions / notes libres</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
                       className="w-full px-3 py-2 bg-bg border border-ink font-sans text-[13px] text-ink resize-none" />
+          </div>
+
+          {/* ── Intervenants ─────────────────────────────────────────────── */}
+          <div className="border-t border-ink pt-4 pb-5">
+            <div className={sectionHd}>
+              <span className={sectionLbl}>Heures réalisées &amp; intervenants</span>
+              <button onClick={addIntervenant} className={addBtn} title="Ajouter un intervenant"><Plus size={11} /></button>
+            </div>
+            <div className="pt-3">
+              {intervenants.length === 0 && <p className="font-sans text-[12px] text-muted px-1">Aucun intervenant.</p>}
+              {intervenants.length > 0 && (
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="text-left px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.14em] text-muted border border-line bg-bg">Nom intervenant</th>
+                      <th className="text-left px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.14em] text-muted border border-line bg-bg" style={{ width: 120 }}>Heures réalisées</th>
+                      <th style={{ width: 28 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {intervenants.map((v, i) => (
+                      <tr key={i}>
+                        <td className="border border-line p-0">
+                          <input value={v.nom} onChange={e => setIntervenantField(i, 'nom', e.target.value)}
+                            placeholder="Nom"
+                            className="w-full px-3 py-2 bg-surface font-sans text-[13px] text-ink border-0 outline-none" />
+                        </td>
+                        <td className="border border-line p-0">
+                          <input type="number" step="0.5" min="0" value={v.heures} onChange={e => setIntervenantField(i, 'heures', e.target.value)}
+                            placeholder="0"
+                            className="w-full px-3 py-2 bg-surface font-mono text-[13px] text-ink border-0 outline-none" />
+                        </td>
+                        <td className="pl-1">
+                          <button onClick={() => delIntervenant(i)} className="p-1 text-muted hover:text-ink"><Trash2 size={12} /></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
 
