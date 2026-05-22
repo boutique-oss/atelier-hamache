@@ -127,18 +127,21 @@ export default async function FicheImpressionPage({ params }) {
 
   const contenu = ficheRow ? JSON.parse(ficheRow.contenu_json || '{}') : {};
   const typeIntervention = ficheRow?.type_intervention || row.type_intervention || 'Autre';
-  const clientNom = (row.client_nom || row.nom_dossier || '').toUpperCase();
-  const heures = row.heures_a_realiser > 0 ? `${row.heures_a_realiser}H` : '—';
-  const codeDevis = `DE${String(row.id).padStart(8, '0')}`;
+  const clientNom = (contenu.client_nom || row.client_nom || row.nom_dossier || '').toUpperCase();
+  const reference  = contenu.reference || `DE${String(row.id).padStart(8, '0')}`;
+  const heures = contenu.heures_estimees
+    ? `${contenu.heures_estimees}H`
+    : row.heures_a_realiser > 0 ? `${row.heures_a_realiser}H` : '—';
   const dateStr = row.date_ouverture
     ? new Date(row.date_ouverture).toLocaleDateString('fr-FR') : '';
-  const { ville, cp } = extraireVilleCP(row.adresse || '');
-  const tel = row.telephone || '';
+  const { ville, cp } = extraireVilleCP(contenu.client_adresse || row.adresse || '');
+  const tel = contenu.client_tel || row.telephone || '';
   const notes = ficheRow?.notes_libres || '';
   const etapes = buildEtapes(typeIntervention, contenu);
   const materiaux = extraireMateriaux(typeIntervention, contenu);
   const fournitures  = Array.isArray(contenu.fournitures_list)  ? contenu.fournitures_list  : [];
   const intervenants = Array.isArray(contenu.intervenants_list) ? contenu.intervenants_list : [];
+  const pageTitle = [clientNom, reference].filter(Boolean).join(' — ');
 
   const SANS  = "'DM Sans', system-ui, sans-serif";
   const SERIF = "'Fraunces', Georgia, serif";
@@ -163,6 +166,7 @@ export default async function FicheImpressionPage({ params }) {
 
   return (
     <>
+      <title>{pageTitle}</title>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0 !important; }
@@ -196,7 +200,7 @@ export default async function FicheImpressionPage({ params }) {
               Fiche {typeIntervention}
             </p>
             <div style={{ textAlign: 'right', fontFamily: MONO, fontSize: 10, color: '#737373', letterSpacing: '0.1em' }}>
-              <p>Réf. {codeDevis}</p>
+              <p>Réf. {reference}</p>
               {dateStr && <p>{dateStr}</p>}
             </div>
           </div>

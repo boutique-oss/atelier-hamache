@@ -165,6 +165,10 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
                 <input type="text" value={contenu.client_nom || ''} onChange={e => setField('client_nom', e.target.value)} className={inputCls} />
               </div>
               <div>
+                <label className={labelCls}>Référence</label>
+                <input type="text" value={contenu.reference || ''} onChange={e => setField('reference', e.target.value)} placeholder="Ex : ASH-2025-001" className={inputCls} />
+              </div>
+              <div>
                 <label className={labelCls}>Téléphone</label>
                 <input type="text" value={contenu.client_tel || ''} onChange={e => setField('client_tel', e.target.value)} className={inputCls} />
               </div>
@@ -441,7 +445,7 @@ export default function VueFiches() {
         <table className="w-full">
           <thead>
             <tr className="bg-bg border-b border-ink">
-              {['Type', 'Client', 'Date d\'impression', 'Heures', ''].map((h, i) => (
+              {['Type', 'Client', 'Référence', 'Date d\'impression', 'Heures', ''].map((h, i) => (
                 <th key={i} className="text-left px-4 py-3 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">{h}</th>
               ))}
             </tr>
@@ -461,6 +465,9 @@ export default function VueFiches() {
                   <td className="px-4 py-3">
                     <p className="font-serif text-[14px] text-ink">{c.client_nom || '—'}</p>
                     {c.client_tel && <p className="font-mono text-[11px] text-muted">{c.client_tel}</p>}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-[11px] text-ink">
+                    {c.reference || '—'}
                   </td>
                   <td className="px-4 py-3 font-mono text-[11px] text-muted whitespace-nowrap">
                     {formatDate(c.date_impression)}

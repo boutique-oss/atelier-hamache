@@ -203,16 +203,20 @@ export default function FichePage() {
               <input type="text" value={contenu.client_nom || ''} onChange={e => setField('client_nom', e.target.value)} className={fieldCls} />
             </div>
             <div>
+              <label className={labelCls}>Référence</label>
+              <input type="text" value={contenu.reference || ''} onChange={e => setField('reference', e.target.value)} placeholder="Ex : ASH-2025-001" className={fieldCls} />
+            </div>
+            <div>
               <label className={labelCls}>Téléphone</label>
               <input type="text" value={contenu.client_tel || ''} onChange={e => setField('client_tel', e.target.value)} className={fieldCls} />
-            </div>
-            <div style={{ gridColumn: 'span 2' }}>
-              <label className={labelCls}>Adresse</label>
-              <input type="text" value={contenu.client_adresse || ''} onChange={e => setField('client_adresse', e.target.value)} className={fieldCls} />
             </div>
             <div>
               <label className={labelCls}>Email</label>
               <input type="email" value={contenu.client_email || ''} onChange={e => setField('client_email', e.target.value)} className={fieldCls} />
+            </div>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label className={labelCls}>Adresse</label>
+              <input type="text" value={contenu.client_adresse || ''} onChange={e => setField('client_adresse', e.target.value)} className={fieldCls} />
             </div>
             <div>
               <label className={labelCls}>Date d&apos;impression</label>
