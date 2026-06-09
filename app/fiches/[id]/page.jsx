@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Plus, Trash2, Save, ChevronDown, ChevronRight, Printer, ArrowLeft } from 'lucide-react';
 import { SCHEMAS, groupBySection } from '@/lib/fiches-schemas';
+import { PICTO } from '@/lib/fiches-picto';
 
 const TYPES = [
   'Tapisserie', 'Rideaux', 'Stores',
@@ -258,6 +259,22 @@ export default function FichePage() {
         {/* Type d'intervention */}
         <section className="py-8 border-t border-black">
           <label className={labelCls}>Type d&apos;intervention *</label>
+
+          {/* Badge type sélectionné + picto */}
+          {type && (
+            <div className="flex items-center gap-3 mt-3 mb-4 p-3 border border-black">
+              <div className="border border-black p-1 flex-shrink-0">
+                {PICTO[type] || PICTO['Autre']}
+              </div>
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-black/40 mb-1">Type sélectionné</p>
+                <span className="font-mono text-[13px] font-medium uppercase tracking-[0.18em] bg-black text-white px-3 py-1.5">
+                  {type}
+                </span>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-5 gap-1.5 mt-2">
             {TYPES.map(t => (
               <button key={t} type="button" onClick={() => { setType(t); setCollapsed({}); mark(); }}

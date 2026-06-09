@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import PrintButton from './PrintButton';
+import { PICTO } from '@/lib/fiches-picto';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,6 +115,40 @@ function typePhone(tel) {
     ? 'PORTABLE' : 'FIXE';
 }
 
+// ── Champs descriptifs clés par type ─────────────────────────────────────
+function extraireDescriptif(typeIntervention, contenu) {
+  const champs = {
+    Tapisserie:        ['meuble', 'epoque', 'nb_places', 'etat_structure', 'depose_necessaire'],
+    Rideaux:           ['piece', 'nb_panneaux', 'hauteur_fini', 'largeur_fini', 'coeff_fonce', 'type_tete', 'doublure', 'type_pose'],
+    Stores:            ['type_store', 'piece', 'nb_stores', 'largeur', 'hauteur', 'motorisation', 'pose_incluse'],
+    'Tête de lit':     ['largeur', 'hauteur', 'forme', 'fixation'],
+    'Habillage de lit':['dimensions_lit', 'elements', 'ciel_de_lit'],
+    Coussins:          ['nb_coussins', 'dimensions', 'forme', 'fermeture'],
+    Galettes:          ['nb_galettes', 'dimensions', 'forme', 'fermeture', 'liens_attaches'],
+    'Tenture murale':  ['largeur_mur', 'hauteur_mur', 'nb_les', 'technique_pose', 'type_mur', 'toile_fond'],
+    'Pose seule':      ['adresse_pose', 'type_pose', 'nb_points_pose', 'fournitures_client', 'contraintes'],
+    Autre:             ['description'],
+  };
+  const labels = {
+    meuble: 'Type de meuble', epoque: 'Époque / style', nb_places: 'Nb de places', etat_structure: 'État structure',
+    depose_necessaire: 'Dépose', piece: 'Pièce', nb_panneaux: 'Nb de panneaux', hauteur_fini: 'Hauteur finie (cm)',
+    largeur_fini: 'Largeur / panneau (cm)', coeff_fonce: 'Coeff. foncé', type_tete: 'Type de tête',
+    doublure: 'Doublure', type_pose: 'Tringle / rail', type_store: 'Type de store', nb_stores: 'Nb de stores',
+    largeur: 'Largeur (cm)', hauteur: 'Hauteur (cm)', motorisation: 'Motorisation', pose_incluse: 'Pose incluse',
+    forme: 'Forme', fixation: 'Fixation mur', dimensions_lit: 'Dimensions lit', elements: 'Éléments',
+    ciel_de_lit: 'Ciel de lit', nb_coussins: 'Nb de coussins', dimensions: 'Dimensions', fermeture: 'Fermeture',
+    nb_galettes: 'Nb de galettes', liens_attaches: 'Liens / attaches', largeur_mur: 'Largeur mur (cm)',
+    hauteur_mur: 'Hauteur mur (cm)', nb_les: 'Nombre de lés', technique_pose: 'Technique de pose',
+    type_mur: 'Type de support', toile_fond: 'Toile de fond', adresse_pose: 'Adresse de pose',
+    nb_points_pose: "Nb d'accroches", fournitures_client: 'Fournitures client', contraintes: 'Contraintes',
+    description: 'Description',
+  };
+  const keys = champs[typeIntervention] || champs['Autre'];
+  return keys
+    .map(k => ({ label: labels[k] || k, value: contenu[k] }))
+    .filter(({ value }) => value !== undefined && value !== null && value !== '');
+}
+
 export default async function FicheImpressionPage({ params }) {
   const supabase = createClient();
 
@@ -165,6 +200,8 @@ export default async function FicheImpressionPage({ params }) {
   const materiaux = extraireMateriaux(typeIntervention, contenu);
   const fournitures  = Array.isArray(contenu.fournitures_list)  ? contenu.fournitures_list  : [];
   const intervenants = Array.isArray(contenu.intervenants_list) ? contenu.intervenants_list : [];
+  const descriptif   = extraireDescriptif(typeIntervention, contenu);
+  const picto        = PICTO[typeIntervention] || PICTO['Autre'];
   const pageTitle = [clientNom, reference].filter(Boolean).join(' — ');
 
   const SANS  = "'DM Sans', system-ui, sans-serif";
@@ -216,16 +253,41 @@ export default async function FicheImpressionPage({ params }) {
 
         {/* ── Masthead ─────────────────────────────────────────────── */}
         <div style={{ borderBottom: BORDER_SOLID, paddingBottom: 12, marginBottom: 16 }}>
-          <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#737373', marginBottom: 4 }}>
+          <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#737373', marginBottom: 6 }}>
             Atelier Stéphan Hamache · Poitiers
           </p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <p style={{ fontFamily: SERIF, fontSize: 22, color: '#000', lineHeight: 1 }}>
-              Fiche {typeIntervention}
-            </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            {/* Titre + badge type */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              {/* Picto SVG dans un cadre */}
+              <div style={{
+                border: BORDER_SOLID,
+                padding: '6px 8px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                {picto}
+              </div>
+              <div>
+                <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#737373', marginBottom: 3 }}>
+                  Fiche atelier
+                </p>
+                {/* Badge type bien visible */}
+                <div style={{
+                  display: 'inline-block',
+                  background: '#000', color: '#fff',
+                  fontFamily: MONO, fontSize: 13, fontWeight: 500,
+                  textTransform: 'uppercase', letterSpacing: '0.18em',
+                  padding: '5px 14px',
+                }}>
+                  {typeIntervention}
+                </div>
+              </div>
+            </div>
+            {/* Réf + date */}
             <div style={{ textAlign: 'right', fontFamily: MONO, fontSize: 10, color: '#737373', letterSpacing: '0.1em' }}>
               <p>Réf. {reference}</p>
-              {dateStr && <p>{dateStr}</p>}
+              {dateStr && <p style={{ marginTop: 3 }}>{dateStr}</p>}
             </div>
           </div>
         </div>
@@ -281,6 +343,26 @@ export default async function FicheImpressionPage({ params }) {
             </tr>
           </tbody>
         </table>
+
+        {/* ── DESCRIPTIF ──────────────────────────────────────────── */}
+        {descriptif.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <td style={{ ...th, width: '45%' }}>Descriptif — {typeIntervention}</td>
+                <td style={{ ...th, width: '55%' }}>Valeur</td>
+              </tr>
+            </thead>
+            <tbody>
+              {descriptif.map((d, i) => (
+                <tr key={i}>
+                  <td style={tdLabel}>{d.label}</td>
+                  <td style={{ ...td, fontFamily: MONO, fontSize: 11 }}>{String(d.value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
 
         {/* ── ETAPES ──────────────────────────────────────────────── */}
         <table>
