@@ -2,13 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Plus, Pencil, Trash2, X, ExternalLink, Truck, Check, FileText, ClipboardList } from 'lucide-react';
-import Link from 'next/link';
 import HeuresModule from '../components/HeuresModule';
-import ImportExportPanel from '../components/ImportExportPanel';
 import FicheAtelierModal from '../components/FicheAtelierModal';
-import PredevisModule from '../components/PredevisModule';
-import VueRideaux from '../components/VueRideaux';
-import VueTodo from '../components/VueTodo';
 import Kicker from '../components/ui/Kicker';
 import Btn from '../components/ui/Btn';
 
@@ -1044,16 +1039,14 @@ export default function Page() {
     ref_dossier: d.nom_dossier,
   });
   const reload = async () => {
-    const [d, c, f, r] = await Promise.all([
+    const [d, c, f] = await Promise.all([
       fetch('/api/dossiers').then(r => r.json()),
       fetch('/api/commandes').then(r => r.json()),
       fetch('/api/fournisseurs').then(r => r.json()),
-      fetch('/api/interventions-rideaux').then(r => r.json()),
     ]);
-    setDossiers(d);
-    setCommandes(c);
-    setFournisseurs(f);
-    setRideauxFiches(Array.isArray(r) ? r : []);
+    setDossiers(Array.isArray(d) ? d : []);
+    setCommandes(Array.isArray(c) ? c : []);
+    setFournisseurs(Array.isArray(f) ? f : []);
   };
 
   useEffect(() => {
@@ -1105,14 +1098,9 @@ export default function Page() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-bg"><p className="font-sans text-[13px] text-muted">Chargement…</p></div>;
 
   const TABS = [
-    { key: 'dossiers',  num: '01', label: 'Atelier TAP',  count: counts.dossiers },
-    { key: 'rideaux',   num: '02', label: 'Atelier COUT', count: rideauxFiches.length },
-    { key: 'commandes', num: '03', label: 'Commandes',    count: counts.commandes },
-    { key: 'archives',  num: '04', label: 'Archives',     count: counts.archives },
-    { key: 'heures',    num: '05', label: 'Heures',       count: null },
-    { key: 'import',    num: '06', label: 'Export PDF',   count: null },
-    { key: 'predevis',  num: '07', label: 'Prédevis',     count: null },
-    { key: 'todo',      num: '08', label: 'À faire',      count: null },
+    { key: 'dossiers',  num: '01', label: 'Fiches atelier', count: counts.dossiers },
+    { key: 'commandes', num: '02', label: 'Commandes',      count: counts.commandes },
+    { key: 'heures',    num: '03', label: 'Heures',         count: null },
   ];
 
   const now = new Date();
@@ -1162,15 +1150,15 @@ export default function Page() {
           </div>
         </header>
 
-        {/* Nav — 7 modules en blocs égaux */}
+        {/* Nav — 3 onglets */}
         <nav className="flex border-b border-ink mb-8">
-          {TABS.map(t => {
+          {TABS.map((t, idx) => {
             const active = view === t.key;
             return (
               <button
                 key={t.key}
                 onClick={() => setView(t.key)}
-                className={`flex-1 flex flex-col items-center justify-center py-3 border-r border-ink last:border-r-0 ${active ? 'bg-ink text-surface' : 'bg-surface text-ink hover:bg-bg'}`}
+                className={`flex-1 flex flex-col items-center justify-center py-3 ${idx > 0 ? 'border-l border-ink' : ''} ${active ? 'bg-ink text-surface' : 'bg-surface text-ink hover:bg-bg'}`}
               >
                 <span className={`font-serif text-[28px] leading-none tnum ${active ? 'text-surface' : 'text-ink'}`}>
                   {t.num}
@@ -1186,23 +1174,11 @@ export default function Page() {
               </button>
             );
           })}
-          <Link
-            href="/stock"
-            className="flex flex-col items-center justify-center py-3 px-4 border-l border-ink bg-surface text-ink hover:bg-bg"
-          >
-            <span className="font-serif text-[28px] leading-none text-muted">⊞</span>
-            <span className="font-sans text-[12px] uppercase tracking-[0.12em] mt-0.5 text-muted">Stock</span>
-          </Link>
         </nav>
 
         {view === 'dossiers'  && <VueDossiers dossiers={dossiers} onEdit={setEditing} onNew={() => setEditing({})} onFiche={openFiche} rideauxFiches={rideauxFiches} />}
         {view === 'commandes' && <VueCommandes commandes={commandes} fournisseurs={fournisseurs} onNew={() => setEditingCommande({})} onEdit={setEditingCommande} />}
-        {view === 'archives'  && <VueArchives dossiers={dossiers} onEdit={setEditing} />}
         {view === 'heures'    && <HeuresModule />}
-        {view === 'import'    && <ImportExportPanel onDataChanged={reload} />}
-        {view === 'predevis'  && <PredevisModule />}
-        {view === 'rideaux'   && <VueRideaux />}
-        {view === 'todo'      && <VueTodo />}
 
         <footer className="mt-10 pt-4 pb-6 border-t border-ink">
           <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
