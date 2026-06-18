@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import PrintButton from './PrintButton';
+import { PICTO } from '@/lib/fiches-picto';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,10 +57,11 @@ const ETAPES_PAR_TYPE = {
 };
 
 function buildEtapes(typeIntervention, contenu) {
-  // Étapes personnalisées sauvegardées depuis le formulaire
-  if (Array.isArray(contenu.etapes_custom) && contenu.etapes_custom.length > 0) {
+  // Si des étapes ont été sauvegardées (même liste vide), les utiliser telles quelles
+  if (Array.isArray(contenu.etapes_custom)) {
     return contenu.etapes_custom;
   }
+  // Fallback pour fiches jamais sauvegardées
   const base = ETAPES_PAR_TYPE[typeIntervention] || ETAPES_PAR_TYPE['Autre'];
   if (typeIntervention === 'Rideaux' && contenu.type_tete) {
     return base.map(e => e.etape === 'TÊTES' ? { ...e, type: contenu.type_tete } : e);
@@ -71,12 +73,12 @@ function buildEtapes(typeIntervention, contenu) {
 }
 
 function extraireMateriaux(typeIntervention, contenu) {
-  // Tissus multiples avec zones (nouveau format)
+  // Tissus multiples (nouveau format)
   if (Array.isArray(contenu.tissus_list) && contenu.tissus_list.length > 0) {
     return contenu.tissus_list.map(t => ({
       materiau: 'TISSU',
-      ref: [t.ref, t.fournisseur].filter(Boolean).join(' · '),
-      dim: [t.ml ? `${t.ml}ML` : '', t.zone].filter(Boolean).join(' / '),
+      ref: [t.ref, t.coloris].filter(Boolean).join(' · '),
+      dim: [t.placement, t.metrage ? `${t.metrage}m` : ''].filter(Boolean).join(' / '),
     }));
   }
   // Fallback legacy — un seul tissu
@@ -85,7 +87,7 @@ function extraireMateriaux(typeIntervention, contenu) {
     materiaux.push({
       materiau: 'TISSU',
       ref: contenu.tissu_ref,
-      dim: contenu.ml_tissu ? `${contenu.ml_tissu}ML` : '',
+      dim: contenu.ml_tissu ? `${contenu.ml_tissu}m` : '',
     });
   }
   if (contenu.garnissage && ['Tapisserie', 'Tête de lit', 'Coussins'].includes(typeIntervention)) {
@@ -113,29 +115,94 @@ function typePhone(tel) {
     ? 'PORTABLE' : 'FIXE';
 }
 
+// ── Champs descriptifs clés par type ─────────────────────────────────────
+function extraireDescriptif(typeIntervention, contenu) {
+  const champs = {
+    Tapisserie:        ['meuble', 'epoque', 'nb_places', 'etat_structure', 'depose_necessaire'],
+    Rideaux:           ['piece', 'nb_panneaux', 'hauteur_fini', 'largeur_fini', 'coeff_fonce', 'type_tete', 'doublure', 'type_pose'],
+    Stores:            ['type_store', 'piece', 'nb_stores', 'largeur', 'hauteur', 'motorisation', 'pose_incluse'],
+    'Tête de lit':     ['largeur', 'hauteur', 'forme', 'fixation'],
+    'Habillage de lit':['dimensions_lit', 'elements', 'ciel_de_lit'],
+    Coussins:          ['nb_coussins', 'dimensions', 'forme', 'fermeture'],
+    Galettes:          ['nb_galettes', 'dimensions', 'forme', 'fermeture', 'liens_attaches'],
+    'Tenture murale':  ['largeur_mur', 'hauteur_mur', 'nb_les', 'technique_pose', 'type_mur', 'toile_fond'],
+    'Pose seule':      ['adresse_pose', 'type_pose', 'nb_points_pose', 'fournitures_client', 'contraintes'],
+    Autre:             ['description'],
+  };
+  const labels = {
+    meuble: 'Type de meuble', epoque: 'Époque / style', nb_places: 'Nb de places', etat_structure: 'État structure',
+    depose_necessaire: 'Dépose', piece: 'Pièce', nb_panneaux: 'Nb de panneaux', hauteur_fini: 'Hauteur finie (cm)',
+    largeur_fini: 'Largeur / panneau (cm)', coeff_fonce: 'Coeff. foncé', type_tete: 'Type de tête',
+    doublure: 'Doublure', type_pose: 'Tringle / rail', type_store: 'Type de store', nb_stores: 'Nb de stores',
+    largeur: 'Largeur (cm)', hauteur: 'Hauteur (cm)', motorisation: 'Motorisation', pose_incluse: 'Pose incluse',
+    forme: 'Forme', fixation: 'Fixation mur', dimensions_lit: 'Dimensions lit', elements: 'Éléments',
+    ciel_de_lit: 'Ciel de lit', nb_coussins: 'Nb de coussins', dimensions: 'Dimensions', fermeture: 'Fermeture',
+    nb_galettes: 'Nb de galettes', liens_attaches: 'Liens / attaches', largeur_mur: 'Largeur mur (cm)',
+    hauteur_mur: 'Hauteur mur (cm)', nb_les: 'Nombre de lés', technique_pose: 'Technique de pose',
+    type_mur: 'Type de support', toile_fond: 'Toile de fond', adresse_pose: 'Adresse de pose',
+    nb_points_pose: "Nb d'accroches", fournitures_client: 'Fournitures client', contraintes: 'Contraintes',
+    description: 'Description',
+  };
+  const keys = champs[typeIntervention] || champs['Autre'];
+  return keys
+    .map(k => ({ label: labels[k] || k, value: contenu[k] }))
+    .filter(({ value }) => value !== undefined && value !== null && value !== '');
+}
+
 export default async function FicheImpressionPage({ params }) {
   const supabase = createClient();
-  const [{ data: row }, { data: ficheRow }] = await Promise.all([
-    supabase.from('dossiers').select('*').eq('id', params.id).maybeSingle(),
-    supabase.from('fiches_atelier').select('*').eq('dossier_id', params.id).maybeSingle(),
-  ]);
 
-  if (!row) {
-    return <div style={{ padding: 40, fontFamily: 'sans-serif' }}>Dossier introuvable (id={params.id})</div>;
+  // Stratégie 1 : fiche par clé primaire (nouveau système — VueFiches passe f.id)
+  let ficheRow = null;
+  let row = null;
+
+  const { data: ficheByPk } = await supabase
+    .from('fiches_atelier').select('*').eq('id', params.id).maybeSingle();
+
+  if (ficheByPk) {
+    ficheRow = ficheByPk;
+    if (ficheRow.dossier_id) {
+      const { data: dossier } = await supabase
+        .from('dossiers').select('*').eq('id', ficheRow.dossier_id).maybeSingle();
+      row = dossier;
+    }
+  } else {
+    // Stratégie 2 : ancien système (params.id = dossier_id)
+    const [{ data: dossier }, { data: ficheByDossier }] = await Promise.all([
+      supabase.from('dossiers').select('*').eq('id', params.id).maybeSingle(),
+      supabase.from('fiches_atelier').select('*').eq('dossier_id', params.id).maybeSingle(),
+    ]);
+    row = dossier;
+    ficheRow = ficheByDossier;
   }
 
-  const contenu = ficheRow ? JSON.parse(ficheRow.contenu_json || '{}') : {};
-  const typeIntervention = ficheRow?.type_intervention || row.type_intervention || 'Autre';
-  const clientNom = (row.client_nom || row.nom_dossier || '').toUpperCase();
-  const heures = row.heures_a_realiser > 0 ? `${row.heures_a_realiser}H` : '—';
-  const codeDevis = `DE${String(row.id).padStart(8, '0')}`;
-  const dateStr = row.date_ouverture
+  if (!ficheRow && !row) {
+    return <div style={{ padding: 40, fontFamily: 'sans-serif' }}>Fiche introuvable (id={params.id})</div>;
+  }
+
+  const contenu = ficheRow
+    ? (typeof ficheRow.contenu_json === 'string'
+        ? JSON.parse(ficheRow.contenu_json || '{}')
+        : (ficheRow.contenu_json || {}))
+    : {};
+  const typeIntervention = ficheRow?.type_intervention || row?.type_intervention || 'Autre';
+  const clientNom = (contenu.client_nom || row?.client_nom || row?.nom_dossier || '').toUpperCase();
+  const reference  = contenu.reference || (row ? `DE${String(row.id).padStart(8, '0')}` : '');
+  const heures = contenu.heures_estimees
+    ? `${contenu.heures_estimees}H`
+    : (row?.heures_a_realiser > 0 ? `${row.heures_a_realiser}H` : '—');
+  const dateStr = row?.date_ouverture
     ? new Date(row.date_ouverture).toLocaleDateString('fr-FR') : '';
-  const { ville, cp } = extraireVilleCP(row.adresse || '');
-  const tel = row.telephone || '';
+  const { ville, cp } = extraireVilleCP(contenu.client_adresse || row?.adresse || '');
+  const tel = contenu.client_tel || row?.telephone || '';
   const notes = ficheRow?.notes_libres || '';
   const etapes = buildEtapes(typeIntervention, contenu);
   const materiaux = extraireMateriaux(typeIntervention, contenu);
+  const fournitures  = Array.isArray(contenu.fournitures_list)  ? contenu.fournitures_list  : [];
+  const intervenants = Array.isArray(contenu.intervenants_list) ? contenu.intervenants_list : [];
+  const descriptif   = extraireDescriptif(typeIntervention, contenu);
+  const picto        = PICTO[typeIntervention] || PICTO['Autre'];
+  const pageTitle = [clientNom, reference].filter(Boolean).join(' — ');
 
   const SANS  = "'DM Sans', system-ui, sans-serif";
   const SERIF = "'Fraunces', Georgia, serif";
@@ -160,6 +227,7 @@ export default async function FicheImpressionPage({ params }) {
 
   return (
     <>
+      <title>{pageTitle}</title>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; border-radius: 0 !important; }
@@ -185,16 +253,41 @@ export default async function FicheImpressionPage({ params }) {
 
         {/* ── Masthead ─────────────────────────────────────────────── */}
         <div style={{ borderBottom: BORDER_SOLID, paddingBottom: 12, marginBottom: 16 }}>
-          <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#737373', marginBottom: 4 }}>
+          <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#737373', marginBottom: 6 }}>
             Atelier Stéphan Hamache · Poitiers
           </p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <p style={{ fontFamily: SERIF, fontSize: 22, color: '#000', lineHeight: 1 }}>
-              Fiche {typeIntervention}
-            </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            {/* Titre + badge type */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              {/* Picto SVG dans un cadre */}
+              <div style={{
+                border: BORDER_SOLID,
+                padding: '6px 8px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                {picto}
+              </div>
+              <div>
+                <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#737373', marginBottom: 3 }}>
+                  Fiche atelier
+                </p>
+                {/* Badge type bien visible */}
+                <div style={{
+                  display: 'inline-block',
+                  background: '#000', color: '#fff',
+                  fontFamily: MONO, fontSize: 13, fontWeight: 500,
+                  textTransform: 'uppercase', letterSpacing: '0.18em',
+                  padding: '5px 14px',
+                }}>
+                  {typeIntervention}
+                </div>
+              </div>
+            </div>
+            {/* Réf + date */}
             <div style={{ textAlign: 'right', fontFamily: MONO, fontSize: 10, color: '#737373', letterSpacing: '0.1em' }}>
-              <p>Réf. {codeDevis}</p>
-              {dateStr && <p>{dateStr}</p>}
+              <p>Réf. {reference}</p>
+              {dateStr && <p style={{ marginTop: 3 }}>{dateStr}</p>}
             </div>
           </div>
         </div>
@@ -251,6 +344,26 @@ export default async function FicheImpressionPage({ params }) {
           </tbody>
         </table>
 
+        {/* ── DESCRIPTIF ──────────────────────────────────────────── */}
+        {descriptif.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <td style={{ ...th, width: '45%' }}>Descriptif — {typeIntervention}</td>
+                <td style={{ ...th, width: '55%' }}>Valeur</td>
+              </tr>
+            </thead>
+            <tbody>
+              {descriptif.map((d, i) => (
+                <tr key={i}>
+                  <td style={tdLabel}>{d.label}</td>
+                  <td style={{ ...td, fontFamily: MONO, fontSize: 11 }}>{String(d.value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
         {/* ── ETAPES ──────────────────────────────────────────────── */}
         <table>
           <thead>
@@ -300,43 +413,69 @@ export default async function FicheImpressionPage({ params }) {
           </tbody>
         </table>
 
+        {/* ── FOURNITURES ─────────────────────────────────────────── */}
+        {fournitures.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <td style={{ ...th, width: '33%' }}>Fournitures</td>
+                <td style={{ ...th, width: '25%' }}>Coloris</td>
+                <td style={{ ...th, width: '25%' }}>Placement</td>
+                <td style={{ ...th, width: '17%' }}>Métrage</td>
+              </tr>
+            </thead>
+            <tbody>
+              {fournitures.map((f, i) => (
+                <tr key={i}>
+                  <td style={{ ...td, fontFamily: MONO, fontSize: 11 }}>{f.ref}</td>
+                  <td style={td}>{f.coloris}</td>
+                  <td style={td}>{f.placement}</td>
+                  <td style={{ ...td, fontFamily: MONO, fontSize: 11 }}>{f.metrage ? `${f.metrage}m` : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
         {/* ── RÉALISATION ─────────────────────────────────────────── */}
         <table>
           <thead>
             <tr>
-              <td style={{ ...th, width: '40%' }}>Nom opérateur</td>
-              <td style={{ ...th, width: '43%' }}>Heures réelles</td>
-              <td style={{ ...th, width: '17%', textAlign: 'center' }}>Terminé</td>
+              <td style={{ ...th, width: '55%' }}>Nom opérateur</td>
+              <td style={{ ...th, width: '45%' }}>Heures réelles</td>
             </tr>
           </thead>
           <tbody>
-            {[0, 1, 2].map(i => (
-              <tr key={i}>
-                <td style={{ ...td, height: 36 }}></td>
-                <td style={td}></td>
-                <td style={{ ...tdC, fontSize: 18 }}>□</td>
-              </tr>
-            ))}
+            {intervenants.length > 0
+              ? intervenants.map((v, i) => (
+                  <tr key={i}>
+                    <td style={{ ...td, height: 36 }}>{v.nom}</td>
+                    <td style={{ ...td, fontFamily: MONO, fontSize: 12 }}>{v.heures ? `${v.heures}h` : ''}</td>
+                  </tr>
+                ))
+              : [0, 1].map(i => (
+                  <tr key={i}>
+                    <td style={{ ...td, height: 36 }}></td>
+                    <td style={td}></td>
+                  </tr>
+                ))
+            }
             <tr>
-              <td colSpan={3} style={{ ...tdLabel, borderTop: BORDER_SOLID }}>Notes</td>
+              <td colSpan={2} style={{ ...tdLabel, borderTop: BORDER_SOLID }}>Notes</td>
             </tr>
             <tr>
-              <td colSpan={3} style={{ ...td, height: 90, verticalAlign: 'top', whiteSpace: 'pre-wrap', borderBottom: BORDER_SOLID }}>
+              <td colSpan={2} style={{ ...td, height: 90, verticalAlign: 'top', whiteSpace: 'pre-wrap', borderBottom: BORDER_SOLID }}>
                 {notes}
               </td>
             </tr>
           </tbody>
         </table>
 
-        {/* Signatures */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 8 }}>
-          {['Réalisé par', 'Contrôlé par'].map(label => (
-            <div key={label}>
-              <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#737373', marginBottom: 8 }}>{label}</p>
-              <div style={{ borderBottom: BORDER_SOLID, height: 28 }}></div>
-              <p style={{ fontFamily: MONO, fontSize: 9, color: '#737373', marginTop: 4 }}>Date : ___________</p>
-            </div>
-          ))}
+        {/* Signature */}
+        <div style={{ marginTop: 8, maxWidth: '48%' }}>
+          <p style={{ fontFamily: MONO, fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#737373', marginBottom: 8 }}>Réalisé par</p>
+          <div style={{ borderBottom: BORDER_SOLID, height: 28 }}></div>
+          <p style={{ fontFamily: MONO, fontSize: 9, color: '#737373', marginTop: 4 }}>Date : ___________</p>
         </div>
 
       </div>
