@@ -1,26 +1,32 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { sql } from '@/lib/postgres';
 
 export const dynamic = 'force-dynamic';
 
 export async function PUT(request, { params }) {
-  const supabase = createClient();
   const id = parseInt(params.id);
   const body = await request.json();
-
-  const fields = ['date_livraison','fournisseur','client','designation','reference','coloris','qte','qte_note','unite','montant','qte_livree','controle','commentaires','date_cde'];
-  const updates = {};
-  fields.forEach(f => { if (f in body) updates[f] = body[f]; });
-  if (!Object.keys(updates).length) return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
-
-  const { error } = await supabase.from('commandes').update(updates).eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await sql`
+    UPDATE commandes SET
+      fournisseur    = COALESCE(${body.fournisseur ?? null}, fournisseur),
+      client         = COALESCE(${body.client ?? null}, client),
+      designation    = COALESCE(${body.designation ?? null}, designation),
+      reference      = COALESCE(${body.reference ?? null}, reference),
+      coloris        = COALESCE(${body.coloris ?? null}, coloris),
+      qte            = COALESCE(${body.qte != null ? parseFloat(body.qte) : null}, qte),
+      qte_note       = COALESCE(${body.qte_note ?? null}, qte_note),
+      unite          = COALESCE(${body.unite ?? null}, unite),
+      montant        = COALESCE(${body.montant != null ? parseFloat(body.montant) : null}, montant),
+      qte_livree     = COALESCE(${body.qte_livree != null ? parseFloat(body.qte_livree) : null}, qte_livree),
+      controle       = COALESCE(${body.controle ?? null}, controle),
+      commentaires   = COALESCE(${body.commentaires ?? null}, commentaires),
+      date_cde       = COALESCE(${body.date_cde ?? null}, date_cde),
+      date_livraison = COALESCE(${body.date_livraison ?? null}, date_livraison)
+    WHERE id = ${id}`;
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request, { params }) {
-  const supabase = createClient();
-  const { error } = await supabase.from('commandes').delete().eq('id', parseInt(params.id));
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await sql`DELETE FROM commandes WHERE id = ${parseInt(params.id)}`;
   return NextResponse.json({ ok: true });
 }

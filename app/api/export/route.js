@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { sql } from '@/lib/postgres';
 
 export const dynamic = 'force-dynamic';
 
@@ -145,24 +145,23 @@ function sectionTasks(tasks) {
 }
 
 export async function GET(request) {
-  const supabase = createClient();
   const type = new URL(request.url).searchParams.get('type') || 'complet';
 
   const [
-    { data: dossiers },
-    { data: interventions },
-    { data: commandes },
-    { data: heures },
-    { data: tasks },
+    { rows: dossiers },
+    { rows: interventions },
+    { rows: commandes },
+    { rows: heures },
+    { rows: tasks },
   ] = await Promise.all([
-    supabase.from('dossiers').select('*').order('statut').order('date_ouverture', { ascending: false }),
-    supabase.from('interventions_rideaux').select('*').order('date', { ascending: false }),
-    supabase.from('commandes').select('*').order('fournisseur').order('client'),
-    supabase.from('heures').select('*').order('date', { ascending: false }),
-    supabase.from('tasks').select('*').order('statut').order('created_at', { ascending: false }),
+    sql`SELECT * FROM dossiers ORDER BY statut, date_ouverture DESC`,
+    sql`SELECT * FROM interventions_rideaux ORDER BY date DESC`,
+    sql`SELECT * FROM commandes ORDER BY fournisseur, client`,
+    sql`SELECT * FROM heures ORDER BY date DESC`,
+    sql`SELECT * FROM tasks ORDER BY statut, created_at DESC`,
   ]);
 
-  const d = dossiers || [], ir = interventions || [], c = commandes || [], h = heures || [], t = tasks || [];
+  const d = dossiers, ir = interventions, c = commandes, h = heures, t = tasks;
 
   let title, body, landscape;
 

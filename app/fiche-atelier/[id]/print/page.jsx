@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { sql } from '@/lib/postgres';
 import { SCHEMAS, groupBySection } from '@/lib/fiches-schemas';
 import PrintButton from './PrintButton';
 
@@ -11,9 +11,8 @@ function formatDate(d) {
 }
 
 export default async function FicheAtelierPrint({ params }) {
-  const supabase = createClient();
-  const { data: fiche } = await supabase
-    .from('fiches_atelier').select('*').eq('id', params.id).single();
+  const { rows } = await sql`SELECT * FROM fiches_atelier WHERE id = ${params.id}`;
+  const fiche = rows[0];
 
   if (!fiche) return <p style={{ fontFamily: 'sans-serif', padding: 40 }}>Fiche introuvable.</p>;
 

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { sql } from '@/lib/postgres';
 import PrintButton from './PrintButton';
 
 export const dynamic = 'force-dynamic';
@@ -10,9 +10,8 @@ function formatDate(d) {
 }
 
 export default async function RideauxPrintPage({ params }) {
-  const supabase = createClient();
-  const { data: row } = await supabase
-    .from('interventions_rideaux').select('*').eq('id', params.id).maybeSingle();
+  const { rows } = await sql`SELECT * FROM interventions_rideaux WHERE id = ${params.id}`;
+  const row = rows[0];
 
   if (!row) {
     return <div style={{ padding: 40, fontFamily: 'sans-serif' }}>Fiche introuvable (id={params.id})</div>;

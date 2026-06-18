@@ -1,39 +1,35 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { sql } from '@/lib/postgres';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const supabase = createClient();
-
   const [
-    { count: dossiersActifs },
-    { count: enAtelier },
-    { count: pretAPoser },
-    { count: commandes },
-    { count: cmdEnAttente },
-    { count: heuresSaisies },
-    { count: rideaux },
-    { data: fichesEnAtelier },
+    { rows: [{ count: dossiersActifs }] },
+    { rows: [{ count: enAtelier }] },
+    { rows: [{ count: pretAPoser }] },
+    { rows: [{ count: commandes }] },
+    { rows: [{ count: cmdEnAttente }] },
+    { rows: [{ count: heuresSaisies }] },
+    { rows: [{ count: rideaux }] },
+    { rows: fichesEnAtelier },
   ] = await Promise.all([
-    supabase.from('dossiers').select('*', { count: 'exact', head: true }).neq('statut', 'Clos'),
-    supabase.from('dossiers').select('*', { count: 'exact', head: true }).eq('statut', 'En atelier'),
-    supabase.from('dossiers').select('*', { count: 'exact', head: true }).eq('statut', 'Prêt à poser'),
-    supabase.from('commandes').select('*', { count: 'exact', head: true }),
-    supabase.from('commandes').select('*', { count: 'exact', head: true }).or('qte_livree.is.null,qte_livree.eq.0'),
-    supabase.from('heures').select('*', { count: 'exact', head: true }),
-    supabase.from('interventions_rideaux').select('*', { count: 'exact', head: true }),
-    supabase.from('dossiers')
-      .select('id, nom_dossier, client_nom, type_intervention, heures_a_realiser')
-      .eq('statut', 'En atelier')
-      .order('date_ouverture', { ascending: false }),
+    sql`SELECT COUNT(*) FROM dossiers WHERE statut != 'Clos'`,
+    sql`SELECT COUNT(*) FROM dossiers WHERE statut = 'En atelier'`,
+    sql`SELECT COUNT(*) FROM dossiers WHERE statut = 'Prêt à poser'`,
+    sql`SELECT COUNT(*) FROM commandes`,
+    sql`SELECT COUNT(*) FROM commandes WHERE qte_livree IS NULL OR qte_livree = 0`,
+    sql`SELECT COUNT(*) FROM heures`,
+    sql`SELECT COUNT(*) FROM interventions_rideaux`,
+    sql`SELECT id, nom_dossier, client_nom, type_intervention, heures_a_realiser
+        FROM dossiers WHERE statut = 'En atelier' ORDER BY date_ouverture DESC`,
   ]);
 
   return NextResponse.json({
-    dossiers: { total: dossiersActifs || 0, enAtelier: enAtelier || 0, pretAPoser: pretAPoser || 0 },
-    commandes: { total: commandes || 0, enAttente: cmdEnAttente || 0 },
-    heures: { saisies: heuresSaisies || 0 },
-    rideaux: { total: rideaux || 0 },
-    fichesEnAtelier: fichesEnAtelier || [],
+    dossiers: { total: parseInt(dossiersActifs), enAtelier: parseInt(enAtelier), pretAPoser: parseInt(pretAPoser) },
+    commandes: { total: parseInt(commandes), enAttente: parseInt(cmdEnAttente) },
+    heures: { saisies: parseInt(heuresSaisies) },
+    rideaux: { total: parseInt(rideaux) },
+    fichesEnAtelier,
   });
 }

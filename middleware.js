@@ -1,43 +1,32 @@
-import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
+import { jwtVerify } from 'jose';
+
+const COOKIE_NAME = 'atelier_session';
+
+function secret() {
+  return new TextEncoder().encode(process.env.SESSION_SECRET || 'fallback-secret-change-me');
+}
 
 export async function middleware(request) {
-  let response = NextResponse.next({ request: { headers: request.headers } });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll(); },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          response = NextResponse.next({ request: { headers: request.headers } });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
-
   const { pathname } = request.nextUrl;
   const isLoginPage = pathname === '/login';
-  const isApiRoute = pathname.startsWith('/api/');
+  const isApiAuth   = pathname.startsWith('/api/auth/');
+  const isApiRoute  = pathname.startsWith('/api/');
 
-  if (!user && !isLoginPage && !isApiRoute) {
+  const token = request.cookies.get(COOKIE_NAME)?.value;
+  let authenticated = false;
+  if (token) {
+    try { await jwtVerify(token, secret()); authenticated = true; } catch {}
+  }
+
+  if (!authenticated && !isLoginPage && !isApiAuth) {
+    if (isApiRoute) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
     return NextResponse.redirect(new URL('/login', request.url));
   }
-
-  if (user && isLoginPage) {
+  if (authenticated && isLoginPage) {
     return NextResponse.redirect(new URL('/', request.url));
   }
-
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {

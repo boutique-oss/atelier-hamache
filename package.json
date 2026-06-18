@@ -11,9 +11,10 @@
     "first-run": "npm install && npm run init-db && npm run build && npm start"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.6.1",
-    "@supabase/supabase-js": "^2.106.0",
+    "@vercel/blob": "^0.27.0",
+    "@vercel/postgres": "^0.10.0",
     "html2pdf.js": "^0.14.0",
+    "jose": "^5.9.6",
     "lucide-react": "^0.460.0",
     "next": "^14.2.0",
     "react": "^18.3.0",

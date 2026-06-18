@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { sql } from '@/lib/postgres';
 import PrintButton from './PrintButton';
 import { PICTO } from '@/lib/fiches-picto';
 
@@ -150,30 +150,23 @@ function extraireDescriptif(typeIntervention, contenu) {
 }
 
 export default async function FicheImpressionPage({ params }) {
-  const supabase = createClient();
-
-  // Stratégie 1 : fiche par clé primaire (nouveau système — VueFiches passe f.id)
   let ficheRow = null;
   let row = null;
 
-  const { data: ficheByPk } = await supabase
-    .from('fiches_atelier').select('*').eq('id', params.id).maybeSingle();
-
-  if (ficheByPk) {
-    ficheRow = ficheByPk;
+  const { rows: ficheByPkRows } = await sql`SELECT * FROM fiches_atelier WHERE id = ${params.id} LIMIT 1`;
+  if (ficheByPkRows.length) {
+    ficheRow = ficheByPkRows[0];
     if (ficheRow.dossier_id) {
-      const { data: dossier } = await supabase
-        .from('dossiers').select('*').eq('id', ficheRow.dossier_id).maybeSingle();
-      row = dossier;
+      const { rows: dossierRows } = await sql`SELECT * FROM dossiers WHERE id = ${ficheRow.dossier_id} LIMIT 1`;
+      row = dossierRows[0] || null;
     }
   } else {
-    // Stratégie 2 : ancien système (params.id = dossier_id)
-    const [{ data: dossier }, { data: ficheByDossier }] = await Promise.all([
-      supabase.from('dossiers').select('*').eq('id', params.id).maybeSingle(),
-      supabase.from('fiches_atelier').select('*').eq('dossier_id', params.id).maybeSingle(),
+    const [{ rows: dossierRows }, { rows: ficheRows }] = await Promise.all([
+      sql`SELECT * FROM dossiers WHERE id = ${params.id} LIMIT 1`,
+      sql`SELECT * FROM fiches_atelier WHERE dossier_id = ${params.id} LIMIT 1`,
     ]);
-    row = dossier;
-    ficheRow = ficheByDossier;
+    row = dossierRows[0] || null;
+    ficheRow = ficheRows[0] || null;
   }
 
   if (!ficheRow && !row) {

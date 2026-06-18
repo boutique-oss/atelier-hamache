@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,10 +15,13 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
 
-    if (error) {
+    if (!res.ok) {
       setError('Email ou mot de passe incorrect.');
       setLoading(false);
       return;
@@ -31,20 +33,13 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: '100vh',
-      background: '#FAF7F2',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
+      minHeight: '100vh', background: '#FAF7F2',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: 'Arial, sans-serif',
     }}>
       <div style={{
-        background: '#fff',
-        border: '1px solid #E8E2D5',
-        borderRadius: '8px',
-        padding: '48px',
-        width: '100%',
-        maxWidth: '400px',
+        background: '#fff', border: '1px solid #E8E2D5', borderRadius: '8px',
+        padding: '48px', width: '100%', maxWidth: '400px',
         boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
       }}>
         <div style={{ marginBottom: '32px', textAlign: 'center' }}>
@@ -64,23 +59,8 @@ export default function LoginPage() {
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#6B6557', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
               Email
             </label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #E8E2D5',
-                borderRadius: '5px',
-                fontSize: '14px',
-                color: '#1A1814',
-                background: '#FAF7F2',
-                boxSizing: 'border-box',
-                outline: 'none',
-              }}
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email"
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #E8E2D5', borderRadius: '5px', fontSize: '14px', color: '#1A1814', background: '#FAF7F2', boxSizing: 'border-box', outline: 'none' }}
               placeholder="boutique@hamachestephan.com"
             />
           </div>
@@ -89,55 +69,19 @@ export default function LoginPage() {
             <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: '#6B6557', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>
               Mot de passe
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #E8E2D5',
-                borderRadius: '5px',
-                fontSize: '14px',
-                color: '#1A1814',
-                background: '#FAF7F2',
-                boxSizing: 'border-box',
-                outline: 'none',
-              }}
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password"
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #E8E2D5', borderRadius: '5px', fontSize: '14px', color: '#1A1814', background: '#FAF7F2', boxSizing: 'border-box', outline: 'none' }}
             />
           </div>
 
           {error && (
-            <div style={{
-              background: '#FEF2F2',
-              border: '1px solid #FECACA',
-              borderRadius: '5px',
-              padding: '10px 12px',
-              fontSize: '13px',
-              color: '#B91C1C',
-              marginBottom: '16px',
-            }}>
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '5px', padding: '10px 12px', fontSize: '13px', color: '#B91C1C', marginBottom: '16px' }}>
               {error}
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: loading ? '#C5BFB5' : '#1A1814',
-              color: '#FAF7F2',
-              border: 'none',
-              borderRadius: '5px',
-              fontSize: '14px',
-              fontWeight: '700',
-              cursor: loading ? 'default' : 'pointer',
-              letterSpacing: '0.02em',
-            }}
+          <button type="submit" disabled={loading}
+            style={{ width: '100%', padding: '12px', background: loading ? '#C5BFB5' : '#1A1814', color: '#FAF7F2', border: 'none', borderRadius: '5px', fontSize: '14px', fontWeight: '700', cursor: loading ? 'default' : 'pointer', letterSpacing: '0.02em' }}
           >
             {loading ? 'Connexion…' : 'Se connecter'}
           </button>

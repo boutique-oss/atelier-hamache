@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { sql } from '@/lib/postgres';
 import * as XLSX from 'xlsx';
 
 export const dynamic = 'force-dynamic';
@@ -37,9 +37,7 @@ function mapRow(row, mapping) {
 const OPERATEURS_CONNUS = ['Stéphan', 'Christophe', 'Morgane', 'Vivianne'];
 function normaliserOperateur(nom) {
   const n = nom.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-  const match = OPERATEURS_CONNUS.find(o =>
-    o.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() === n
-  );
+  const match = OPERATEURS_CONNUS.find(o => o.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() === n);
   return match || nom.trim();
 }
 
@@ -49,8 +47,6 @@ function parseFicheAtelier(wb) {
   const clientNom = String(rows[2]?.[1] || '').trim();
   const heuresEstimees = parseFloat(String(rows[2]?.[0] || '').replace(/[Hh\s]/g, '')) || 0;
   const typeTravaux = String(rows[1]?.[1] || '').trim();
-  const adresse = [String(rows[5]?.[2] || ''), String(rows[5]?.[1] || '')].filter(Boolean).join(' ').trim();
-  const telephone = String(rows[6]?.[1] || '').trim();
 
   let heuresStartRow = 18;
   for (let i = 14; i < Math.min(rows.length, 22); i++) {
@@ -62,11 +58,10 @@ function parseFicheAtelier(wb) {
     const h = parseFloat(String(rows[i]?.[1] || '').replace(/[Hh\s]/g, '')) || 0;
     if (nom && h > 0) heuresReelles.push({ operateur: normaliserOperateur(nom), heures: h });
   }
-  return { clientNom, heuresEstimees, typeTravaux, adresse, telephone, heuresReelles };
+  return { clientNom, heuresEstimees, typeTravaux, heuresReelles };
 }
 
 export async function POST(request) {
-  const supabase = createClient();
   try {
     const formData = await request.formData();
     const file = formData.get('file');
@@ -84,35 +79,30 @@ export async function POST(request) {
       const { clientNom, heuresEstimees, typeTravaux, heuresReelles } = parseFicheAtelier(wb);
       if (!clientNom) return NextResponse.json({ error: 'Nom client introuvable (cellule B3)' }, { status: 400 });
 
-      const { data: dossiers } = await supabase
-        .from('dossiers').select('id, nom_dossier')
-        .or(`nom_dossier.ilike.${clientNom},client_nom.ilike.${clientNom}`);
+      const { rows: dossiers } = await sql`
+        SELECT id, nom_dossier FROM dossiers
+        WHERE nom_dossier ILIKE ${clientNom} OR client_nom ILIKE ${clientNom}
+        LIMIT 1`;
 
-      const dossier = dossiers?.[0];
-      if (!dossier) return NextResponse.json({
-        ok: false, error: `Aucun dossier pour "${clientNom}"`, client: clientNom,
-      }, { status: 404 });
+      const dossier = dossiers[0];
+      if (!dossier) return NextResponse.json({ ok: false, error: `Aucun dossier pour "${clientNom}"`, client: clientNom }, { status: 404 });
 
       if (heuresEstimees > 0) {
-        await supabase.from('dossiers')
-          .update({ heures_a_realiser: heuresEstimees, updated_at: new Date().toISOString() })
-          .eq('id', dossier.id);
+        await sql`UPDATE dossiers SET heures_a_realiser = ${heuresEstimees}, updated_at = NOW() WHERE id = ${dossier.id}`;
       }
 
       const today = new Date().toISOString().slice(0, 10);
       for (const h of heuresReelles) {
-        await supabase.from('heures').insert({
-          dossier_id: dossier.id, operateur: h.operateur,
-          date: today, heures_passees: h.heures, type_travail: typeTravaux || 'Atelier', description: '',
-        });
+        await sql`INSERT INTO heures (dossier_id, operateur, date, heures_passees, type_travail, description)
+                  VALUES (${dossier.id}, ${h.operateur}, ${today}, ${h.heures}, ${typeTravaux || 'Atelier'}, '')`;
       }
 
       const totalReel = heuresReelles.reduce((s, h) => s + h.heures, 0);
       const detail = heuresReelles.map(h => `${h.operateur} ${h.heures}h`).join(' + ') || 'aucune heure';
       return NextResponse.json({
         ok: true, client: clientNom, dossier_nom: dossier.nom_dossier,
-        heures_estimees: heuresEstimees, heures_reelles: heuresReelles,
-        total_reel: totalReel, message: `${dossier.nom_dossier} · Devis : ${heuresEstimees}h · Réel : ${detail}`,
+        heures_estimees: heuresEstimees, heures_reelles: heuresReelles, total_reel: totalReel,
+        message: `${dossier.nom_dossier} · Devis : ${heuresEstimees}h · Réel : ${detail}`,
       });
     }
 
@@ -129,20 +119,9 @@ export async function POST(request) {
           if (m.flag_urgent) flags.push('Urgent');
           if (m.flag_sav) flags.push('SAV');
           if (m.flag_standby) flags.push('Standby');
-          const { error } = await supabase.from('dossiers').insert({
-            nom_dossier: String(m.nom_client),
-            client_nom: String(m.nom_client),
-            type_intervention: m.type_intervention || 'Tapisserie',
-            statut: m.statut || 'Nouveau',
-            telephone: String(m.telephone || ''),
-            email: String(m.email || ''),
-            adresse: String(m.adresse || ''),
-            heures_a_realiser: parseFloat(m.heures_a_realiser) || 0,
-            commentaires: String(m.notes || ''),
-            flags: JSON.stringify(flags),
-          });
-          if (error) { results.errors.push(`"${m.nom_client}" : ${error.message}`); }
-          else results.created++;
+          await sql`INSERT INTO dossiers (nom_dossier, client_nom, type_intervention, statut, telephone, email, adresse, heures_a_realiser, commentaires, flags)
+                    VALUES (${String(m.nom_client)}, ${String(m.nom_client)}, ${m.type_intervention || 'Tapisserie'}, ${m.statut || 'Nouveau'}, ${String(m.telephone || '')}, ${String(m.email || '')}, ${String(m.adresse || '')}, ${parseFloat(m.heures_a_realiser) || 0}, ${String(m.notes || '')}, ${JSON.stringify(flags)})`;
+          results.created++;
         } catch (e) { results.errors.push(e.message); }
       }
     } else if (type === 'commandes') {
@@ -150,16 +129,9 @@ export async function POST(request) {
         const m = mapRow(row, MAP_COMMANDES);
         if (!m.fournisseur && !m.designation) { results.skipped++; continue; }
         try {
-          const { error } = await supabase.from('commandes').insert({
-            fournisseur: String(m.fournisseur || ''),
-            designation: String(m.designation || ''),
-            coloris: String(m.coloris || ''),
-            qte: parseFloat(m.qte) || null,
-            montant: parseFloat(m.montant) || null,
-            commentaires: String(m.commentaires || ''),
-          });
-          if (error) results.errors.push(error.message);
-          else results.created++;
+          await sql`INSERT INTO commandes (fournisseur, designation, coloris, qte, montant, commentaires)
+                    VALUES (${String(m.fournisseur || '')}, ${String(m.designation || '')}, ${String(m.coloris || '')}, ${parseFloat(m.qte) || null}, ${parseFloat(m.montant) || null}, ${String(m.commentaires || '')})`;
+          results.created++;
         } catch (e) { results.errors.push(e.message); }
       }
     }
