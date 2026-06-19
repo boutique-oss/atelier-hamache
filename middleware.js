@@ -13,6 +13,9 @@ export async function middleware(request) {
   const isApiAuth   = pathname.startsWith('/api/auth/');
   const isApiRoute  = pathname.startsWith('/api/');
 
+  // Route de maintenance temporaire, protégée par son propre token secret
+  if (pathname === '/api/restore-data') return NextResponse.next();
+
   const token = request.cookies.get(COOKIE_NAME)?.value;
   let authenticated = false;
   if (token) {
