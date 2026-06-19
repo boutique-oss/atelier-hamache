@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Plus, Pencil, Trash2, X, ExternalLink, Truck, Check, FileText, ClipboardList } from 'lucide-react';
 import HeuresModule from '../components/HeuresModule';
 import FicheAtelierModal from '../components/FicheAtelierModal';
+import VueFiches from '../components/VueFiches';
 import Kicker from '../components/ui/Kicker';
 import Btn from '../components/ui/Btn';
 
@@ -1098,9 +1099,10 @@ export default function Page() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-bg"><p className="font-sans text-[13px] text-muted">Chargement…</p></div>;
 
   const TABS = [
-    { key: 'dossiers',  num: '01', label: 'Fiches atelier', count: counts.dossiers },
-    { key: 'commandes', num: '02', label: 'Commandes',      count: counts.commandes },
-    { key: 'heures',    num: '03', label: 'Heures',         count: null },
+    { key: 'dossiers',  num: '01', label: 'Projets',        count: counts.dossiers },
+    { key: 'fiches',    num: '02', label: 'Fiches atelier', count: null },
+    { key: 'commandes', num: '03', label: 'Commandes',      count: counts.commandes },
+    { key: 'heures',    num: '04', label: 'Heures',         count: null },
   ];
 
   const now = new Date();
@@ -1177,6 +1179,7 @@ export default function Page() {
         </nav>
 
         {view === 'dossiers'  && <VueDossiers dossiers={dossiers} onEdit={setEditing} onNew={() => setEditing({})} onFiche={openFiche} rideauxFiches={rideauxFiches} />}
+        {view === 'fiches'    && <VueFiches />}
         {view === 'commandes' && <VueCommandes commandes={commandes} fournisseurs={fournisseurs} onNew={() => setEditingCommande({})} onEdit={setEditingCommande} />}
         {view === 'heures'    && <HeuresModule />}
 
