@@ -430,6 +430,24 @@ export default async function FicheImpressionPage({ params }) {
           </table>
         )}
 
+        {/* ── OBSERVATIONS ATELIER ────────────────────────────────── */}
+        {contenu.observations && (
+          <table>
+            <thead>
+              <tr>
+                <td style={{ ...th }}>Observations atelier</td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ ...td, verticalAlign: 'top', whiteSpace: 'pre-wrap', minHeight: 48 }}>
+                  {contenu.observations}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+
         {/* ── RÉALISATION ─────────────────────────────────────────── */}
         <table>
           <thead>
@@ -454,10 +472,10 @@ export default async function FicheImpressionPage({ params }) {
                 ))
             }
             <tr>
-              <td colSpan={2} style={{ ...tdLabel, borderTop: BORDER_SOLID }}>Notes</td>
+              <td colSpan={2} style={{ ...tdLabel, borderTop: BORDER_SOLID }}>Notes libres</td>
             </tr>
             <tr>
-              <td colSpan={2} style={{ ...td, height: 90, verticalAlign: 'top', whiteSpace: 'pre-wrap', borderBottom: BORDER_SOLID }}>
+              <td colSpan={2} style={{ ...td, minHeight: 60, height: notes ? 'auto' : 90, verticalAlign: 'top', whiteSpace: 'pre-wrap', borderBottom: BORDER_SOLID }}>
                 {notes}
               </td>
             </tr>
