@@ -1,21 +1,33 @@
-import { handleUpload } from '@vercel/blob/multipart';
+import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
+
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 export async function POST(request) {
   try {
-    const response = await handleUpload({
-      request,
-      onBeforeGenerateToken: async (pathname) => ({
-        allowedContentTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic'],
-        maximumSizeInBytes: 20 * 1024 * 1024, // 20 MB
-      }),
-      onUploadCompleted: async ({ blob }) => {
-        console.log('[upload-schema] completed:', blob.url);
-      },
+    const formData = await request.formData();
+    const file = formData.get('file');
+
+    if (!file) return NextResponse.json({ error: 'Aucun fichier reçu' }, { status: 400 });
+
+    const ext = (file.name || '').split('.').pop().toLowerCase();
+    const allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic'];
+    if (!allowed.includes(ext)) {
+      return NextResponse.json({ error: `Format non supporté : ${ext}` }, { status: 400 });
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const blob = await put(`schemas/${Date.now()}-${file.name}`, buffer, {
+      access: 'public',
+      contentType: file.type || 'image/jpeg',
     });
-    return NextResponse.json(response);
+
+    return NextResponse.json({ url: blob.url });
   } catch (err) {
     console.error('[upload-schema]', err);
-    return NextResponse.json({ error: err.message }, { status: 400 });
+    return NextResponse.json({ error: err.message || 'Erreur serveur' }, { status: 500 });
   }
 }
