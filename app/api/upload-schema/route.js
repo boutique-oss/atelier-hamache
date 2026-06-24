@@ -4,7 +4,14 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
+const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
+
 export async function POST(request) {
+  if (!BLOB_TOKEN) {
+    console.error('[upload-schema] Aucun token Blob trouvé (BLOB_READ_WRITE_TOKEN_READ_WRITE_TOKEN ou BLOB_READ_WRITE_TOKEN)');
+    return NextResponse.json({ error: 'Configuration serveur manquante (token blob)' }, { status: 500 });
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get('file');
@@ -23,6 +30,7 @@ export async function POST(request) {
     const blob = await put(`schemas/${Date.now()}-${file.name}`, buffer, {
       access: 'public',
       contentType: file.type || 'image/jpeg',
+      token: BLOB_TOKEN,
     });
 
     return NextResponse.json({ url: blob.url });
