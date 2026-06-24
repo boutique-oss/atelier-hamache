@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, X, Printer, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, X, Printer, ChevronDown, ChevronRight, Camera } from 'lucide-react';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
 
@@ -93,6 +93,8 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
   const [tissus, setTissus]           = useState(Array.isArray(initContenu.tissus_list) ? initContenu.tissus_list : []);
   const [fournitures, setFournitures] = useState(Array.isArray(initContenu.fournitures_list) ? initContenu.fournitures_list : []);
   const [intervenants, setIntervenants] = useState(Array.isArray(initContenu.intervenants_list) ? initContenu.intervenants_list : []);
+  const [schemas_photos, setPhotos]   = useState(Array.isArray(initContenu.schemas_photos) ? initContenu.schemas_photos : []);
+  const [uploading, setUploading]     = useState(false);
 
   useEffect(() => { setCollapsed({}); }, [type]);
 
@@ -129,7 +131,7 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
   const handleSave = async () => {
     if (!type) return;
     setSaving(true);
-    const contenuComplet = { ...contenu, etapes_custom: etapes, tissus_list: tissus, fournitures_list: fournitures, intervenants_list: intervenants };
+    const contenuComplet = { ...contenu, etapes_custom: etapes, tissus_list: tissus, fournitures_list: fournitures, intervenants_list: intervenants, schemas_photos };
     await onSave({ id: fiche.id, type_intervention: type, contenu_json: contenuComplet, notes_libres: notes });
     setSaving(false);
   };
@@ -311,6 +313,63 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
                   <button onClick={() => delEtape(i)} className="p-1 text-muted hover:text-ink"><Trash2 size={12} /></button>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* ── Schémas / photos ─────────────────────────────────────────── */}
+          <div className="border-t border-ink pt-4 pb-2">
+            <div className={sectionHd}>
+              <span className={sectionLbl}>Schémas / photos</span>
+            </div>
+            <div className="pt-3">
+              {schemas_photos.length > 0 && (
+                <div className="flex flex-wrap gap-3 mb-3">
+                  {schemas_photos.map((url, i) => (
+                    <div key={i} className="relative" style={{ width: 120 }}>
+                      <img src={url} alt={`Schéma ${i + 1}`} style={{ width: 120, height: 90, objectFit: 'cover', border: '1px solid #ccc', display: 'block' }} />
+                      <button
+                        onClick={() => setPhotos(p => p.filter((_, j) => j !== i))}
+                        className="absolute top-0.5 right-0.5 bg-black text-white"
+                        style={{ width: 18, height: 18, fontSize: 11, lineHeight: '18px', textAlign: 'center', padding: 0 }}
+                        title="Supprimer"
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <label className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted border border-dashed border-line px-3 py-1.5 cursor-pointer hover:bg-bg w-fit">
+                <Camera size={10} />
+                {uploading ? 'Envoi…' : 'Ajouter photo / schéma'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="sr-only"
+                  disabled={uploading}
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files);
+                    if (!files.length) return;
+                    setUploading(true);
+                    try {
+                      const urls = await Promise.all(files.map(async (file) => {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        const r = await fetch('/api/upload-schema', { method: 'POST', body: fd });
+                        const res = await r.json();
+                        if (!r.ok) throw new Error(res.error || 'Erreur upload');
+                        return res.url;
+                      }));
+                      setPhotos(p => [...p, ...urls]);
+                    } catch (err) {
+                      alert(`Erreur upload : ${err.message}`);
+                    } finally {
+                      setUploading(false);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+              </label>
+              <p className="font-mono text-[9px] text-muted mt-2 px-1">Photo du meuble, croquis papier, schéma coté…</p>
             </div>
           </div>
 
