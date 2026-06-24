@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Plus, Trash2, Save, ChevronDown, ChevronRight, Printer, ArrowLeft, Camera } from 'lucide-react';
 import { SCHEMAS, groupBySection } from '@/lib/fiches-schemas';
@@ -56,8 +56,7 @@ export default function FichePage() {
   const [fournitures, setFournitures]   = useState([]);
   const [intervenants, setIntervenants] = useState([]);
   const [schemas_photos, setPhotos]     = useState([]);
-  const [uploading, setUploading]       = useState(false);
-  const fileInputRef                    = useRef(null);
+  const [photoUrlInput, setPhotoUrlInput] = useState('');
   const [collapsed, setCollapsed]       = useState({});
   const [saving, setSaving]   = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -157,27 +156,12 @@ export default function FichePage() {
     setSavedAt(new Date());
   }, [id, isNew, type, contenu, notes, etapes, tissus, fournitures, intervenants, schemas_photos, router]);
 
-  const handlePhotoUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
-    setUploading(true);
-    try {
-      const urls = await Promise.all(files.map(async (file) => {
-        const fd = new FormData();
-        fd.append('file', file);
-        const r = await fetch('/api/upload-schema', { method: 'POST', body: fd });
-        const res = await r.json();
-        if (!r.ok) throw new Error(res.error || 'Erreur upload');
-        return res.url;
-      }));
-      setPhotos(p => [...p, ...urls]);
-      mark();
-    } catch (err) {
-      alert(`Erreur upload : ${err.message}`);
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
+  const handleAddPhotoUrl = () => {
+    const url = photoUrlInput.trim();
+    if (!url) return;
+    setPhotos(p => [...p, url]);
+    setPhotoUrlInput('');
+    mark();
   };
 
   // Ctrl+S
@@ -426,24 +410,26 @@ export default function FichePage() {
                 ))}
               </div>
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              style={{ display: 'none' }}
-              onChange={handlePhotoUpload}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-black/50 border border-dashed border-black/30 px-3 py-1.5 hover:bg-black/5"
-            >
-              <Camera size={10} />
-              {uploading ? 'Envoi…' : 'Ajouter photo / schéma'}
-            </button>
-            <p className="font-mono text-[9px] text-black/30 mt-2">Photo du meuble, croquis papier, schéma coté…</p>
+            <div className="flex gap-2 mt-1">
+              <input
+                type="url"
+                value={photoUrlInput}
+                onChange={e => setPhotoUrlInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddPhotoUrl())}
+                placeholder="Coller une URL d'image…"
+                className="flex-1 font-mono text-[11px] border border-black/20 px-2 py-1 bg-white text-black"
+              />
+              <button
+                type="button"
+                onClick={handleAddPhotoUrl}
+                disabled={!photoUrlInput.trim()}
+                className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-black/50 border border-dashed border-black/30 px-3 py-1.5 hover:bg-black/5"
+              >
+                <Camera size={10} />
+                Ajouter
+              </button>
+            </div>
+            <p className="font-mono text-[9px] text-black/30 mt-2">URL d'une photo hébergée (Vercel Blob, Drive, etc.)</p>
           </div>
         </div>
 
