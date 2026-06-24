@@ -354,7 +354,7 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
                       fd.append('file', file);
                       const r = await fetch('/api/upload-schema', { method: 'POST', body: fd });
                       const res = await r.json();
-                      if (!r.ok) throw new Error(res.error || 'Erreur upload');
+                      if (!r.ok) throw new Error(`${res.error || 'Erreur upload'}${res.details ? ` — ${res.details}` : ''}`);
                       return res.url;
                     }));
                     setPhotos(p => [...p, ...urls]);

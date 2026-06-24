@@ -22,6 +22,9 @@ export async function POST(request) {
     return NextResponse.json({ url: blob.url });
   } catch (err) {
     console.error('[upload-schema]', err);
-    return NextResponse.json({ error: err.message || 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({
+      error: err.message || 'Erreur serveur',
+      details: err?.cause?.message || err?.stack?.split('\n')[0] || null,
+    }, { status: 500 });
   }
 }
