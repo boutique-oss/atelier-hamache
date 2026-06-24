@@ -14,17 +14,19 @@ export async function POST(request) {
       return NextResponse.json({ error: `Format non supporté : ${ext}` }, { status: 400 });
     }
 
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      return NextResponse.json({ error: 'BLOB_READ_WRITE_TOKEN manquant dans les variables d\'environnement' }, { status: 500 });
-    }
-
-    const blob = await put(`schemas/${Date.now()}-${file.name}`, file, { access: 'public' });
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const blob = await put(`schemas/${Date.now()}-${file.name}`, file, {
+      access: 'public',
+      token: token || undefined,
+    });
     return NextResponse.json({ url: blob.url });
   } catch (err) {
     console.error('[upload-schema]', err);
     return NextResponse.json({
       error: err.message || 'Erreur serveur',
       details: err?.cause?.message || err?.stack?.split('\n')[0] || null,
+      tokenPresent: !!process.env.BLOB_READ_WRITE_TOKEN,
+      tokenPrefix: process.env.BLOB_READ_WRITE_TOKEN?.slice(0, 20) || 'absent',
     }, { status: 500 });
   }
 }
