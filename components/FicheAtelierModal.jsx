@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { FileText, Save, Printer, ExternalLink, X, Plus, Trash2, Camera } from 'lucide-react';
+import { upload } from '@vercel/blob/client';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
 
@@ -271,12 +272,11 @@ export default function FicheAtelierModal({ dossier, onClose }) {
     setUploading(true);
     try {
       const urls = await Promise.all(files.map(async (file) => {
-        const fd = new FormData();
-        fd.append('file', file);
-        const r = await fetch('/api/upload-schema', { method: 'POST', body: fd });
-        const res = await r.json();
-        if (!r.ok) throw new Error(res.error || 'Erreur upload');
-        return res.url;
+        const blob = await upload(`schemas/${Date.now()}-${file.name}`, file, {
+          access: 'public',
+          handleUploadUrl: '/api/upload-schema',
+        });
+        return blob.url;
       }));
       setPhotos(p => [...p, ...urls]);
       setSaved(false);

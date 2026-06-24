@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Plus, Trash2, Save, ChevronDown, ChevronRight, Printer, ArrowLeft, Camera } from 'lucide-react';
+import { upload } from '@vercel/blob/client';
 import { SCHEMAS, groupBySection } from '@/lib/fiches-schemas';
 import { PICTO } from '@/lib/fiches-picto';
 
@@ -163,12 +164,11 @@ export default function FichePage() {
     setUploading(true);
     try {
       const urls = await Promise.all(files.map(async (file) => {
-        const fd = new FormData();
-        fd.append('file', file);
-        const r = await fetch('/api/upload-schema', { method: 'POST', body: fd });
-        const res = await r.json();
-        if (!r.ok) throw new Error(res.error || 'Erreur upload');
-        return res.url;
+        const blob = await upload(`schemas/${Date.now()}-${file.name}`, file, {
+          access: 'public',
+          handleUploadUrl: '/api/upload-schema',
+        });
+        return blob.url;
       }));
       setPhotos(p => [...p, ...urls]);
       mark();
