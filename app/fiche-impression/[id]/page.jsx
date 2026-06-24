@@ -192,6 +192,7 @@ export default async function FicheImpressionPage({ params }) {
   const notes = ficheRow?.notes_libres || '';
   const etapes = buildEtapes(typeIntervention, contenu);
   const materiaux = extraireMateriaux(typeIntervention, contenu);
+  const schemas_photos = Array.isArray(contenu.schemas_photos) ? contenu.schemas_photos : [];
   const fournitures  = Array.isArray(contenu.fournitures_list)  ? contenu.fournitures_list  : [];
   const intervenants = Array.isArray(contenu.intervenants_list) ? contenu.intervenants_list : [];
   const descriptif   = extraireDescriptif(typeIntervention, contenu);
@@ -427,6 +428,34 @@ export default async function FicheImpressionPage({ params }) {
                   <td style={{ ...td, fontFamily: MONO, fontSize: 11 }}>{f.metrage ? `${f.metrage}m` : ''}</td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* ── SCHÉMAS / PHOTOS ────────────────────────────────────── */}
+        {schemas_photos.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <td style={{ ...th }}>Schémas / photos</td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ ...td, padding: '10px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                    {schemas_photos.map((url, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={i}
+                        src={url}
+                        alt={`Schéma ${i + 1}`}
+                        style={{ width: 220, height: 165, objectFit: 'contain', border: '1px solid #ccc' }}
+                      />
+                    ))}
+                  </div>
+                </td>
+              </tr>
             </tbody>
           </table>
         )}

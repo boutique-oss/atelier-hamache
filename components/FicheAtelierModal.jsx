@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FileText, Save, Printer, ExternalLink, X, Plus, Trash2 } from 'lucide-react';
+import { FileText, Save, Printer, ExternalLink, X, Plus, Trash2, Camera } from 'lucide-react';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
 
@@ -182,6 +182,8 @@ export default function FicheAtelierModal({ dossier, onClose }) {
   const [typeIntervention, setType] = useState(initialType);
   const [etapes, setEtapes]         = useState(ETAPES_PAR_TYPE[initialType] || ETAPES_PAR_TYPE['Autre']);
   const [tissus, setTissus]         = useState([]); // [{ref, fournisseur, ml, zone}]
+  const [schemas_photos, setPhotos] = useState([]); // [url, ...]
+  const [uploading, setUploading]   = useState(false);
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [showPrint, setShowPrint]   = useState(false);
@@ -205,6 +207,7 @@ export default function FicheAtelierModal({ dossier, onClose }) {
               : (ETAPES_PAR_TYPE[type] || ETAPES_PAR_TYPE['Autre'])
           );
           setTissus(Array.isArray(c.tissus_list) ? c.tissus_list : []);
+          setPhotos(Array.isArray(c.schemas_photos) ? c.schemas_photos : []);
         }
       });
   }, [dossier.id]);
@@ -233,7 +236,7 @@ export default function FicheAtelierModal({ dossier, onClose }) {
 
   const handleSave = async () => {
     setSaving(true);
-    const contenuComplet = { ...contenu, etapes_custom: etapes, tissus_list: tissus };
+    const contenuComplet = { ...contenu, etapes_custom: etapes, tissus_list: tissus, schemas_photos };
     try {
       const r = await fetch('/api/fiches', {
         method: 'POST',
@@ -258,8 +261,31 @@ export default function FicheAtelierModal({ dossier, onClose }) {
 
   const champsActuels = schemas[typeIntervention] || [];
   const currentFiche  = ficheId
-    ? { type_intervention: typeIntervention, contenu_json: JSON.stringify({ ...contenu, etapes_custom: etapes, tissus_list: tissus }), notes_libres: notes }
+    ? { type_intervention: typeIntervention, contenu_json: JSON.stringify({ ...contenu, etapes_custom: etapes, tissus_list: tissus, schemas_photos }), notes_libres: notes }
     : null;
+
+  const handlePhotoUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      const urls = await Promise.all(files.map(async (file) => {
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch('/api/upload-schema', { method: 'POST', body: fd });
+        const res = await r.json();
+        if (!r.ok) throw new Error(res.error || 'Erreur upload');
+        return res.url;
+      }));
+      setPhotos(p => [...p, ...urls]);
+      setSaved(false);
+    } catch (err) {
+      alert(`Erreur upload : ${err.message}`);
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
 
   const btnDashed = 'flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted border border-dashed border-line px-3 py-1.5 mt-1 hover:bg-bg';
 
@@ -380,6 +406,39 @@ export default function FicheAtelierModal({ dossier, onClose }) {
             <button onClick={addEtape} className={btnDashed}>
               <Plus size={10} /> Ajouter étape
             </button>
+          </fieldset>
+
+          {/* ── Schémas photos ── */}
+          <fieldset className="mb-5 border border-line p-4">
+            <legend className="font-mono uppercase tracking-[0.16em] text-[10px] text-muted px-1">Schémas / photos</legend>
+            {schemas_photos.length > 0 && (
+              <div className="flex flex-wrap gap-3 mb-3">
+                {schemas_photos.map((url, i) => (
+                  <div key={i} className="relative" style={{ width: 120 }}>
+                    <img src={url} alt={`Schéma ${i + 1}`} style={{ width: 120, height: 90, objectFit: 'cover', border: '1px solid #ccc', display: 'block' }} />
+                    <button
+                      onClick={() => { setPhotos(p => p.filter((_, j) => j !== i)); setSaved(false); }}
+                      className="absolute top-0.5 right-0.5 bg-black text-white"
+                      style={{ width: 18, height: 18, fontSize: 11, lineHeight: '18px', textAlign: 'center', padding: 0 }}
+                      title="Supprimer"
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <label className={`${btnDashed} cursor-pointer`} style={{ display: 'inline-flex' }}>
+              <Camera size={10} />
+              {uploading ? 'Envoi…' : 'Ajouter photo / schéma'}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="sr-only"
+                onChange={handlePhotoUpload}
+                disabled={uploading}
+              />
+            </label>
+            <p className="font-mono text-[9px] text-muted mt-2">Photo du meuble, croquis papier, schéma coté…</p>
           </fieldset>
 
           {/* Notes libres */}
