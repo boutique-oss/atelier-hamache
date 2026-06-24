@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Save, Printer, ExternalLink, X, Plus, Trash2, Camera } from 'lucide-react';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
@@ -183,8 +183,7 @@ export default function FicheAtelierModal({ dossier, onClose }) {
   const [etapes, setEtapes]         = useState(ETAPES_PAR_TYPE[initialType] || ETAPES_PAR_TYPE['Autre']);
   const [tissus, setTissus]         = useState([]); // [{ref, fournisseur, ml, zone}]
   const [schemas_photos, setPhotos] = useState([]); // [url, ...]
-  const [uploading, setUploading]   = useState(false);
-  const fileInputRef                = useRef(null);
+  const [photoUrlInput, setPhotoUrlInput] = useState('');
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [showPrint, setShowPrint]   = useState(false);
@@ -265,27 +264,12 @@ export default function FicheAtelierModal({ dossier, onClose }) {
     ? { type_intervention: typeIntervention, contenu_json: JSON.stringify({ ...contenu, etapes_custom: etapes, tissus_list: tissus, schemas_photos }), notes_libres: notes }
     : null;
 
-  const handlePhotoUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
-    setUploading(true);
-    try {
-      const urls = await Promise.all(files.map(async (file) => {
-        const fd = new FormData();
-        fd.append('file', file);
-        const r = await fetch('/api/upload-schema', { method: 'POST', body: fd });
-        const res = await r.json();
-        if (!r.ok) throw new Error(res.error || 'Erreur upload');
-        return res.url;
-      }));
-      setPhotos(p => [...p, ...urls]);
-      setSaved(false);
-    } catch (err) {
-      alert(`Erreur upload : ${err.message}`);
-    } finally {
-      setUploading(false);
-      e.target.value = '';
-    }
+  const handleAddPhotoUrl = () => {
+    const url = photoUrlInput.trim();
+    if (!url) return;
+    setPhotos(p => [...p, url]);
+    setPhotoUrlInput('');
+    setSaved(false);
   };
 
   const btnDashed = 'flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted border border-dashed border-line px-3 py-1.5 mt-1 hover:bg-bg';
@@ -427,24 +411,26 @@ export default function FicheAtelierModal({ dossier, onClose }) {
                 ))}
               </div>
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              style={{ display: 'none' }}
-              onChange={handlePhotoUpload}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className={btnDashed}
-            >
-              <Camera size={10} />
-              {uploading ? 'Envoi…' : 'Ajouter photo / schéma'}
-            </button>
-            <p className="font-mono text-[9px] text-muted mt-2">Photo du meuble, croquis papier, schéma coté…</p>
+            <div className="flex gap-2 mt-1">
+              <input
+                type="url"
+                value={photoUrlInput}
+                onChange={e => setPhotoUrlInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddPhotoUrl())}
+                placeholder="Coller une URL d'image…"
+                className="flex-1 font-mono text-[11px] border border-line px-2 py-1 bg-bg text-fg"
+              />
+              <button
+                type="button"
+                onClick={handleAddPhotoUrl}
+                disabled={!photoUrlInput.trim()}
+                className={btnDashed}
+              >
+                <Camera size={10} />
+                Ajouter
+              </button>
+            </div>
+            <p className="font-mono text-[9px] text-muted mt-2">URL d'une photo hébergée (Vercel Blob, Drive, etc.)</p>
           </fieldset>
 
           {/* Notes libres */}
