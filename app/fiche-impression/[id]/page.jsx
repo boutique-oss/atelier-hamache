@@ -1,6 +1,7 @@
 import { sql } from '@/lib/postgres';
 import PrintButton from './PrintButton';
 import { PICTO } from '@/lib/fiches-picto';
+import { SCHEMAS } from '@/lib/fiches-schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -430,23 +431,26 @@ export default async function FicheImpressionPage({ params }) {
           </table>
         )}
 
-        {/* ── OBSERVATIONS ATELIER ────────────────────────────────── */}
-        {contenu.observations && (
-          <table>
-            <thead>
-              <tr>
-                <td style={{ ...th }}>Observations atelier</td>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ ...td, verticalAlign: 'top', whiteSpace: 'pre-wrap', minHeight: 48 }}>
-                  {contenu.observations}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        )}
+        {/* ── CHAMPS TEXTE LIBRES (observations, croquis, etc.) ───── */}
+        {(SCHEMAS[typeIntervention] || [])
+          .filter(f => f.type === 'textarea' && contenu[f.key])
+          .map(f => (
+            <table key={f.key}>
+              <thead>
+                <tr>
+                  <td style={{ ...th }}>{f.label}</td>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ ...td, verticalAlign: 'top', whiteSpace: 'pre-wrap' }}>
+                    {contenu[f.key]}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          ))
+        }
 
         {/* ── RÉALISATION ─────────────────────────────────────────── */}
         <table>
