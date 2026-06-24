@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Plus, Trash2, Save, ChevronDown, ChevronRight, Printer, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Save, ChevronDown, ChevronRight, Printer, ArrowLeft, Camera } from 'lucide-react';
 import { SCHEMAS, groupBySection } from '@/lib/fiches-schemas';
 import { PICTO } from '@/lib/fiches-picto';
 
@@ -55,6 +55,9 @@ export default function FichePage() {
   const [tissus, setTissus]     = useState([]);
   const [fournitures, setFournitures]   = useState([]);
   const [intervenants, setIntervenants] = useState([]);
+  const [schemas_photos, setPhotos]     = useState([]);
+  const [uploading, setUploading]       = useState(false);
+  const fileInputRef                    = useRef(null);
   const [collapsed, setCollapsed]       = useState({});
   const [saving, setSaving]   = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -82,6 +85,7 @@ export default function FichePage() {
         setTissus(Array.isArray(c.tissus_list) ? c.tissus_list : []);
         setFournitures(Array.isArray(c.fournitures_list) ? c.fournitures_list : []);
         setIntervenants(Array.isArray(c.intervenants_list) ? c.intervenants_list : []);
+        setPhotos(Array.isArray(c.schemas_photos) ? c.schemas_photos : []);
         setLoaded(true);
       })
       .catch(err => { setLoadError(err.message); setLoaded(true); });
@@ -125,6 +129,7 @@ export default function FichePage() {
       tissus_list: tissus,
       fournitures_list: fournitures,
       intervenants_list: intervenants,
+      schemas_photos,
     };
     const body = JSON.stringify({ type_intervention: type, contenu_json: contenuComplet, notes_libres: notes });
 
@@ -150,7 +155,30 @@ export default function FichePage() {
     setSaving(false);
     setDirty(false);
     setSavedAt(new Date());
-  }, [id, isNew, type, contenu, notes, etapes, tissus, fournitures, intervenants, router]);
+  }, [id, isNew, type, contenu, notes, etapes, tissus, fournitures, intervenants, schemas_photos, router]);
+
+  const handlePhotoUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      const urls = await Promise.all(files.map(async (file) => {
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch('/api/upload-schema', { method: 'POST', body: fd });
+        const res = await r.json();
+        if (!r.ok) throw new Error(res.error || 'Erreur upload');
+        return res.url;
+      }));
+      setPhotos(p => [...p, ...urls]);
+      mark();
+    } catch (err) {
+      alert(`Erreur upload : ${err.message}`);
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
 
   // Ctrl+S
   useEffect(() => {
@@ -375,6 +403,47 @@ export default function FichePage() {
                 <button onClick={() => delEtape(i)} className="p-1 text-black/30 hover:text-black"><Trash2 size={12} /></button>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* ── Schémas / photos ── */}
+        <div className="border-t border-black pt-5 pb-3">
+          <div className={sectionHd}>
+            <span className={sectionLbl}>Schémas / photos</span>
+          </div>
+          <div className="pt-3">
+            {schemas_photos.length > 0 && (
+              <div className="flex flex-wrap gap-3 mb-3">
+                {schemas_photos.map((url, i) => (
+                  <div key={i} className="relative" style={{ width: 120 }}>
+                    <img src={url} alt={`Schéma ${i + 1}`} style={{ width: 120, height: 90, objectFit: 'cover', border: '1px solid #ccc', display: 'block' }} />
+                    <button
+                      onClick={() => { setPhotos(p => p.filter((_, j) => j !== i)); mark(); }}
+                      className="absolute top-0.5 right-0.5 bg-black text-white"
+                      style={{ width: 18, height: 18, fontSize: 11, lineHeight: '18px', textAlign: 'center', padding: 0 }}
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={handlePhotoUpload}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-black/50 border border-dashed border-black/30 px-3 py-1.5 hover:bg-black/5"
+            >
+              <Camera size={10} />
+              {uploading ? 'Envoi…' : 'Ajouter photo / schéma'}
+            </button>
+            <p className="font-mono text-[9px] text-black/30 mt-2">Photo du meuble, croquis papier, schéma coté…</p>
           </div>
         </div>
 
