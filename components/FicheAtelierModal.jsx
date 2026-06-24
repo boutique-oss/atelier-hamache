@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FileText, Save, Printer, ExternalLink, X, Plus, Trash2, Camera } from 'lucide-react';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
@@ -184,6 +184,7 @@ export default function FicheAtelierModal({ dossier, onClose }) {
   const [tissus, setTissus]         = useState([]); // [{ref, fournisseur, ml, zone}]
   const [schemas_photos, setPhotos] = useState([]); // [url, ...]
   const [uploading, setUploading]   = useState(false);
+  const fileInputRef                = useRef(null);
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [showPrint, setShowPrint]   = useState(false);
@@ -426,18 +427,23 @@ export default function FicheAtelierModal({ dossier, onClose }) {
                 ))}
               </div>
             )}
-            <label className={`${btnDashed} cursor-pointer`} style={{ display: 'inline-flex' }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={handlePhotoUpload}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className={btnDashed}
+            >
               <Camera size={10} />
               {uploading ? 'Envoi…' : 'Ajouter photo / schéma'}
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="sr-only"
-                onChange={handlePhotoUpload}
-                disabled={uploading}
-              />
-            </label>
+            </button>
             <p className="font-mono text-[9px] text-muted mt-2">Photo du meuble, croquis papier, schéma coté…</p>
           </fieldset>
 

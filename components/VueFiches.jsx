@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, X, Printer, ChevronDown, ChevronRight, Camera } from 'lucide-react';
 import Kicker from './ui/Kicker';
 import Btn from './ui/Btn';
@@ -95,6 +95,7 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
   const [intervenants, setIntervenants] = useState(Array.isArray(initContenu.intervenants_list) ? initContenu.intervenants_list : []);
   const [schemas_photos, setPhotos]   = useState(Array.isArray(initContenu.schemas_photos) ? initContenu.schemas_photos : []);
   const [uploading, setUploading]     = useState(false);
+  const fileInputRef                  = useRef(null);
 
   useEffect(() => { setCollapsed({}); }, [type]);
 
@@ -337,38 +338,43 @@ function FicheModal({ fiche, schemas, onSave, onDelete, onClose }) {
                   ))}
                 </div>
               )}
-              <label className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted border border-dashed border-line px-3 py-1.5 cursor-pointer hover:bg-bg w-fit">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files);
+                  if (!files.length) return;
+                  setUploading(true);
+                  try {
+                    const urls = await Promise.all(files.map(async (file) => {
+                      const fd = new FormData();
+                      fd.append('file', file);
+                      const r = await fetch('/api/upload-schema', { method: 'POST', body: fd });
+                      const res = await r.json();
+                      if (!r.ok) throw new Error(res.error || 'Erreur upload');
+                      return res.url;
+                    }));
+                    setPhotos(p => [...p, ...urls]);
+                  } catch (err) {
+                    alert(`Erreur upload : ${err.message}`);
+                  } finally {
+                    setUploading(false);
+                    e.target.value = '';
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted border border-dashed border-line px-3 py-1.5 hover:bg-bg"
+              >
                 <Camera size={10} />
                 {uploading ? 'Envoi…' : 'Ajouter photo / schéma'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="sr-only"
-                  disabled={uploading}
-                  onChange={async (e) => {
-                    const files = Array.from(e.target.files);
-                    if (!files.length) return;
-                    setUploading(true);
-                    try {
-                      const urls = await Promise.all(files.map(async (file) => {
-                        const fd = new FormData();
-                        fd.append('file', file);
-                        const r = await fetch('/api/upload-schema', { method: 'POST', body: fd });
-                        const res = await r.json();
-                        if (!r.ok) throw new Error(res.error || 'Erreur upload');
-                        return res.url;
-                      }));
-                      setPhotos(p => [...p, ...urls]);
-                    } catch (err) {
-                      alert(`Erreur upload : ${err.message}`);
-                    } finally {
-                      setUploading(false);
-                      e.target.value = '';
-                    }
-                  }}
-                />
-              </label>
+              </button>
               <p className="font-mono text-[9px] text-muted mt-2 px-1">Photo du meuble, croquis papier, schéma coté…</p>
             </div>
           </div>
