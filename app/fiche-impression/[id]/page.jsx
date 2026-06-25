@@ -434,30 +434,20 @@ export default async function FicheImpressionPage({ params }) {
 
         {/* ── SCHÉMAS / PHOTOS ────────────────────────────────────── */}
         {schemas_photos.length > 0 && (
-          <table>
-            <thead>
-              <tr>
-                <td style={{ ...th }}>Schémas / photos</td>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ ...td, padding: '10px' }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                    {schemas_photos.map((url, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={i}
-                        src={url}
-                        alt={`Schéma ${i + 1}`}
-                        style={{ width: 220, height: 165, objectFit: 'contain', border: '1px solid #ccc' }}
-                      />
-                    ))}
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <>
+            <div style={{ background: '#000', color: '#fff', padding: '6px 10px', fontFamily: MONO, fontSize: 10, fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 0 }}>
+              Schémas / photos
+            </div>
+            {schemas_photos.map((url, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={i}
+                src={url}
+                alt={`Schéma ${i + 1}`}
+                style={{ display: 'block', width: '100%', height: 'auto', objectFit: 'contain', marginTop: 12 }}
+              />
+            ))}
+          </>
         )}
 
         {/* ── CHAMPS TEXTE LIBRES (observations, croquis, etc.) ───── */}
