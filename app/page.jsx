@@ -363,10 +363,10 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche, rideauxFiches = [] }) {
   return (
     <div>
       {/* En-tête de module */}
-      <div className="flex items-end justify-between mb-6">
+      <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Kicker className="mb-2">Module 01</Kicker>
-          <h2 className="font-serif text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">
+          <h2 className="font-serif text-[28px] sm:text-[36px] tracking-[-0.01em] leading-[1.0] text-ink">
             Pipeline dossiers
           </h2>
           <p className="font-sans text-[13px] text-muted mt-1">
@@ -379,14 +379,14 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche, rideauxFiches = [] }) {
       </div>
 
       {/* Colonnes statuts — filtres cliquables */}
-      <div className="grid grid-cols-5 mb-6 border border-ink">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mb-6 border-t border-l border-ink">
         {STATUTS.filter(s => s !== 'Clos').map((s, idx) => {
           const style = STATUT_STYLES[s], count = stats[s] || 0, isActive = statutFilter === s;
           return (
             <button
               key={s}
               onClick={() => setStatutFilter(isActive ? 'all' : s)}
-              className={`text-left p-4 ${idx > 0 ? 'border-l border-ink' : ''}`}
+              className="text-left p-4 border-r border-b border-ink"
               style={{ background: isActive ? style.bg : '#FFF', color: isActive ? style.text : '#000' }}
             >
               <Kicker className={`mb-2 ${isActive && style.text === '#FFF' ? 'text-white/70' : ''}`}>{s}</Kicker>
@@ -397,8 +397,8 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche, rideauxFiches = [] }) {
       </div>
 
       {/* Barre de filtres */}
-      <div className="flex gap-2 mb-2">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap gap-2 mb-2">
+        <div className="relative flex-1 min-w-[180px]">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-muted text-[13px] pointer-events-none">⌕</span>
           <input
             type="text"
@@ -493,8 +493,8 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche, rideauxFiches = [] }) {
       </p>
 
       {/* Table */}
-      <div className="border border-ink bg-surface">
-        <table className="w-full">
+      <div className="border border-ink bg-surface overflow-x-auto">
+        <table className="w-full min-w-[720px]">
           <thead>
             <tr className="bg-bg border-b border-ink">
               {['Dossier', 'Statut', 'Type', 'Avancement', 'Date', 'H. prévues', 'Flags', ''].map((h, i) => (
@@ -546,27 +546,27 @@ function VueDossiers({ dossiers, onEdit, onNew, onFiche, rideauxFiches = [] }) {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
+                  <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 flex items-center gap-1">
                     {d.fiche_pdf && (
                       <a
                         href={`/api/pdf?dossier_id=${d.id}`}
                         target="_blank" rel="noreferrer"
                         onClick={e => e.stopPropagation()}
                         title="Voir la fiche PDF"
-                        className="p-1.5 text-muted"
+                        className="p-2 text-muted"
                       >
-                        <FileText size={13} />
+                        <FileText size={15} />
                       </a>
                     )}
                     <button
                       onClick={e => { e.stopPropagation(); onFiche(d); }}
                       title="Fiche atelier"
-                      className="p-1.5 text-muted"
+                      className="p-2 text-muted"
                     >
-                      <ClipboardList size={13} />
+                      <ClipboardList size={15} />
                     </button>
-                    <button onClick={() => onEdit(d)} title="Modifier" className="p-1.5 text-muted">
-                      <Pencil size={13} />
+                    <button onClick={() => onEdit(d)} title="Modifier" className="p-2 text-muted">
+                      <Pencil size={15} />
                     </button>
                   </div>
                 </td>
@@ -869,8 +869,8 @@ function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
       </p>
 
       {/* Table */}
-      <div className="border border-ink bg-surface">
-        <table className="w-full">
+      <div className="border border-ink bg-surface overflow-x-auto">
+        <table className="w-full min-w-[720px]">
           <thead>
             <tr className="bg-bg border-b border-ink">
               {[
@@ -933,7 +933,7 @@ function VueCommandes({ commandes, fournisseurs, onNew, onEdit }) {
                         </span>}
                   </td>
                   <td className="px-3 py-3">
-                    <div className="opacity-0 group-hover:opacity-100">
+                    <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100">
                       <button onClick={() => onEdit(c)} title="Modifier" className="p-1.5 text-muted">
                         <Pencil size={13} />
                       </button>
@@ -987,8 +987,8 @@ function VueArchives({ dossiers, onEdit }) {
       </p>
 
       {/* Table */}
-      <div className="border border-ink bg-surface">
-        <table className="w-full">
+      <div className="border border-ink bg-surface overflow-x-auto">
+        <table className="w-full min-w-[720px]">
           <thead>
             <tr className="bg-bg border-b border-ink">
               {['Dossier', 'Type', 'Date', 'Lien dossier', ''].map((h, i) => (
@@ -1009,7 +1009,7 @@ function VueArchives({ dossiers, onEdit }) {
                 <td className="px-4 py-3 font-mono tnum text-[11px] text-muted whitespace-nowrap">{formatDate(d.date_ouverture)}</td>
                 <td className="px-4 py-3 font-mono text-[11px] text-muted truncate max-w-md">{d.lien || '—'}</td>
                 <td className="px-4 py-3 text-right">
-                  <div className="opacity-0 group-hover:opacity-100 text-muted"><Pencil size={14} /></div>
+                  <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 text-muted"><Pencil size={14} /></div>
                 </td>
               </tr>
             ))}
@@ -1118,7 +1118,7 @@ export default function Page() {
 
         {/* Masthead — lettre à en-tête */}
         <header className="pt-6 pb-4 border-b border-ink">
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:justify-between sm:text-left">
             {/* Coin gauche — date */}
             <div className="font-mono text-[11px] text-muted leading-relaxed pt-1">
               <p>{dateStr}</p>
@@ -1128,7 +1128,7 @@ export default function Page() {
             {/* Centre — branding */}
             <div className="text-center">
               <Kicker className="mb-1">Gestion · Atelier</Kicker>
-              <p className="font-serif text-[34px] leading-none tracking-[-0.01em]">
+              <p className="font-serif text-[26px] sm:text-[34px] leading-none tracking-[-0.01em]">
                 Stéphan Hamache
               </p>
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted mt-1">
@@ -1160,9 +1160,9 @@ export default function Page() {
               <button
                 key={t.key}
                 onClick={() => setView(t.key)}
-                className={`flex-1 flex flex-col items-center justify-center py-3 ${idx > 0 ? 'border-l border-ink' : ''} ${active ? 'bg-ink text-surface' : 'bg-surface text-ink hover:bg-bg'}`}
+                className={`flex-1 flex flex-col items-center justify-center py-3 px-1 ${idx > 0 ? 'border-l border-ink' : ''} ${active ? 'bg-ink text-surface' : 'bg-surface text-ink hover:bg-bg'}`}
               >
-                <span className={`font-serif text-[28px] leading-none tnum ${active ? 'text-surface' : 'text-ink'}`}>
+                <span className={`font-serif text-[22px] sm:text-[28px] leading-none tnum ${active ? 'text-surface' : 'text-ink'}`}>
                   {t.num}
                 </span>
                 <span className={`font-sans text-[12px] uppercase tracking-[0.12em] mt-0.5 ${active ? 'text-surface' : 'text-muted'}`}>

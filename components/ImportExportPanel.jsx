@@ -83,7 +83,7 @@ export default function ImportExportPanel() {
         >
           {d.statut}
         </span>
-        <ExternalLink size={12} className="text-muted opacity-0 group-hover:opacity-100" />
+        <ExternalLink size={12} className="text-muted opacity-100 md:opacity-0 md:group-hover:opacity-100" />
       </div>
     </a>
   );
