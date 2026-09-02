@@ -412,7 +412,7 @@ export default function VueRideaux() {
                     )}
                   </td>
                   <td className="px-3 py-3">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                    <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100">
                       <Link href={`/rideaux/${f.id}/print`} target="_blank" className="p-1.5 text-muted" title="Imprimer">
                         <Printer size={13} />
                       </Link>

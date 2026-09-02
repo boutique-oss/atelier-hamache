@@ -306,7 +306,7 @@ export default function VueTodo() {
                   <td className="px-3 py-3">
                     <button
                       onClick={() => handleDelete(t.id)}
-                      className="p-1.5 text-muted opacity-0 group-hover:opacity-100"
+                      className="p-1.5 text-muted opacity-100 md:opacity-0 md:group-hover:opacity-100"
                     >
                       <Trash2 size={13} />
                     </button>

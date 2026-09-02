@@ -541,7 +541,7 @@ export default function VueFiches() {
                     {c.heures_estimees ? `${c.heures_estimees}h` : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
+                    <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 flex items-center gap-1">
                       <a href={`/fiche-impression/${f.id}`} target="_blank" rel="noreferrer"
                          onClick={e => e.stopPropagation()}
                          className="p-1.5 text-muted" title="Imprimer">
