@@ -25,15 +25,17 @@ import {
   STATUTS_COMMANDE,
   type StatutCommande,
 } from "@/lib/documents-commandes";
+import { dossiersAvecHeures, lirePeriode, rapportHeures } from "@/lib/documents-heures";
 import { normalizeStatut, statutClasses } from "@/lib/dossiers";
 import { cn } from "@/lib/utils";
 
 import { FiltresCommandesForm, TableauCommandes } from "./rubrique-commandes";
+import { FiltresHeuresForm, RapportHeuresVue } from "./rubrique-heures";
 
 export const dynamic = "force-dynamic";
 
-// Page Documents : rubriques à gauche (Clients et Commandes actives pour
-// l'instant). Clients : liste des dossiers filtrable puis l'arborescence du
+// Page Documents : rubriques à gauche (Clients, Commandes et Rapports
+// d'heures actives pour l'instant). Clients : liste des dossiers filtrable puis l'arborescence du
 // dossier choisi. Commandes : commandes fournisseur filtrables avec leurs
 // pièces jointes. `?dossier=` est partagé : dossier ouvert côté Clients,
 // filtre par dossier côté Commandes. Les URL /documents/<imprimable> (prédevis vierge, bon de
@@ -49,7 +51,7 @@ const RUBRIQUES: {
   { cle: "clients", libelle: "Clients", icon: Users, tint: "var(--brand-blue)", active: true },
   { cle: "commandes", libelle: "Commandes", icon: Package, tint: "var(--brand-orange)", active: true },
   { cle: "planning", libelle: "Planning", icon: CalendarRange, tint: "var(--brand-green)", active: false },
-  { cle: "heures", libelle: "Rapports d'heures", icon: BarChart3, tint: "var(--brand-pink)", active: false },
+  { cle: "heures", libelle: "Rapports d'heures", icon: BarChart3, tint: "var(--brand-pink)", active: true },
   { cle: "pointages", libelle: "Pointages", icon: Clock, tint: "var(--brand-violet)", active: false },
 ];
 
@@ -62,9 +64,18 @@ export default async function DocumentsPage({
     q?: string;
     statut?: string;
     fournisseur?: string;
+    periode?: string;
+    ref?: string;
   };
 }) {
-  const clients = searchParams.rubrique !== "commandes";
+  const rubrique =
+    searchParams.rubrique === "commandes" || searchParams.rubrique === "heures"
+      ? searchParams.rubrique
+      : "clients";
+  const clients = rubrique === "clients";
+  const commandes = rubrique === "commandes";
+  const heures = rubrique === "heures";
+  const periode = lirePeriode(searchParams.periode, searchParams.ref);
   const q = (searchParams.q || "").slice(0, 100);
   const choisiId = Number(searchParams.dossier);
   const aChoisi = Number.isFinite(choisiId) && choisiId > 0;
@@ -76,12 +87,14 @@ export default async function DocumentsPage({
     dossierId: aChoisi ? choisiId : null,
   };
 
-  const [compteurs, dossiers, choisi, cmds, options] = await Promise.all([
+  const [compteurs, dossiers, choisi, cmds, options, rapport, dossiersHeures] = await Promise.all([
     compteursRubriques().catch(() => null),
     clients ? listerDossiersDocs(q) : Promise.resolve([]),
     clients && aChoisi ? lireDossierDocs(choisiId) : Promise.resolve(null),
-    clients ? Promise.resolve(null) : listerCommandesDocs(filtres),
-    clients ? Promise.resolve(null) : optionsFiltresCommandes(),
+    commandes ? listerCommandesDocs(filtres) : Promise.resolve(null),
+    commandes ? optionsFiltresCommandes() : Promise.resolve(null),
+    heures ? rapportHeures(periode, aChoisi ? choisiId : null) : Promise.resolve(null),
+    heures ? dossiersAvecHeures() : Promise.resolve(null),
   ]);
 
   // Lien d'une rubrique : le dossier choisi est conservé (il devient le
@@ -118,7 +131,7 @@ export default async function DocumentsPage({
           <nav aria-label="Rubriques" className="overflow-hidden rounded-lg border bg-card">
             <ul className="divide-y">
               {RUBRIQUES.map(({ cle, libelle, icon: Icon, tint, active }) => {
-                const courante = clients ? cle === "clients" : cle === "commandes";
+                const courante = cle === rubrique;
                 const contenu = (
                   <>
                     <span
@@ -167,7 +180,13 @@ export default async function DocumentsPage({
             </ul>
           </nav>
 
-          {!clients && options ? (
+          {heures && dossiersHeures ? (
+            <FiltresHeuresForm
+              periode={periode}
+              dossierId={aChoisi ? choisiId : null}
+              dossiers={dossiersHeures}
+            />
+          ) : commandes && options ? (
             <FiltresCommandesForm
               filtres={filtres}
               fournisseurs={options.fournisseurs}
@@ -248,9 +267,11 @@ export default async function DocumentsPage({
           )}
         </aside>
 
-        {/* Commandes, ou dossier choisi */}
+        {/* Rapport d'heures, commandes, ou dossier choisi */}
         <section className={cn("min-w-0", choisi && "order-1 lg:order-2")}>
-          {cmds ? (
+          {rapport ? (
+            <RapportHeuresVue periode={periode} dossierId={aChoisi ? choisiId : null} rapport={rapport} />
+          ) : cmds ? (
             <>
               <h2 className="brand-display mb-4 text-lg">
                 Commandes fournisseur{" "}
