@@ -505,6 +505,18 @@ export default async function RapportsPage({
             Période : {from || "…"} → {to || "…"}
           </span>
         )}
+        <a
+          href={`/documents/rapport-graphiques?${new URLSearchParams({
+            ...(from ? { from } : {}),
+            ...(to ? { to } : {}),
+            ...(op ? { operateur: op } : {}),
+          })}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`${from || to ? "" : "ml-auto "}rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent`}
+        >
+          Graphiques imprimables
+        </a>
       </form>
       <nav aria-label="Raccourcis de période" className="mt-2 flex flex-wrap gap-1.5">
         {raccourcis.map((r) => {

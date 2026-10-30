@@ -51,7 +51,6 @@ export type DossierDocs = {
 export type CompteursRubriques = {
   clients: number;
   commandes: number;
-  planning: number;
   heures: number;
   pointages: number;
 };
@@ -83,13 +82,11 @@ export async function compteursRubriques(): Promise<CompteursRubriques> {
             WHERE f.dossier_id IS NOT NULL) AS clients,
       (SELECT count(*) FROM documents WHERE categorie = 'commande')
         + (SELECT count(*) FROM commande_imports) AS commandes,
-      (SELECT count(*) FROM bons_atelier) AS planning,
       (SELECT count(*) FROM documents WHERE categorie = 'heures') AS heures,
       (SELECT count(*) FROM fiches_navettes) AS pointages`;
   return {
     clients: Number(r?.clients) || 0,
     commandes: Number(r?.commandes) || 0,
-    planning: Number(r?.planning) || 0,
     heures: Number(r?.heures) || 0,
     pointages: Number(r?.pointages) || 0,
   };

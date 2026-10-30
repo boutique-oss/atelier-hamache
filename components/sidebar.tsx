@@ -11,11 +11,8 @@ import {
   Plus,
   Package,
   ArrowRight,
-  FileText,
-  ClipboardList,
   FolderOpen,
-  Ruler,
-  CalendarDays,
+  FolderArchive,
   ShieldCheck,
   KeyRound,
   LogOut,
@@ -36,14 +33,8 @@ const NAV = [
   { href: "/rapports", label: "Rapport heures", icon: BarChart3, tint: "var(--brand-pink)" },
   { href: "/pointage", label: "Pointage", icon: Clock, tint: "var(--brand-violet)" },
   { href: "/documents", label: "Documents", icon: FolderOpen, tint: "var(--brand-navy)" },
-];
-
-// Documents imprimables (ouverts dans un nouvel onglet).
-const DOCS = [
-  { href: "/documents/predevis-vierge", label: "Prédevis vierge", icon: FileText, tint: "var(--brand-violet)" },
-  { href: "/documents/feuille-heures-mois-vierge", label: "Feuille d'heures", icon: CalendarDays, tint: "var(--brand-green)" },
-  { href: "/documents/fiche-rideaux", label: "Intervention rideaux", icon: Ruler, tint: "var(--brand-blue)" },
-  { href: "/documents/bon-commande", label: "Bon de commande", icon: ClipboardList, tint: "var(--brand-purple)" },
+  // Formulaires vierges et éditions imprimables, regroupés dans un dossier.
+  { href: "/logistique", label: "Logistique", icon: FolderArchive, tint: "var(--brand-orange)" },
 ];
 
 type Utilisateur = { nom: string; role: string } | null | undefined;
@@ -102,28 +93,6 @@ function NavContent({
           );
         })}
 
-        {/* Documents imprimables */}
-        <p className="brand-eyebrow px-2 pb-2 pt-5 text-muted-foreground">Documents</p>
-        {DOCS.map(({ href, label, icon: Icon, tint }) => (
-          <a
-            key={href}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={onNavigate}
-            className="group flex items-center gap-3 rounded-md px-2 py-2.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
-          >
-            <span
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-transform duration-200 motion-safe:group-hover:scale-110"
-              style={{ backgroundColor: `hsl(${tint} / 0.16)`, color: `hsl(${tint})` }}
-            >
-              <Icon size={16} />
-            </span>
-            {label}
-            <ArrowRight size={12} aria-hidden className="ml-auto text-muted-foreground" />
-            <span className="sr-only"> (nouvel onglet)</span>
-          </a>
-        ))}
       </nav>
 
       <div className="space-y-2 border-t border-border p-2">

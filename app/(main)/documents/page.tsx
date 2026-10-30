@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   BarChart3,
-  CalendarRange,
   Clock,
   FolderOpen,
   Package,
@@ -54,7 +53,6 @@ const RUBRIQUES: {
 }[] = [
   { cle: "clients", libelle: "Clients", icon: Users, tint: "var(--brand-blue)", active: true },
   { cle: "commandes", libelle: "Commandes", icon: Package, tint: "var(--brand-orange)", active: true },
-  { cle: "planning", libelle: "Planning", icon: CalendarRange, tint: "var(--brand-green)", active: false },
   { cle: "heures", libelle: "Rapports d'heures", icon: BarChart3, tint: "var(--brand-pink)", active: true, href: "/rapports" },
   { cle: "pointages", libelle: "Pointages", icon: Clock, tint: "var(--brand-violet)", active: true },
 ];
@@ -69,6 +67,9 @@ export default async function DocumentsPage({
     statut?: string;
     fournisseur?: string;
     fiche?: string;
+    du?: string;
+    au?: string;
+    pj?: string;
   };
 }) {
   const rubrique =
@@ -92,6 +93,10 @@ export default async function DocumentsPage({
       : "") as StatutCommande | "",
     fournisseur: (searchParams.fournisseur || "").slice(0, 100),
     dossierId: aChoisi ? choisiId : null,
+    q: commandes ? q : "",
+    du: (searchParams.du || "").slice(0, 10),
+    au: (searchParams.au || "").slice(0, 10),
+    pj: (searchParams.pj === "avec" || searchParams.pj === "sans" ? searchParams.pj : "") as "" | "avec" | "sans",
   };
 
   const [compteurs, dossiers, choisi, cmds, options, fiches, fiche] = await Promise.all([
