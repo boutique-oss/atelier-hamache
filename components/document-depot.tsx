@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
 import { upload } from "@vercel/blob/client";
 
-import { enregistrerDocument, type DocumentDepose } from "@/app/(main)/documents/actions";
+import { enregistrerDocument, type DocumentDepose } from "@/app/documents/fichiers-actions";
 import type { CategorieDocument, OrigineDocument } from "@/lib/documents-db";
 import {
   cheminDocument,
@@ -73,12 +73,15 @@ export async function deposerDocument(
 
 // Zone de dépôt minimale (un ou plusieurs fichiers, envoyés l'un après
 // l'autre). L'interface complète du module viendra avec la page Documents.
-export function DepotDocument({
+export function DocumentDepot({
   libelle = "Déposer un fichier",
+  onDone,
   onDepose,
   ...cible
 }: CibleDocument & {
   libelle?: string;
+  /** Appelé une fois la série d'envois terminée (au moins un fichier déposé). */
+  onDone?: () => void;
   onDepose?: (doc: DocumentDepose) => void;
 }) {
   const router = useRouter();
@@ -106,7 +109,10 @@ export function DepotDocument({
     setEtat(null);
     setErreurs(ko);
     if (inputRef.current) inputRef.current.value = "";
-    if (deposes) router.refresh();
+    if (deposes) {
+      router.refresh();
+      onDone?.();
+    }
   }
 
   return (

@@ -123,14 +123,14 @@ export async function enregistrerDocument(input: {
   }
 }
 
-// Supprime un document (fichier Blob + ligne). Réservé à l'administrateur.
-// À brancher dans un <form action={supprimerDocument.bind(null, id)}> avec
-// ConfirmDeleteButton, qui demande confirmation.
-export async function supprimerDocument(id: number): Promise<void> {
-  if (!(await estAdmin())) throw new Error("Suppression réservée à l'administrateur.");
+// Supprime un document (fichier Blob + ligne). Réservé à l'administrateur ;
+// la confirmation est demandée côté interface (ConfirmDeleteButton).
+export async function supprimerDocument(id: number): Promise<{ ok: boolean; error?: string }> {
+  if (!(await estAdmin())) return { ok: false, error: "Suppression réservée à l'administrateur." };
+  if (!Number.isInteger(id) || id <= 0) return { ok: false, error: "Document invalide." };
   await ensureDocuments();
   const [row] = await sql`SELECT pathname, dossier_id FROM documents WHERE id = ${id}`;
-  if (!row) return;
+  if (!row) return { ok: false, error: "Document introuvable." };
 
   const token = blobToken();
   if (token) {
@@ -144,4 +144,5 @@ export async function supprimerDocument(id: number): Promise<void> {
   }
   await sql`DELETE FROM documents WHERE id = ${id}`;
   rafraichir(row.dossier_id == null ? null : Number(row.dossier_id));
+  return { ok: true };
 }
