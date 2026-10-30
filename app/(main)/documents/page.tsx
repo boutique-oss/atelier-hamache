@@ -45,11 +45,13 @@ const RUBRIQUES: {
   icon: LucideIcon;
   tint: string;
   active: boolean;
+  /** Rubrique tenue par une autre page de l'ERP (lien direct). */
+  href?: string;
 }[] = [
   { cle: "clients", libelle: "Clients", icon: Users, tint: "var(--brand-blue)", active: true },
   { cle: "commandes", libelle: "Commandes", icon: Package, tint: "var(--brand-orange)", active: true },
   { cle: "planning", libelle: "Planning", icon: CalendarRange, tint: "var(--brand-green)", active: false },
-  { cle: "heures", libelle: "Rapports d'heures", icon: BarChart3, tint: "var(--brand-pink)", active: false },
+  { cle: "heures", libelle: "Rapports d'heures", icon: BarChart3, tint: "var(--brand-pink)", active: true, href: "/rapports" },
   { cle: "pointages", libelle: "Pointages", icon: Clock, tint: "var(--brand-violet)", active: false },
 ];
 
@@ -117,7 +119,7 @@ export default async function DocumentsPage({
         <aside className={cn("space-y-4", choisi && "order-2 lg:order-1")}>
           <nav aria-label="Rubriques" className="overflow-hidden rounded-lg border bg-card">
             <ul className="divide-y">
-              {RUBRIQUES.map(({ cle, libelle, icon: Icon, tint, active }) => {
+              {RUBRIQUES.map(({ cle, libelle, icon: Icon, tint, active, href }) => {
                 const courante = clients ? cle === "clients" : cle === "commandes";
                 const contenu = (
                   <>
@@ -146,7 +148,7 @@ export default async function DocumentsPage({
                   <li key={cle}>
                     {active ? (
                       <Link
-                        href={lienRubrique(cle)}
+                        href={href ?? lienRubrique(cle)}
                         aria-current={courante ? "page" : undefined}
                         style={{ borderLeftColor: courante ? "#F26A21" : "transparent" }}
                         className={cn(
