@@ -7,8 +7,8 @@ import type { CategorieDocument } from "@/lib/documents-categories";
 // Emplacements réservés aux pièces de la phase 2 (dépôt + suppression de
 // fichiers), pour que la page Documents compile sans elles.
 // TODO phase 2 : brancher DocumentDepot / supprimerDocument
-//   - DepotEmplacement → <DocumentDepot dossierId categorie docDossierId onDone />
-//     (components/document-depot.tsx), onDone = router.refresh().
+//   - DepotEmplacement → <DocumentDepot {...props} /> (components/document-depot.tsx :
+//     dossierId, categorie, docDossierId, commandeId, onDone).
 //   - SupprimerDocumentEmplacement → bouton admin + confirmation appelant
 //     supprimerDocument(id) (app/documents/fichiers-actions.ts), puis refresh.
 
@@ -16,6 +16,8 @@ export function DepotEmplacement(props: {
   dossierId: number | null;
   categorie: CategorieDocument;
   docDossierId?: number | null;
+  /** Rubrique Commandes : le fichier est rattaché à cette commande. */
+  commandeId?: number | null;
   onDone?: () => void;
 }) {
   void props;

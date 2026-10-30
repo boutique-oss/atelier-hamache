@@ -19,14 +19,24 @@ import {
   listerDossiersDocs,
   type CompteursRubriques,
 } from "@/lib/documents-arbre";
+import {
+  listerCommandesDocs,
+  optionsFiltresCommandes,
+  STATUTS_COMMANDE,
+  type StatutCommande,
+} from "@/lib/documents-commandes";
 import { normalizeStatut, statutClasses } from "@/lib/dossiers";
 import { cn } from "@/lib/utils";
 
+import { FiltresCommandesForm, TableauCommandes } from "./rubrique-commandes";
+
 export const dynamic = "force-dynamic";
 
-// Page Documents : rubriques à gauche (seule « Clients » est active pour
-// l'instant), liste des dossiers clients filtrable, puis l'arborescence du
-// dossier choisi. Les URL /documents/<imprimable> (prédevis vierge, bon de
+// Page Documents : rubriques à gauche (Clients et Commandes actives pour
+// l'instant). Clients : liste des dossiers filtrable puis l'arborescence du
+// dossier choisi. Commandes : commandes fournisseur filtrables avec leurs
+// pièces jointes. `?dossier=` est partagé : dossier ouvert côté Clients,
+// filtre par dossier côté Commandes. Les URL /documents/<imprimable> (prédevis vierge, bon de
 // commande…) vivent hors de ce layout, dans app/documents/.
 
 const RUBRIQUES: {
@@ -37,7 +47,7 @@ const RUBRIQUES: {
   active: boolean;
 }[] = [
   { cle: "clients", libelle: "Clients", icon: Users, tint: "var(--brand-blue)", active: true },
-  { cle: "commandes", libelle: "Commandes", icon: Package, tint: "var(--brand-orange)", active: false },
+  { cle: "commandes", libelle: "Commandes", icon: Package, tint: "var(--brand-orange)", active: true },
   { cle: "planning", libelle: "Planning", icon: CalendarRange, tint: "var(--brand-green)", active: false },
   { cle: "heures", libelle: "Rapports d'heures", icon: BarChart3, tint: "var(--brand-pink)", active: false },
   { cle: "pointages", libelle: "Pointages", icon: Clock, tint: "var(--brand-violet)", active: false },
@@ -46,17 +56,43 @@ const RUBRIQUES: {
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: { dossier?: string; q?: string };
+  searchParams: {
+    rubrique?: string;
+    dossier?: string;
+    q?: string;
+    statut?: string;
+    fournisseur?: string;
+  };
 }) {
+  const clients = searchParams.rubrique !== "commandes";
   const q = (searchParams.q || "").slice(0, 100);
   const choisiId = Number(searchParams.dossier);
   const aChoisi = Number.isFinite(choisiId) && choisiId > 0;
+  const filtres = {
+    statut: (STATUTS_COMMANDE.some((s) => s.cle === searchParams.statut)
+      ? searchParams.statut
+      : "") as StatutCommande | "",
+    fournisseur: (searchParams.fournisseur || "").slice(0, 100),
+    dossierId: aChoisi ? choisiId : null,
+  };
 
-  const [compteurs, dossiers, choisi] = await Promise.all([
+  const [compteurs, dossiers, choisi, cmds, options] = await Promise.all([
     compteursRubriques().catch(() => null),
-    listerDossiersDocs(q),
-    aChoisi ? lireDossierDocs(choisiId) : Promise.resolve(null),
+    clients ? listerDossiersDocs(q) : Promise.resolve([]),
+    clients && aChoisi ? lireDossierDocs(choisiId) : Promise.resolve(null),
+    clients ? Promise.resolve(null) : listerCommandesDocs(filtres),
+    clients ? Promise.resolve(null) : optionsFiltresCommandes(),
   ]);
+
+  // Lien d'une rubrique : le dossier choisi est conservé (il devient le
+  // filtre par dossier côté Commandes, et inversement).
+  const lienRubrique = (cle: string) => {
+    const p = new URLSearchParams();
+    if (cle !== "clients") p.set("rubrique", cle);
+    if (aChoisi) p.set("dossier", String(choisiId));
+    const s = p.toString();
+    return s ? `/documents?${s}` : "/documents";
+  };
 
   const lienDossier = (id: number) => {
     const p = new URLSearchParams({ dossier: String(id) });
@@ -81,113 +117,151 @@ export default async function DocumentsPage({
         <aside className={cn("space-y-4", choisi && "order-2 lg:order-1")}>
           <nav aria-label="Rubriques" className="overflow-hidden rounded-lg border bg-card">
             <ul className="divide-y">
-              {RUBRIQUES.map(({ cle, libelle, icon: Icon, tint, active }) => (
-                <li
-                  key={cle}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 text-sm",
-                    active ? "bg-foreground/[0.06] font-medium" : "text-muted-foreground"
-                  )}
-                >
-                  <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
-                    style={{
-                      backgroundColor: `hsl(${tint} / ${active ? 0.2 : 0.1})`,
-                      color: `hsl(${tint})`,
-                    }}
-                  >
-                    <Icon size={15} aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{libelle}</span>
-                  {active ? (
-                    <span className="tabular-nums text-xs text-muted-foreground">
-                      {compteurs ? compteurs[cle] : "—"}
+              {RUBRIQUES.map(({ cle, libelle, icon: Icon, tint, active }) => {
+                const courante = clients ? cle === "clients" : cle === "commandes";
+                const contenu = (
+                  <>
+                    <span
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md"
+                      style={{
+                        backgroundColor: `hsl(${tint} / ${active ? 0.2 : 0.1})`,
+                        color: `hsl(${tint})`,
+                      }}
+                    >
+                      <Icon size={15} aria-hidden />
                     </span>
-                  ) : (
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-                      Bientôt
-                    </span>
-                  )}
-                </li>
-              ))}
+                    <span className="min-w-0 flex-1 truncate">{libelle}</span>
+                    {active ? (
+                      <span className="tabular-nums text-xs text-muted-foreground">
+                        {compteurs ? compteurs[cle] : "—"}
+                      </span>
+                    ) : (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                        Bientôt
+                      </span>
+                    )}
+                  </>
+                );
+                return (
+                  <li key={cle}>
+                    {active ? (
+                      <Link
+                        href={lienRubrique(cle)}
+                        aria-current={courante ? "page" : undefined}
+                        style={{ borderLeftColor: courante ? "#F26A21" : "transparent" }}
+                        className={cn(
+                          "flex items-center gap-3 border-l-2 px-3 py-2.5 text-sm transition-colors [@media(pointer:coarse)]:py-3",
+                          courante ? "bg-foreground/[0.07] font-medium" : "hover:bg-foreground/5"
+                        )}
+                      >
+                        {contenu}
+                      </Link>
+                    ) : (
+                      <div className="flex items-center gap-3 border-l-2 border-transparent px-3 py-2.5 text-sm text-muted-foreground">
+                        {contenu}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </nav>
 
-          <form role="search" className="flex gap-2">
-            {aChoisi && <input type="hidden" name="dossier" value={choisiId} />}
-            <label className="relative flex-1">
-              <span className="sr-only">Filtrer les dossiers</span>
-              <Search
-                size={15}
-                aria-hidden
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <input
-                name="q"
-                defaultValue={q}
-                placeholder="Dossier ou client…"
-                className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-2 text-sm [@media(pointer:coarse)]:h-11"
-              />
-            </label>
-            <button
-              type="submit"
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent [@media(pointer:coarse)]:h-11"
-            >
-              Filtrer
-            </button>
-          </form>
+          {!clients && options ? (
+            <FiltresCommandesForm
+              filtres={filtres}
+              fournisseurs={options.fournisseurs}
+              dossiers={options.dossiers}
+            />
+          ) : (
+            <>
+              <form role="search" className="flex gap-2">
+                {aChoisi && <input type="hidden" name="dossier" value={choisiId} />}
+                <label className="relative flex-1">
+                  <span className="sr-only">Filtrer les dossiers</span>
+                  <Search
+                    size={15}
+                    aria-hidden
+                    className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <input
+                    name="q"
+                    defaultValue={q}
+                    placeholder="Dossier ou client…"
+                    className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-2 text-sm [@media(pointer:coarse)]:h-11"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent [@media(pointer:coarse)]:h-11"
+                >
+                  Filtrer
+                </button>
+              </form>
 
-          <div className="overflow-hidden rounded-lg border bg-card">
-            <p className="flex items-center justify-between border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
-              <span>Dossiers clients</span>
-              <span className="tabular-nums">{dossiers.length}</span>
-            </p>
-            {dossiers.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-                {q ? `Aucun dossier ne correspond à « ${q} ».` : "Aucun dossier."}
-              </p>
-            ) : (
-              <ul className="max-h-[60vh] divide-y overflow-y-auto">
-                {dossiers.map((d) => {
-                  const actif = choisi?.id === d.id;
-                  return (
-                    <li key={d.id}>
-                      <Link
-                        href={lienDossier(d.id)}
-                        aria-current={actif ? "page" : undefined}
-                        style={{ borderLeftColor: actif ? "#F26A21" : "transparent" }}
-                        className={cn(
-                          "block border-l-2 px-3 py-2 transition-colors [@media(pointer:coarse)]:py-3",
-                          actif ? "bg-foreground/[0.07]" : "hover:bg-foreground/5"
-                        )}
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{d.nom}</span>
-                          <span className="tabular-nums text-xs text-muted-foreground">
-                            {d.nbFichiers}
-                          </span>
-                        </span>
-                        <span className="mt-1 flex items-center gap-2">
-                          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                            {d.client || "—"}
-                          </span>
-                          <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium", statutClasses(d.statut))}>
-                            {normalizeStatut(d.statut)}
-                          </span>
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+              <div className="overflow-hidden rounded-lg border bg-card">
+                <p className="flex items-center justify-between border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
+                  <span>Dossiers clients</span>
+                  <span className="tabular-nums">{dossiers.length}</span>
+                </p>
+                {dossiers.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                    {q ? `Aucun dossier ne correspond à « ${q} ».` : "Aucun dossier."}
+                  </p>
+                ) : (
+                  <ul className="max-h-[60vh] divide-y overflow-y-auto">
+                    {dossiers.map((d) => {
+                      const actif = choisi?.id === d.id;
+                      return (
+                        <li key={d.id}>
+                          <Link
+                            href={lienDossier(d.id)}
+                            aria-current={actif ? "page" : undefined}
+                            style={{ borderLeftColor: actif ? "#F26A21" : "transparent" }}
+                            className={cn(
+                              "block border-l-2 px-3 py-2 transition-colors [@media(pointer:coarse)]:py-3",
+                              actif ? "bg-foreground/[0.07]" : "hover:bg-foreground/5"
+                            )}
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium">{d.nom}</span>
+                              <span className="tabular-nums text-xs text-muted-foreground">
+                                {d.nbFichiers}
+                              </span>
+                            </span>
+                            <span className="mt-1 flex items-center gap-2">
+                              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                                {d.client || "—"}
+                              </span>
+                              <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium", statutClasses(d.statut))}>
+                                {normalizeStatut(d.statut)}
+                              </span>
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
         </aside>
 
-        {/* Dossier choisi */}
+        {/* Commandes, ou dossier choisi */}
         <section className={cn("min-w-0", choisi && "order-1 lg:order-2")}>
-          {choisi ? (
+          {cmds ? (
+            <>
+              <h2 className="brand-display mb-4 text-lg">
+                Commandes fournisseur{" "}
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({cmds.commandes.length}
+                  {cmds.tronque ? "+" : ""})
+                </span>
+              </h2>
+              <TableauCommandes commandes={cmds.commandes} tronque={cmds.tronque} />
+            </>
+          ) : choisi ? (
             <>
               <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
