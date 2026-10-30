@@ -31,6 +31,7 @@ import { SOUS_TYPES_BASE } from "@/lib/sous-types";
 import { listerSousTypes, lireSousType } from "@/lib/sous-types-db";
 import { lirePriseCotes } from "@/lib/prise-cotes-db";
 import { FicheRecoupeeBouton } from "@/components/fiche-recoupee";
+import { DocumentsDossier } from "@/components/documents-dossier";
 
 // Contenu complet d'une fiche dossier (récap, blocs, travaux, devis,
 // commandes, fiches, heures). Composant serveur partagé entre la page
@@ -271,6 +272,22 @@ export async function DossierFiche({ id }: { id: number }) {
           }))}
         />
 
+        {/* Documents du dossier (module Documents) : même explorateur que la
+            page /documents. */}
+        <section id="documents" className="rounded-lg border">
+          <h2 className="flex items-center justify-between border-b bg-muted/40 px-4 py-2 text-sm font-semibold">
+            <span>Documents</span>
+            <Link
+              href={`/documents?dossier=${id}`}
+              className="text-xs font-normal text-muted-foreground hover:underline"
+            >
+              Ouvrir dans Documents
+            </Link>
+          </h2>
+          <div className="p-3 sm:p-4">
+            <DocumentsDossier dossierId={id} />
+          </div>
+        </section>
 
         <section className="rounded-lg border">
           <h2 className="flex items-center justify-between border-b bg-muted/40 px-4 py-2 text-sm font-semibold">
