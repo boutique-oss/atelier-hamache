@@ -1,3 +1,5 @@
+import { ConnexionCleAcces } from "@/components/cle-acces-boutons";
+
 import { login } from "./actions";
 import { getParamsSecurite } from "@/lib/securite";
 
@@ -84,6 +86,13 @@ export default async function LoginPage({
         >
           Entrer
         </button>
+
+        <div className="flex items-center gap-3 text-[11px] uppercase tracking-wider text-muted-foreground">
+          <span className="h-px flex-1 bg-border" />
+          ou
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        <ConnexionCleAcces />
 
         {bootstrap && (
           <p className="text-center text-[11px] leading-snug text-muted-foreground">

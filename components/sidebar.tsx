@@ -17,6 +17,7 @@ import {
   Ruler,
   CalendarDays,
   ShieldCheck,
+  KeyRound,
   LogOut,
   Menu,
   X,
@@ -132,6 +133,16 @@ function NavContent({
               <p className="truncate text-xs font-medium text-foreground/85">{utilisateur.nom}</p>
               <p className="brand-eyebrow text-muted-foreground">{utilisateur.role}</p>
             </div>
+            <div className="flex items-center">
+            <Link
+              href="/cles-acces"
+              onClick={onNavigate}
+              title="Mes clés d'accès (connexion par téléphone)"
+              aria-label="Mes clés d'accès"
+              className="flex h-9 w-9 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-foreground/[0.07] hover:text-foreground"
+            >
+              <KeyRound size={15} />
+            </Link>
             <form action={logout}>
               <button
                 type="submit"
@@ -142,6 +153,7 @@ function NavContent({
                 <LogOut size={15} />
               </button>
             </form>
+            </div>
           </div>
         )}
         {peutVoirAdmin && (
