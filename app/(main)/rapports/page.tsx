@@ -24,10 +24,19 @@ import {
   MoisOperateursChart,
   OperateursDonut,
   PiecesChart,
+  PointeSaisiChart,
+  ReelPrevuChart,
   SuiviDevisChart,
   TypesChart,
 } from "@/components/charts-lazy";
+import { RapportPdfBouton } from "@/components/rapport-pdf-bouton";
 import { SmallBox } from "@/components/small-box";
+import {
+  heuresParOperateur,
+  indicateursPeriode,
+  raccourcisPeriode,
+  reelVsPrevuParDossier,
+} from "@/lib/rapport-heures";
 import { parseFlags } from "@/lib/dossiers";
 import {
   classerTexte,
@@ -56,6 +65,15 @@ export default async function RapportsPage({
   if (to) conds.push(lte(heures.date, to));
   if (op) conds.push(eq(heures.operateur, op));
   const where = conds.length ? and(...conds) : undefined;
+
+  // Bilan de la période (phase 6) : agrégats calculés en SQL.
+  const filtre = { from, to, operateur: op };
+  const [bilan, pointeSaisi, reelPrevu] = await Promise.all([
+    indicateursPeriode(filtre),
+    heuresParOperateur(filtre),
+    reelVsPrevuParDossier(filtre),
+  ]);
+  const raccourcis = raccourcisPeriode();
 
   // Récap par mois (selon la date saisie) puis par opérateur.
   const totalExpr = sql<number>`coalesce(sum(${heures.heuresPassees}), 0)`;
@@ -488,6 +506,24 @@ export default async function RapportsPage({
           </span>
         )}
       </form>
+      <nav aria-label="Raccourcis de période" className="mt-2 flex flex-wrap gap-1.5">
+        {raccourcis.map((r) => {
+          const actif = r.from === from && r.to === to;
+          const qs = new URLSearchParams({ from: r.from, to: r.to, ...(op ? { operateur: op } : {}) });
+          return (
+            <Link
+              key={r.libelle}
+              href={`/rapports?${qs}`}
+              aria-current={actif ? "true" : undefined}
+              className={`rounded-full border px-3 py-1 text-xs [@media(pointer:coarse)]:py-2 ${
+                actif ? "border-foreground bg-foreground text-background" : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {r.libelle}
+            </Link>
+          );
+        })}
+      </nav>
 
       {/* Chiffres clés (small-box AdminLTE) */}
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -520,6 +556,130 @@ export default async function RapportsPage({
           href="#saisie"
         />
       </div>
+
+      {/* Bilan de la période : présence pointée, saisi, prévu vs réel. */}
+      <DashCard
+        id="bilan"
+        title="Bilan de la période"
+        subtitle={from || to ? `${from || "…"} → ${to || "…"}` : "toutes dates"}
+        ton="navy"
+        className="mt-4"
+      >
+        <dl className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
+          {[
+            {
+              t: "Heures pointées",
+              v: bilan.pointees == null ? "—" : heuresFr(bilan.pointees),
+              d: "présence (jours travaillés)",
+            },
+            { t: "Saisies sur dossiers", v: heuresFr(bilan.saisies), d: "heures imputées" },
+            { t: "Heures prévues", v: heuresFr(bilan.prevues), d: "dossiers travaillés" },
+            { t: "Réel de ces dossiers", v: heuresFr(bilan.reelles), d: "cumul toutes dates" },
+            {
+              t: "Écart",
+              v: `${bilan.ecart > 0 ? "+" : ""}${heuresFr(bilan.ecart)}`,
+              d: bilan.ecart > 0 ? "au-delà du prévu" : "dans le prévu",
+              alerte: bilan.ecart > 0,
+            },
+            {
+              t: "Fiches à saisir",
+              v: String(bilan.fichesASaisir),
+              d: "fiches navettes",
+              alerte: bilan.fichesASaisir > 0,
+            },
+          ].map((k) => (
+            <div key={k.t} className="bg-card px-4 py-3">
+              <dt className="text-xs text-muted-foreground">{k.t}</dt>
+              <dd
+                className={`mt-0.5 text-xl font-semibold tabular-nums ${k.alerte ? "text-destructive" : ""}`}
+              >
+                {k.v}
+              </dd>
+              <dd className="text-xs text-muted-foreground">{k.d}</dd>
+            </div>
+          ))}
+        </dl>
+      </DashCard>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-5">
+        <DashCard
+          title="Réel vs prévu par dossier"
+          subtitle="dossiers travaillés sur la période"
+          ton="primary"
+          className="lg:col-span-3"
+        >
+          <ReelPrevuChart data={reelPrevu} />
+        </DashCard>
+        <DashCard
+          title="Présence et saisie"
+          subtitle="par opérateur"
+          ton="info"
+          className="lg:col-span-2"
+        >
+          <PointeSaisiChart data={pointeSaisi} />
+        </DashCard>
+      </div>
+
+      {reelPrevu.length > 0 && (
+        <section className="mt-4 rounded-lg border">
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-2 border-b bg-muted/40 px-4 py-2 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+              <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />
+              Rapports par dossier{" "}
+              <span className="font-normal text-muted-foreground">
+                · {reelPrevu.length} dossier{reelPrevu.length > 1 ? "s" : ""} · PDF enregistré
+                dans les documents du dossier
+              </span>
+            </summary>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs text-muted-foreground">
+                  <tr className="border-b">
+                    <th className="px-4 py-2 font-medium">Dossier</th>
+                    <th className="px-2 py-2 text-right font-medium">Période</th>
+                    <th className="px-2 py-2 text-right font-medium">Réel</th>
+                    <th className="px-2 py-2 text-right font-medium">Prévu</th>
+                    <th className="px-2 py-2 text-right font-medium">Écart</th>
+                    <th className="px-4 py-2" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {reelPrevu.map((d) => {
+                    const ecart = d.reel - d.prevu;
+                    return (
+                      <tr key={d.id}>
+                        <td className="px-4 py-2">
+                          <Link href={`/dossiers/${d.id}`} className="font-medium hover:underline">
+                            {d.nom}
+                          </Link>
+                          {d.client && (
+                            <span className="block text-xs text-muted-foreground">{d.client}</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums">{heuresFr(d.periode)}</td>
+                        <td className="px-2 py-2 text-right tabular-nums">{heuresFr(d.reel)}</td>
+                        <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">
+                          {d.prevu > 0 ? heuresFr(d.prevu) : "—"}
+                        </td>
+                        <td
+                          className={`px-2 py-2 text-right tabular-nums ${
+                            d.prevu > 0 && ecart > 0 ? "font-semibold text-destructive" : ""
+                          }`}
+                        >
+                          {d.prevu > 0 ? `${ecart > 0 ? "+" : ""}${heuresFr(ecart)}` : "—"}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <RapportPdfBouton dossierId={d.id} nom={d.nom} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </section>
+      )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <DashCard id="charge" title="Charge de l’atelier" subtitle="vs capacité" ton="warning">
@@ -652,6 +812,8 @@ const MOIS_FR = [
   "janvier", "février", "mars", "avril", "mai", "juin",
   "juillet", "août", "septembre", "octobre", "novembre", "décembre",
 ];
+const heuresFr = (v: number) => `${String(Math.round(v * 10) / 10).replace(".", ",")} h`;
+
 // "AAAA-MM" → "juil. 26" (axe des graphiques).
 function formatMoisCourt(m: string): string {
   const [y, mm] = (m || "").split("-");

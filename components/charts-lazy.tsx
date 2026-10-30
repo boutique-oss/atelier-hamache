@@ -45,6 +45,16 @@ export const SuiviDevisChart = dynamic(
   { ssr: false, loading: () => <Emplacement h="h-72" /> }
 );
 
+export const ReelPrevuChart = dynamic(
+  () => import("@/components/rapport-periode-charts").then((m) => m.ReelPrevuChart),
+  { ssr: false, loading: () => <Emplacement h="h-80" /> }
+);
+
+export const PointeSaisiChart = dynamic(
+  () => import("@/components/rapport-periode-charts").then((m) => m.PointeSaisiChart),
+  { ssr: false, loading: () => <Emplacement h="h-64" /> }
+);
+
 export const PiecesChart = dynamic(
   () => import("@/components/heures-dashboard").then((m) => m.PiecesChart),
   { ssr: false, loading: () => <Emplacement h="h-72" /> }
