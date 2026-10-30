@@ -1,0 +1,196 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tokens shadcn/ui (thème clair + sombre) */
+@layer base {
+  :root {
+    /* Palette « COS » (21st.dev, @ibrandify) : papier chaud et ardoise.
+       Valeurs OKLCH du thème converties en HSL. Deux écarts volontaires pour
+       l'accessibilité : texte atténué 40 % (au lieu de 45 %, 4,4:1 trop juste)
+       et contour des champs foncé (3:1 contre le fond). */
+    --background: 35 22% 96%; /* #F7F5F2 */
+    --foreground: 0 0% 20%; /* #333333 */
+    --card: 35 22% 98%;
+    --card-foreground: 0 0% 20%;
+    --primary: 210 20% 40%; /* #52667B — ardoise */
+    --primary-foreground: 35 22% 96%;
+    --secondary: 35 14% 85%;
+    --secondary-foreground: 0 0% 20%;
+    --muted: 35 15% 90%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 35 15% 88%;
+    --accent-foreground: 0 0% 20%;
+    --destructive: 0 40% 50%; /* #B34C4C */
+    --destructive-foreground: 35 22% 96%;
+    --border: 35 14% 85%;
+    --input: 35 10% 55%;
+    --ring: 210 20% 40%;
+    --radius: 0.5rem;
+
+    /* Volet latéral (thème COS) */
+    --sidebar: 35 19% 92%;
+
+    /* Accents (icônes / statuts). Noms d'emplacement historiques conservés ;
+       valeurs ramenées à la famille COS (ardoise, taupe, sauge, brique). */
+    --brand-purple: 210 20% 40%; /* ardoise — accent primaire */
+    --brand-violet: 35 18% 42%; /* taupe foncé */
+    --brand-blue: 210 22% 34%; /* ardoise profonde */
+    --brand-green: 120 12% 36%; /* sauge — validé */
+    --brand-pink: 0 40% 48%; /* brique — danger */
+    --brand-orange: 30 30% 40%; /* ocre doux — commandes */
+    --brand-navy: 210 22% 24%;
+  }
+
+  .dark {
+    /* Thème sombre Redo : fonds marine profond, orange plus lumineux. */
+    --background: 213 40% 8%;
+    --foreground: 0 0% 98%;
+    --card: 213 34% 11%;
+    --card-foreground: 0 0% 98%;
+    --primary: 24 92% 58%; /* orange plus lumineux sur fond sombre */
+    --primary-foreground: 213 40% 8%;
+    --secondary: 213 26% 18%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 213 24% 17%;
+    --muted-foreground: 210 14% 66%;
+    --accent: 213 28% 20%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 6 80% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 213 22% 20%;
+    --input: 213 22% 20%;
+    --ring: 24 92% 58%;
+
+    --brand-purple: 24 92% 58%; /* orange */
+    --brand-violet: 32 96% 64%; /* ambre */
+    --brand-blue: 205 60% 60%; /* bleu acier clair */
+    --brand-green: 150 55% 52%;
+    --brand-pink: 6 82% 62%; /* rouge */
+    --brand-orange: 18 92% 58%;
+    --brand-navy: 205 55% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+/* --- Éléments de marque inspirés du studio (Scene 1) : fond sombre éditorial,
+   typo grasse et resserrée, petits intitulés en capitales espacées. --- */
+@layer components {
+  /* Surface sombre réutilisable (bandeaux) — ardoise COS */
+  .brand-dark {
+    --border: 210 18% 30%;
+    background-color: hsl(210 22% 22%);
+    color: hsl(35 22% 96%);
+  }
+
+  /* Volet latéral et barre mobile : papier légèrement plus soutenu que le fond */
+  .brand-side {
+    background-color: hsl(var(--sidebar));
+    color: hsl(var(--foreground));
+  }
+
+  /* Grand titre display : Rethink Sans grasse, interlettrage serré (charte Redo) */
+  .brand-display {
+    font-family: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 0.95;
+  }
+
+  /* Accent serif éditorial (citations, chiffres mis en avant) — Hedvig Letters */
+  .brand-serif {
+    font-family: var(--font-serif), Georgia, serif;
+    font-weight: 400;
+  }
+
+  /* Intitulé « eyebrow » : petites capitales très espacées */
+  .brand-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+
+  /* Bouton pilule à flèche circulaire, à la manière du studio */
+  .brand-arrow {
+    display: inline-flex;
+    height: 1.5rem;
+    width: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid currentColor;
+    transition: transform 0.2s ease;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .group:hover .brand-arrow {
+      transform: translateX(2px);
+    }
+  }
+}
+
+/* --- Animations de marque (entrées en fondu, halos flottants) --- */
+@layer utilities {
+  @keyframes brand-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes brand-float {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+    50% {
+      transform: translate(2%, -3%) scale(1.06);
+    }
+  }
+
+  /* Entrée en fondu montant ; l'opacité de départ est à 0 pour éviter le flash */
+  .anim-fade-up {
+    opacity: 0;
+    animation: brand-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  /* Halos colorés flottant en fond du héros (clin d'œil aux bulles du studio) */
+  .anim-float {
+    animation: brand-float 14s ease-in-out infinite;
+  }
+
+  /* Écran tactile (tablette de l'atelier) : champs à 16 px — en dessous,
+     Safari iPad zoome à chaque saisie — et hauteur de doigt (44 px). Les
+     grilles en tableau (pointage, feuilles) gardent leur densité. */
+  @media (pointer: coarse) {
+    :where(
+        input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"]),
+        select,
+        textarea
+      ):not(table *) {
+      font-size: max(16px, 1em) !important; /* passe devant text-sm/text-xs */
+      min-height: 2.75rem;
+    }
+  }
+
+  /* Respecte la préférence système « animations réduites » */
+  @media (prefers-reduced-motion: reduce) {
+    .anim-fade-up,
+    .anim-float {
+      animation: none;
+      opacity: 1;
+    }
+  }
+}

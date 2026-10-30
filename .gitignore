@@ -1,0 +1,19 @@
+# dépendances
+/node_modules
+
+# build Next.js
+/.next
+/out
+
+# env
+.env
+.env*.local
+
+# divers
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+/drizzle/meta/_journal.lock
+
+.vercel
+.env*

@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "lib/mail-html.ts"
+        ],
+        "createdAt": "2026-10-22T12:30:24.591Z",
+        "reason": "Claude: sanitizer that intentionally neutralizes remote <img> src in mail HTML (privacy blocking, spec requirement)"
+      }
+    ]
+  }
+}

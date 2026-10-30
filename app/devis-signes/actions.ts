@@ -1,0 +1,384 @@
+"use server";
+
+import { eq } from "drizzle-orm";
+import { put, del, get } from "@vercel/blob";
+
+import { db } from "@/db";
+import { devisSignes, dossiers, fichesAtelier } from "@/db/schema";
+import { revalidateDossierViews } from "@/lib/revalidate";
+import { blobToken } from "@/lib/blob";
+import { lireDevis, type DevisLu } from "@/lib/devis-pdf";
+import { pieceRemplie } from "@/lib/prise-cotes";
+import { lirePriseCotes } from "@/lib/prise-cotes-db";
+import { recouper, type FicheProposee, type Recoupement, type SourceLue } from "@/lib/recoupement";
+import { synchroniserDossierDepuisFiches } from "@/lib/fiches-dossier";
+
+// Taille max acceptée (aligne-toi sur serverActions.bodySizeLimit dans
+// next.config.mjs = 15 Mo). On garde une marge sous cette limite.
+const MAX_TAILLE = 14 * 1024 * 1024;
+
+// Enregistre un devis signé (PDF, éventuellement image scannée) sur Vercel Blob
+// et crée la ligne en base. Retourne un message d'erreur lisible plutôt que de
+// planter, pour l'afficher côté formulaire.
+export async function uploadDevisSigne(
+  dossierId: number,
+  fd: FormData
+): Promise<{ ok: boolean; error?: string }> {
+  const token = blobToken();
+  if (!token) {
+    return {
+      ok: false,
+      error:
+        "Stockage des fichiers non configuré (jeton Vercel Blob introuvable). Voir la configuration Vercel Blob.",
+    };
+  }
+
+  const file = fd.get("fichier");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Aucun fichier sélectionné." };
+  }
+
+  const type = file.type || "application/octet-stream";
+  const nom = (file.name || "devis-signe").trim();
+  const estPdf = type === "application/pdf" || nom.toLowerCase().endsWith(".pdf");
+  const estImage = type.startsWith("image/");
+  if (!estPdf && !estImage) {
+    return { ok: false, error: "Format non accepté : PDF ou image uniquement." };
+  }
+  if (file.size > MAX_TAILLE) {
+    return {
+      ok: false,
+      error: `Fichier trop volumineux (${(file.size / 1024 / 1024).toFixed(
+        1
+      )} Mo). Maximum 14 Mo.`,
+    };
+  }
+
+  try {
+    // Chemin lisible + suffixe aléatoire (évite les collisions de noms).
+    // Store PRIVÉ : le fichier n'est pas accessible par URL publique ; il est
+    // servi par la route protégée /api/devis/[id] (derrière le code d'accès).
+    const blob = await put(`devis-signes/${dossierId}/${nom}`, file, {
+      access: "private",
+      contentType: type,
+      addRandomSuffix: true,
+      token,
+    });
+
+    await db.insert(devisSignes).values({
+      dossierId,
+      nomFichier: nom,
+      url: blob.url,
+      pathname: blob.pathname,
+      taille: file.size,
+      contentType: type,
+    });
+
+    revalidateDossierViews(dossierId);
+    return { ok: true };
+  } catch (e) {
+    console.error("Upload devis signé échoué:", (e as Error).message);
+    return { ok: false, error: "Échec de l'envoi. Réessayez." };
+  }
+}
+
+// Supprime un devis signé : le fichier sur Blob puis la ligne en base.
+export async function deleteDevisSigne(id: number, dossierId: number) {
+  const [row] = await db
+    .select({ pathname: devisSignes.pathname, url: devisSignes.url })
+    .from(devisSignes)
+    .where(eq(devisSignes.id, id));
+
+  const token = blobToken();
+  if (row && token) {
+    // On supprime le blob « au mieux » : une erreur ici ne doit pas empêcher de
+    // retirer la ligne en base (sinon le devis resterait affiché).
+    try {
+      await del(row.pathname || row.url, { token });
+    } catch (e) {
+      console.error("Suppression blob échouée:", (e as Error).message);
+    }
+  }
+
+  await db.delete(devisSignes).where(eq(devisSignes.id, id));
+  revalidateDossierViews(dossierId);
+}
+
+// ─── Remplir le dossier depuis un devis (PDF EBP déjà importé) ─────────────
+
+// Lit un devis signé stocké (Blob privé) et renvoie ce qu'on a pu y repérer,
+// pour le formulaire ajustable. Rien n'est écrit à cette étape.
+export async function lireDevisSigne(
+  id: number
+): Promise<{ ok: true; devis: DevisLu } | { ok: false; error: string }> {
+  const [row] = await db
+    .select({ pathname: devisSignes.pathname, contentType: devisSignes.contentType, nom: devisSignes.nomFichier })
+    .from(devisSignes)
+    .where(eq(devisSignes.id, id));
+  if (!row) return { ok: false, error: "Devis introuvable." };
+  const estPdf =
+    (row.contentType ?? "").includes("pdf") || row.nom.toLowerCase().endsWith(".pdf");
+  if (!estPdf) {
+    return {
+      ok: false,
+      error: "Ce devis signé est une image (scan) : choisis le PDF EBP d'origine ci-dessous.",
+    };
+  }
+  const token = blobToken();
+  if (!token) return { ok: false, error: "Stockage des fichiers non configuré." };
+  try {
+    const res = await get(row.pathname ?? "", { access: "private", token });
+    if (!res || res.statusCode !== 200 || !res.stream) {
+      return { ok: false, error: "Fichier du devis introuvable." };
+    }
+    return lireDonneesDevis(new Uint8Array(await new Response(res.stream).arrayBuffer()));
+  } catch (e) {
+    console.error("Lecture devis échouée:", (e as Error).message);
+    return { ok: false, error: "PDF illisible ou protégé." };
+  }
+}
+
+// Variante : le PDF EBP d'origine (avant signature) choisi sur l'ordinateur,
+// quand le devis signé du dossier est un scan. Lu seulement, pas enregistré.
+export async function lireDevisFichier(
+  fd: FormData
+): Promise<{ ok: true; devis: DevisLu } | { ok: false; error: string }> {
+  const file = fd.get("fichier");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Aucun fichier sélectionné." };
+  }
+  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+    return { ok: false, error: "Choisis un fichier PDF (export EBP)." };
+  }
+  if (file.size > MAX_TAILLE) return { ok: false, error: "PDF trop volumineux (14 Mo max)." };
+  try {
+    return await lireDonneesDevis(new Uint8Array(await file.arrayBuffer()));
+  } catch (e) {
+    console.error("Lecture devis (fichier) échouée:", (e as Error).message);
+    return { ok: false, error: "PDF illisible ou protégé." };
+  }
+}
+
+async function lireDonneesDevis(
+  data: Uint8Array
+): Promise<{ ok: true; devis: DevisLu } | { ok: false; error: string }> {
+  const devis = await lireDevis(data);
+  if (devis.ouvrages.length === 0 && !devis.client.nom && !devis.numero) {
+    return {
+      ok: false,
+      error:
+        "Ce PDF ne contient pas de texte (devis scanné). Choisis le PDF EBP d'origine, exporté avant signature.",
+    };
+  }
+  return { ok: true, devis };
+}
+
+export type DevisAApplique = {
+  numero: string;
+  // Champs client retenus (absents = on ne touche pas au dossier).
+  client: Partial<{ clientNom: string; adresse: string; telephone: string; email: string; dateDevis: string }>;
+  ouvrages: {
+    metier: string;
+    realisation: string;
+    quantite: string;
+    heuresPrevues: string;
+    creerFiche: boolean;
+    ficheType: string;
+    contenu: Record<string, string>;
+    tissus: { ref: string; coloris: string; metrage: string; placement?: string }[];
+    etapes?: string[];
+    texte: string;
+  }[];
+};
+
+// Applique le formulaire validé : infos client du dossier, une ligne Travaux
+// par ouvrage, et une fiche atelier pré-remplie quand c'est demandé.
+export async function appliquerDevis(dossierId: number, v: DevisAApplique) {
+  const set: Record<string, string | null> = {};
+  for (const [k, val] of Object.entries(v.client ?? {})) {
+    if (val === undefined) continue;
+    const s = String(val).trim();
+    set[k] = k === "dateDevis" ? (/^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null) : s;
+  }
+  if (Object.keys(set).length) {
+    await db
+      .update(dossiers)
+      .set({ ...set, updatedAt: new Date().toISOString() })
+      .where(eq(dossiers.id, dossierId));
+  }
+
+  const [d] = await db
+    .select({ client: dossiers.clientNom })
+    .from(dossiers)
+    .where(eq(dossiers.id, dossierId));
+  const ref = v.numero ? `Devis ${v.numero}` : "Devis";
+
+  // Une fiche atelier par ouvrage retenu : ce sont les fiches qui portent
+  // l'affectation (heures, opérateur) et donnent le total du dossier.
+  let fiches = 0;
+  for (const o of v.ouvrages ?? []) {
+    if (!o.realisation.trim()) continue;
+    {
+      const contenu: Record<string, unknown> = {
+        client_nom: d?.client ?? "",
+        // Repris en tête de la fiche imprimée (ouvrage ×quantité, heures, n° devis).
+        realisation: o.realisation,
+        quantite: o.quantite,
+        ...(o.heuresPrevues.trim() ? { heures_estimees: o.heuresPrevues.trim() } : {}),
+        ...(v.numero ? { reference: v.numero } : {}),
+        ...Object.fromEntries(
+          Object.entries(o.contenu ?? {}).filter(([, x]) => String(x ?? "").trim())
+        ),
+      };
+      const tissus = (o.tissus ?? []).filter((t) => t.ref || t.coloris || t.metrage);
+      if (tissus.length) {
+        contenu.tissus_list = tissus.map((t) => ({ ...t, placement: t.placement ?? "" }));
+      }
+      // Étapes de travail proposées / ajustées (format de l'éditeur de fiche).
+      if (o.etapes?.length) {
+        contenu.etapes_custom = o.etapes.map((etape) => ({ etape, type: "" }));
+      }
+      await db.insert(fichesAtelier).values({
+        dossierId,
+        typeIntervention: o.ficheType || "Autre",
+        contenuJson: JSON.stringify(contenu),
+        notesLibres: `${ref} — ${o.realisation}${Number(o.quantite) > 1 ? ` ×${o.quantite}` : ""}`,
+      });
+      fiches++;
+    }
+  }
+  await synchroniserDossierDepuisFiches(dossierId);
+  revalidateDossierViews(dossierId);
+  return { ok: true as const, fiches };
+}
+
+// ─── Fiches de travail recoupées (devis + prise de cotes) ──────────────────
+
+// Lit TOUTES les sources du dossier en une fois — devis signés lisibles du
+// dossier, PDF EBP déposés (plusieurs possibles, champ « fichiers ») et prise
+// de cotes saisie sur tablette — et renvoie une proposition : une fiche par
+// métier (rideaux, tapisserie…), à ajuster avant création. Rien n'est écrit.
+export async function preparerFicheRecoupee(
+  dossierId: number,
+  fd: FormData
+): Promise<Recoupement> {
+  const devis: { nom: string; lu: DevisLu }[] = [];
+  const sources: SourceLue[] = [];
+  const lire = async (nom: string, data: Uint8Array) => {
+    try {
+      const lu = await lireDevis(data);
+      if (!lu.ouvrages.length && !lu.numero) {
+        sources.push({ nom, ok: false, detail: "scan sans texte — dépose le PDF EBP d'origine" });
+        return;
+      }
+      devis.push({ nom, lu });
+      sources.push({
+        nom,
+        ok: true,
+        detail: `devis ${lu.numero || "?"} · ${lu.ouvrages.filter((o) => o.probable).length} ouvrage(s)`,
+      });
+    } catch {
+      sources.push({ nom, ok: false, detail: "PDF illisible" });
+    }
+  };
+
+  // 1) PDF déposés dans la fenêtre (prioritaires : souvent l'original EBP).
+  for (const f of fd.getAll("fichiers")) {
+    if (!(f instanceof File) || f.size === 0 || f.size > MAX_TAILLE) continue;
+    if (f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")) {
+      sources.push({ nom: f.name, ok: false, detail: "pas un PDF" });
+      continue;
+    }
+    await lire(f.name, new Uint8Array(await f.arrayBuffer()));
+  }
+  // 2) Devis signés déjà dans le dossier (PDF « texte » seulement).
+  const token = blobToken();
+  if (token) {
+    const signes = await db
+      .select({ nom: devisSignes.nomFichier, pathname: devisSignes.pathname, type: devisSignes.contentType })
+      .from(devisSignes)
+      .where(eq(devisSignes.dossierId, dossierId));
+    for (const s of signes) {
+      if (!(s.type ?? "").includes("pdf") && !s.nom.toLowerCase().endsWith(".pdf")) {
+        sources.push({ nom: s.nom, ok: false, detail: "devis signé en image (scan)" });
+        continue;
+      }
+      try {
+        const res = await get(s.pathname ?? "", { access: "private", token });
+        if (!res?.stream) continue;
+        const data = new Uint8Array(await new Response(res.stream).arrayBuffer());
+        // Même devis déjà déposé dans la fenêtre : on ne le compte pas deux fois.
+        const avant = devis.length;
+        await lire(`${s.nom} (devis signé)`, data);
+        const dernier = devis[devis.length - 1];
+        if (
+          devis.length > avant &&
+          dernier.lu.numero &&
+          devis.slice(0, avant).some((d) => d.lu.numero === dernier.lu.numero)
+        ) {
+          devis.pop();
+          sources[sources.length - 1].detail += " (déjà lu)";
+        }
+      } catch {
+        sources.push({ nom: s.nom, ok: false, detail: "lecture impossible" });
+      }
+    }
+  }
+  // 3) Prise de cotes saisie sur tablette.
+  const prise = await lirePriseCotes(dossierId).catch(() => ({ pieces: [], datePrise: null, majLe: null }));
+  sources.push(
+    prise.pieces.length
+      ? {
+          nom: "Prise de cotes (tablette)",
+          ok: true,
+          detail: `${prise.pieces.length} pièce(s)${prise.datePrise ? ` · ${prise.datePrise}` : ""}`,
+        }
+      : { nom: "Prise de cotes (tablette)", ok: false, detail: "pas encore saisie" }
+  );
+
+  return recouper(devis, prise.pieces, sources);
+}
+
+// Crée les fiches de travail du dossier (une par métier) à partir de la
+// proposition ajustée, AVEC leur affectation (opérateur + heures). Le dossier
+// est ensuite recalculé depuis ses fiches.
+export async function creerFichesRecoupees(dossierId: number, fiches: FicheProposee[]) {
+  const [d] = await db
+    .select({ client: dossiers.clientNom })
+    .from(dossiers)
+    .where(eq(dossiers.id, dossierId));
+  const t = (s: string | undefined | null) => String(s ?? "").trim();
+  const ids: number[] = [];
+  for (const f of fiches) {
+    const contenu: Record<string, unknown> = {
+      client_nom: d?.client ?? "",
+      ...Object.fromEntries(Object.entries(f.contenu ?? {}).filter(([, x]) => t(x))),
+      realisation: t(f.realisation) || f.metier,
+      quantite: t(f.quantite),
+      ...(t(f.heures) ? { heures_estimees: t(f.heures) } : {}),
+      operateur_id: Number(f.operateurId) || null,
+      ...(t(f.references) ? { reference: t(f.references) } : {}),
+      ...(t(f.typeTete) ? { type_tete: t(f.typeTete) } : {}),
+      ...(t(f.doublure) ? { doublure: t(f.doublure) } : {}),
+      a_realiser: (f.aRealiser ?? []).filter((l) => t(l.realisation) || t(l.detail)),
+      ...(f.cotes?.length ? { pieces_cotes: f.cotes.filter(pieceRemplie) } : {}),
+      tissus_list: (f.tissus ?? [])
+        .filter((x) => x.ref || x.coloris || x.metrage)
+        .map((x) => ({ ref: x.ref, coloris: x.coloris, metrage: x.metrage, placement: x.placement ?? "" })),
+      etapes_custom: (f.etapes ?? []).map((e) => t(e)).filter(Boolean).map((etape) => ({ etape, type: "" })),
+    };
+    const [row] = await db
+      .insert(fichesAtelier)
+      .values({
+        dossierId,
+        typeIntervention: f.ficheType || "Autre",
+        contenuJson: JSON.stringify(contenu),
+        notesLibres: `Fiche recoupée${t(f.references) ? ` — devis ${t(f.references)}` : ""}${f.cotes?.length ? " + prise de cotes" : ""}`,
+      })
+      .returning({ id: fichesAtelier.id });
+    ids.push(row.id);
+  }
+  await synchroniserDossierDepuisFiches(dossierId);
+  revalidateDossierViews(dossierId);
+  return { ok: true as const, ficheIds: ids };
+}
