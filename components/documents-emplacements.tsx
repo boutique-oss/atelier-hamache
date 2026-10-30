@@ -1,16 +1,12 @@
 "use client";
 
-import { Upload } from "lucide-react";
-
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
+import { DocumentDepot } from "@/components/document-depot";
+import { supprimerDocument } from "@/app/documents/fichiers-actions";
 import type { CategorieDocument } from "@/lib/documents-categories";
 
-// Emplacements réservés aux pièces de la phase 2 (dépôt + suppression de
-// fichiers), pour que la page Documents compile sans elles.
-// TODO phase 2 : brancher DocumentDepot / supprimerDocument
-//   - DepotEmplacement → <DocumentDepot dossierId categorie docDossierId onDone />
-//     (components/document-depot.tsx), onDone = router.refresh().
-//   - SupprimerDocumentEmplacement → bouton admin + confirmation appelant
-//     supprimerDocument(id) (app/documents/fichiers-actions.ts), puis refresh.
+// Points de branchement de la page Documents sur les pièces de stockage
+// (dépôt + suppression de fichiers sur Vercel Blob).
 
 export function DepotEmplacement(props: {
   dossierId: number | null;
@@ -18,20 +14,36 @@ export function DepotEmplacement(props: {
   docDossierId?: number | null;
   onDone?: () => void;
 }) {
-  void props;
-  return (
-    <div className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3 text-xs text-muted-foreground">
-      <Upload size={15} aria-hidden className="shrink-0" />
-      <span>Dépôt de fichiers : bientôt disponible.</span>
-    </div>
-  );
+  return <DocumentDepot {...props} />;
 }
 
-export function SupprimerDocumentEmplacement(props: {
+// Réservé à l'admin (l'appelant n'affiche le bouton qu'aux admins, et
+// supprimerDocument revérifie côté serveur).
+export function SupprimerDocumentEmplacement({
+  id,
+  nom,
+  onDone,
+}: {
   id: number;
   nom: string;
   onDone?: () => void;
 }) {
-  void props;
-  return null;
+  return (
+    <form
+      action={async () => {
+        const res = await supprimerDocument(id);
+        if (!res.ok) {
+          alert(res.error ?? "Suppression impossible.");
+          return;
+        }
+        onDone?.();
+      }}
+      className="inline-flex"
+    >
+      <ConfirmDeleteButton
+        label={`Supprimer « ${nom} »`}
+        confirmation={`Supprimer définitivement « ${nom} » ? Le fichier sera effacé.`}
+      />
+    </form>
+  );
 }
