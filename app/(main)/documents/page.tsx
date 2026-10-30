@@ -28,12 +28,16 @@ import {
 import { normalizeStatut, statutClasses } from "@/lib/dossiers";
 import { cn } from "@/lib/utils";
 
+import { lireFiche, listerFiches } from "@/lib/fiches-navettes";
+import type { StatutFicheNavette } from "@/lib/documents-db";
+
 import { FiltresCommandesForm, TableauCommandes } from "./rubrique-commandes";
+import { FicheNavetteVue, ListeFichesNavettes } from "./rubrique-pointages";
 
 export const dynamic = "force-dynamic";
 
-// Page Documents : rubriques à gauche (Clients et Commandes actives pour
-// l'instant). Clients : liste des dossiers filtrable puis l'arborescence du
+// Page Documents : rubriques à gauche (Clients, Commandes, Pointages ;
+// Rapports d'heures renvoie vers /rapports). Clients : liste des dossiers filtrable puis l'arborescence du
 // dossier choisi. Commandes : commandes fournisseur filtrables avec leurs
 // pièces jointes. `?dossier=` est partagé : dossier ouvert côté Clients,
 // filtre par dossier côté Commandes. Les URL /documents/<imprimable> (prédevis vierge, bon de
@@ -52,7 +56,7 @@ const RUBRIQUES: {
   { cle: "commandes", libelle: "Commandes", icon: Package, tint: "var(--brand-orange)", active: true },
   { cle: "planning", libelle: "Planning", icon: CalendarRange, tint: "var(--brand-green)", active: false },
   { cle: "heures", libelle: "Rapports d'heures", icon: BarChart3, tint: "var(--brand-pink)", active: true, href: "/rapports" },
-  { cle: "pointages", libelle: "Pointages", icon: Clock, tint: "var(--brand-violet)", active: false },
+  { cle: "pointages", libelle: "Pointages", icon: Clock, tint: "var(--brand-violet)", active: true },
 ];
 
 export default async function DocumentsPage({
@@ -64,9 +68,21 @@ export default async function DocumentsPage({
     q?: string;
     statut?: string;
     fournisseur?: string;
+    fiche?: string;
   };
 }) {
-  const clients = searchParams.rubrique !== "commandes";
+  const rubrique =
+    searchParams.rubrique === "commandes" || searchParams.rubrique === "pointages"
+      ? searchParams.rubrique
+      : "clients";
+  const clients = rubrique === "clients";
+  const commandes = rubrique === "commandes";
+  const pointages = rubrique === "pointages";
+  const statutFiche = (["a_saisir", "verifiee", "integree"].includes(searchParams.statut ?? "")
+    ? searchParams.statut
+    : "") as StatutFicheNavette | "";
+  const ficheId = Number(searchParams.fiche);
+  const aFiche = pointages && Number.isInteger(ficheId) && ficheId > 0;
   const q = (searchParams.q || "").slice(0, 100);
   const choisiId = Number(searchParams.dossier);
   const aChoisi = Number.isFinite(choisiId) && choisiId > 0;
@@ -78,13 +94,16 @@ export default async function DocumentsPage({
     dossierId: aChoisi ? choisiId : null,
   };
 
-  const [compteurs, dossiers, choisi, cmds, options] = await Promise.all([
+  const [compteurs, dossiers, choisi, cmds, options, fiches, fiche] = await Promise.all([
     compteursRubriques().catch(() => null),
     clients ? listerDossiersDocs(q) : Promise.resolve([]),
     clients && aChoisi ? lireDossierDocs(choisiId) : Promise.resolve(null),
-    clients ? Promise.resolve(null) : listerCommandesDocs(filtres),
-    clients ? Promise.resolve(null) : optionsFiltresCommandes(),
+    commandes ? listerCommandesDocs(filtres) : Promise.resolve(null),
+    commandes ? optionsFiltresCommandes() : Promise.resolve(null),
+    pointages ? listerFiches(statutFiche) : Promise.resolve(null),
+    aFiche ? lireFiche(ficheId) : Promise.resolve(null),
   ]);
+  const ouvert = Boolean(choisi || fiche);
 
   // Lien d'une rubrique : le dossier choisi est conservé (il devient le
   // filtre par dossier côté Commandes, et inversement).
@@ -116,11 +135,11 @@ export default async function DocumentsPage({
       <div className="grid gap-6 lg:grid-cols-[270px_minmax(0,1fr)]">
         {/* Colonne gauche : rubriques + filtre + dossiers. Sur téléphone, elle
             passe sous le dossier ouvert pour qu'on voie d'abord ses fichiers. */}
-        <aside className={cn("space-y-4", choisi && "order-2 lg:order-1")}>
+        <aside className={cn("space-y-4", ouvert && "order-2 lg:order-1")}>
           <nav aria-label="Rubriques" className="overflow-hidden rounded-lg border bg-card">
             <ul className="divide-y">
               {RUBRIQUES.map(({ cle, libelle, icon: Icon, tint, active, href }) => {
-                const courante = clients ? cle === "clients" : cle === "commandes";
+                const courante = cle === rubrique;
                 const contenu = (
                   <>
                     <span
@@ -169,7 +188,9 @@ export default async function DocumentsPage({
             </ul>
           </nav>
 
-          {!clients && options ? (
+          {pointages && fiches ? (
+            <ListeFichesNavettes fiches={fiches} statut={statutFiche} ficheId={aFiche ? ficheId : null} />
+          ) : commandes && options ? (
             <FiltresCommandesForm
               filtres={filtres}
               fournisseurs={options.fournisseurs}
@@ -251,8 +272,10 @@ export default async function DocumentsPage({
         </aside>
 
         {/* Commandes, ou dossier choisi */}
-        <section className={cn("min-w-0", choisi && "order-1 lg:order-2")}>
-          {cmds ? (
+        <section className={cn("min-w-0", ouvert && "order-1 lg:order-2")}>
+          {pointages ? (
+            <FicheNavetteVue fiche={fiche} />
+          ) : cmds ? (
             <>
               <h2 className="brand-display mb-4 text-lg">
                 Commandes fournisseur{" "}

@@ -121,6 +121,9 @@ export function ensureDocuments(): Promise<void> {
       )`;
       await sql`CREATE INDEX IF NOT EXISTS fiches_navettes_op_semaine_idx
         ON fiches_navettes (operateur, semaine_iso)`;
+      // Trace : jour de présence intégré depuis une fiche navette.
+      await sql`ALTER TABLE pointage ADD COLUMN IF NOT EXISTS fiche_navette_id bigint
+        REFERENCES fiches_navettes(id) ON DELETE SET NULL`;
 
       // Planning : un bon atelier = une tâche planifiée pour un opérateur.
       await sql`CREATE TABLE IF NOT EXISTS bons_atelier (
