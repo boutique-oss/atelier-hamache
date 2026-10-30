@@ -8,18 +8,9 @@
 // uniquement : aucune suppression ni renommage.
 import { sql } from "@/lib/raw-sql";
 
-export const CATEGORIES_DOCUMENT = [
-  { cle: "devis_facture", libelle: "Devis & factures" },
-  { cle: "commande", libelle: "Commandes" },
-  { cle: "plan_dessin", libelle: "Plans & dessins" },
-  { cle: "photo", libelle: "Photos" },
-  { cle: "planning", libelle: "Planning" },
-  { cle: "heures", libelle: "Heures" },
-  { cle: "fiche_navette", libelle: "Fiches navettes" },
-  { cle: "autre", libelle: "Autres" },
-] as const;
+import { CATEGORIES_DOCUMENT, type CategorieDocument } from "@/lib/documents-categories";
 
-export type CategorieDocument = (typeof CATEGORIES_DOCUMENT)[number]["cle"];
+export { CATEGORIES_DOCUMENT, type CategorieDocument };
 export type OrigineDocument = "depose" | "genere" | "scan";
 export type StatutFicheNavette = "a_saisir" | "verifiee" | "integree";
 export type StatutBonAtelier = "planifie" | "en_cours" | "termine";

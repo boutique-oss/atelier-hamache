@@ -13,6 +13,7 @@ import {
   ArrowRight,
   FileText,
   ClipboardList,
+  FolderOpen,
   Ruler,
   CalendarDays,
   ShieldCheck,
@@ -33,6 +34,7 @@ const NAV = [
   { href: "/planning", label: "Planning", icon: CalendarRange, tint: "var(--brand-green)" },
   { href: "/rapports", label: "Rapport heures", icon: BarChart3, tint: "var(--brand-pink)" },
   { href: "/pointage", label: "Pointage", icon: Clock, tint: "var(--brand-violet)" },
+  { href: "/documents", label: "Documents", icon: FolderOpen, tint: "var(--brand-navy)" },
 ];
 
 // Documents imprimables (ouverts dans un nouvel onglet).
