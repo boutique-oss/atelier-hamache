@@ -1,0 +1,4 @@
+# Non déployé : outils locaux (dont les worktrees des sessions Claude)
+.claude
+.impeccable
+.git
