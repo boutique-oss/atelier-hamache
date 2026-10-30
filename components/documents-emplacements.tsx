@@ -12,6 +12,8 @@ export function DepotEmplacement(props: {
   dossierId: number | null;
   categorie: CategorieDocument;
   docDossierId?: number | null;
+  /** Rubrique Commandes : le fichier est rattaché à cette commande. */
+  commandeId?: number | null;
   onDone?: () => void;
 }) {
   return <DocumentDepot {...props} />;
