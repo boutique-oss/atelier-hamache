@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { sql } from "@/lib/raw-sql";
+import { ensureDocuments } from "@/lib/documents-db";
 import { ensureRideauxTables } from "@/lib/rideaux/db";
 
 export const dynamic = "force-dynamic";
@@ -210,6 +211,9 @@ export async function GET(req: NextRequest) {
     // Calculateur rideaux : chiffrages enregistrés + paramètres atelier.
     // (Aussi créées à la volée à la première ouverture de /rideaux.)
     await ensureRideauxTables();
+    // Module Documents : arborescence, fichiers, bons atelier, fiches navettes.
+    // (Aussi créées à la volée au premier usage.)
+    await ensureDocuments();
     // Statuts fusionnés : « Lead » → « Opportunité » ; « Devis signé » et
     // « Validé » → « Devis signé / Validé ».
     await sql`UPDATE dossiers SET statut = 'Opportunité' WHERE statut = 'Lead'`;
@@ -218,7 +222,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       message:
-        "Colonnes date_debut_chantier, date_fin_chantier, google_event_id (dossiers) + est_commande, est_recu (commandes) + heure_/rappels_ (enlevement, livraison, prise_cote) + tables devis_signes, parametres_securite et utilisateurs + catalogue (fournisseurs.code_ebp, collections, catalogue_refs) + navette (horaire_fixe, motif d'absence, hs_semaines, stock_heures) prêtes.",
+        "Colonnes date_debut_chantier, date_fin_chantier, google_event_id (dossiers) + est_commande, est_recu (commandes) + heure_/rappels_ (enlevement, livraison, prise_cote) + tables devis_signes, parametres_securite et utilisateurs + catalogue (fournisseurs.code_ebp, collections, catalogue_refs) + navette (horaire_fixe, motif d'absence, hs_semaines, stock_heures) + module Documents (doc_dossiers, documents, fiches_navettes, bons_atelier, heures.fiche_navette_id) prêtes.",
     });
   } catch (e) {
     return NextResponse.json(
