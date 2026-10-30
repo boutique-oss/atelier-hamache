@@ -3,7 +3,8 @@
 // Catégorie) ; à partir du 3e, des sous-dossiers libres (doc_dossiers,
 // récursif via parent_id). Les fichiers sont sur Vercel Blob (store PRIVÉ),
 // la table `documents` n'en garde que le pathname et les métadonnées.
-// Planning (bons_atelier) et Pointages (fiches_navettes) vivent ici aussi.
+// Pointages (fiches_navettes) vivent ici aussi. La table bons_atelier (phase 7,
+// annulée) reste créée mais n'est plus utilisée (migrations additives).
 // Hors schéma Drizzle (SQL brut), créé à la volée. Migrations additives
 // uniquement : aucune suppression ni renommage.
 import { sql } from "@/lib/raw-sql";

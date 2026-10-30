@@ -38,7 +38,34 @@ export type FiltresCommandes = {
   statut: StatutCommande | "";
   fournisseur: string;
   dossierId: number | null;
+  /** Recherche libre : chaque mot doit apparaître quelque part (article,
+   *  référence, coloris, fournisseur, client, dossier, commentaires, n°, PDF). */
+  q?: string;
+  /** Date de commande, bornes incluses (AAAA-MM-JJ). */
+  du?: string;
+  au?: string;
+  /** Avec ou sans pièce jointe (PDF fournisseur ou fichier déposé). */
+  pj?: "" | "avec" | "sans";
 };
+
+// Recherche insensible à la casse et aux accents : même translittération
+// côté SQL (translate) et côté JS (motsRecherche).
+const ACCENTS = "àâäáãåéèêëíìîïóòôöõúùûüçñÿ";
+const SANS_ACCENTS = "aaaaaaeeeeiiiiooooouuuucny";
+
+export function motsRecherche(q: string | undefined): string[] {
+  return (q ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    // Jokers de LIKE neutralisés (recherche littérale).
+    .replace(/[%_\\]/g, " ")
+    .split(/\s+/)
+    .filter((m) => m.length > 0)
+    .slice(0, 8);
+}
+
+const dateIso = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
 
 const LIMITE = 300;
 
@@ -49,6 +76,10 @@ export async function listerCommandesDocs(
   f: FiltresCommandes
 ): Promise<{ commandes: CommandeDocs[]; tronque: boolean }> {
   await Promise.all([ensureDocuments(), ensureImports()]);
+  const motifs = motsRecherche(f.q).map((m) => `%${m}%`);
+  const du = dateIso(f.du);
+  const au = dateIso(f.au);
+  const pj = f.pj ?? "";
   const rows = await sql`SELECT c.id, c.dossier_id, d.nom_dossier, c.fournisseur,
       c.designation, c.reference, c.coloris, c.date_cde,
       coalesce(c.est_commande, false) AS est_commande,
@@ -67,6 +98,18 @@ export async function listerCommandesDocs(
         OR lower(regexp_replace(trim(coalesce(c.fournisseur, '')), '[[:space:]]+', ' ', 'g'))
            = lower(${f.fournisseur}))
       AND (${f.dossierId}::bigint IS NULL OR c.dossier_id = ${f.dossierId}::bigint)
+      AND (${du}::text IS NULL OR c.date_cde >= ${du})
+      AND (${au}::text IS NULL OR c.date_cde <= ${au} || 'z')
+      AND (${pj} = ''
+        OR (${pj} = 'avec') = (c.import_id IS NOT NULL
+          OR EXISTS (SELECT 1 FROM documents x WHERE x.commande_id = c.id)))
+      AND NOT EXISTS (
+        SELECT 1 FROM unnest(${motifs}::text[]) AS m(motif)
+        WHERE translate(lower(concat_ws(' ', c.id::text, c.fournisseur, c.designation,
+            c.reference, c.coloris, c.client, c.commentaires, c.qte_note, c.controle,
+            d.nom_dossier, d.client_nom, i.nom_fichier,
+            (SELECT string_agg(x.nom, ' ') FROM documents x WHERE x.commande_id = c.id))),
+          ${ACCENTS}, ${SANS_ACCENTS}) NOT LIKE m.motif)
     ORDER BY c.id DESC
     LIMIT ${LIMITE + 1}`;
 

@@ -198,6 +198,46 @@ export async function reelVsPrevuParDossier(f: FiltreRapport, limite = 40): Prom
   }));
 }
 
+// ── Par type de travail et dans le temps (graphiques imprimables) ─────────
+
+export type Agregat = { libelle: string; h: number };
+
+export async function heuresParType(f: FiltreRapport): Promise<Agregat[]> {
+  const from = vide(f.from);
+  const to = vide(f.to);
+  const op = vide(f.operateur);
+  const rows = await sql`SELECT coalesce(nullif(type_travail, ''), 'Atelier') AS l,
+      sum(heures_passees) AS h
+    FROM heures
+    WHERE (${from}::text IS NULL OR date >= ${from})
+      AND (${to}::text IS NULL OR date <= ${to})
+      AND (${op}::text IS NULL OR operateur = ${op})
+    GROUP BY 1 ORDER BY h DESC`;
+  return rows.map((r) => ({ libelle: String(r.l), h: n(r.h) }));
+}
+
+// Heures saisies par semaine (lundi ISO) ou par mois (AAAA-MM), en SQL.
+export async function heuresDansLeTemps(
+  f: FiltreRapport,
+  pas: "semaine" | "mois"
+): Promise<Agregat[]> {
+  const from = vide(f.from);
+  const to = vide(f.to);
+  const op = vide(f.operateur);
+  const rows = await sql`SELECT
+      CASE WHEN ${pas} = 'semaine'
+        THEN to_char(date_trunc('week', date::date), 'YYYY-MM-DD')
+        ELSE substr(date, 1, 7) END AS l,
+      sum(heures_passees) AS h
+    FROM heures
+    WHERE date ~ '^\\d{4}-\\d{2}-\\d{2}'
+      AND (${from}::text IS NULL OR date >= ${from})
+      AND (${to}::text IS NULL OR date <= ${to})
+      AND (${op}::text IS NULL OR operateur = ${op})
+    GROUP BY 1 ORDER BY 1`;
+  return rows.map((r) => ({ libelle: String(r.l), h: n(r.h) }));
+}
+
 // ── Rapport complet d'un dossier (pour l'export PDF) ───────────────────────
 
 export type RapportDossier = {

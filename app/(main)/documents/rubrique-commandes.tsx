@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import { FileText, Search } from "lucide-react";
 
 import { CommandeJoindre } from "@/components/commande-joindre";
 import {
@@ -9,8 +9,9 @@ import {
 } from "@/lib/documents-commandes";
 import { cn } from "@/lib/utils";
 
-// Rubrique Commandes de la page Documents : filtres (colonne gauche) et
-// tableau des commandes fournisseur avec leurs pièces jointes.
+// Rubrique Commandes de la page Documents : explorateur des commandes
+// fournisseur — recherche libre + filtres (colonne gauche) et tableau avec
+// leurs pièces jointes. Tout est dans l'URL (lien partageable, retour arrière).
 
 const champ =
   "h-9 w-full rounded-md border border-input bg-background px-2 text-sm [@media(pointer:coarse)]:h-11";
@@ -24,10 +25,32 @@ export function FiltresCommandesForm({
   fournisseurs: string[];
   dossiers: { id: number; nom: string }[];
 }) {
-  const actifs = Boolean(filtres.statut || filtres.fournisseur || filtres.dossierId);
+  const actifs = Boolean(
+    filtres.statut || filtres.fournisseur || filtres.dossierId || filtres.q || filtres.du || filtres.au || filtres.pj
+  );
   return (
-    <form className="space-y-3 rounded-lg border bg-card p-3" aria-label="Filtrer les commandes">
+    <form role="search" className="space-y-3 rounded-lg border bg-card p-3" aria-label="Rechercher une commande">
       <input type="hidden" name="rubrique" value="commandes" />
+      <label className="block space-y-1">
+        <span className="text-xs font-medium text-muted-foreground">Rechercher</span>
+        <span className="relative block">
+          <Search
+            size={15}
+            aria-hidden
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
+          <input
+            type="search"
+            name="q"
+            defaultValue={filtres.q ?? ""}
+            placeholder="Tissu, référence, coloris, client, n°…"
+            className={cn(champ, "pl-8")}
+          />
+        </span>
+        <span className="block text-[11px] text-muted-foreground">
+          Plusieurs mots : chacun doit apparaître. Accents ignorés.
+        </span>
+      </label>
       <label className="block space-y-1">
         <span className="text-xs font-medium text-muted-foreground">Statut</span>
         <select name="statut" defaultValue={filtres.statut} className={champ}>
@@ -61,12 +84,31 @@ export function FiltresCommandesForm({
           ))}
         </select>
       </label>
+      <fieldset className="grid grid-cols-2 gap-2">
+        <legend className="mb-1 text-xs font-medium text-muted-foreground">Date de commande</legend>
+        <label className="block">
+          <span className="sr-only">Du</span>
+          <input type="date" name="du" defaultValue={filtres.du ?? ""} aria-label="Commandée à partir du" className={champ} />
+        </label>
+        <label className="block">
+          <span className="sr-only">Au</span>
+          <input type="date" name="au" defaultValue={filtres.au ?? ""} aria-label="Commandée jusqu'au" className={champ} />
+        </label>
+      </fieldset>
+      <label className="block space-y-1">
+        <span className="text-xs font-medium text-muted-foreground">Pièce jointe</span>
+        <select name="pj" defaultValue={filtres.pj ?? ""} className={champ}>
+          <option value="">Toutes</option>
+          <option value="avec">Avec PDF / fichier</option>
+          <option value="sans">Sans pièce jointe</option>
+        </select>
+      </label>
       <div className="flex items-center gap-2">
         <button
           type="submit"
           className="h-9 flex-1 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 [@media(pointer:coarse)]:h-11"
         >
-          Filtrer
+          Rechercher
         </button>
         {actifs && (
           <Link
@@ -96,7 +138,7 @@ export function TableauCommandes({
   if (commandes.length === 0) {
     return (
       <p className="rounded-lg border border-dashed px-4 py-12 text-center text-sm text-muted-foreground">
-        Aucune commande ne correspond à ces filtres.
+        Aucune commande ne correspond à cette recherche.
       </p>
     );
   }
@@ -175,7 +217,7 @@ export function TableauCommandes({
       </div>
       {tronque && (
         <p className="text-xs text-muted-foreground">
-          Seules les 300 commandes les plus récentes sont affichées : affinez avec les filtres.
+          Seules les 300 commandes les plus récentes sont affichées : affinez la recherche.
         </p>
       )}
     </div>
