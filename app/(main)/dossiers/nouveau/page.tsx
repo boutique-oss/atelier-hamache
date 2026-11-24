@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import Link from "next/link";
 
 import { createDossier } from "@/app/(main)/dossiers/actions";
+import { DevisMarkdownImport } from "@/components/devis-markdown-import";
 import { DossierForm } from "@/components/dossier-form";
 import { db } from "@/db";
 import { operateurs } from "@/db/schema";
@@ -29,6 +30,10 @@ export default async function NouveauDossier() {
         ← Retour aux dossiers
       </Link>
       <h1 className="mb-6 mt-3 text-2xl font-bold">Nouveau dossier</h1>
+      <div className="mb-6">
+        <DevisMarkdownImport />
+      </div>
+      <p className="mb-3 text-sm font-semibold text-muted-foreground">…ou saisir le dossier à la main</p>
       <DossierForm action={createDossier} operateurs={ops} sousTypes={sousTypes} />
     </main>
   );

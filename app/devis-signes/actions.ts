@@ -8,6 +8,8 @@ import { devisSignes, dossiers, fichesAtelier } from "@/db/schema";
 import { revalidateDossierViews } from "@/lib/revalidate";
 import { blobToken } from "@/lib/blob";
 import { lireDevis, type DevisLu } from "@/lib/devis-pdf";
+import { lireDevisMarkdown } from "@/lib/devis-markdown";
+import { revalidatePath } from "next/cache";
 import { pieceRemplie } from "@/lib/prise-cotes";
 import { lirePriseCotes } from "@/lib/prise-cotes-db";
 import { recouper, type FicheProposee, type Recoupement, type SourceLue } from "@/lib/recoupement";
@@ -381,4 +383,72 @@ export async function creerFichesRecoupees(dossierId: number, fiches: FichePropo
   await synchroniserDossierDepuisFiches(dossierId);
   revalidateDossierViews(dossierId);
   return { ok: true as const, ficheIds: ids };
+}
+
+// ─── Nouveau dossier (client) depuis un devis Markdown ─────────────────────
+
+// Lit un devis écrit en Markdown (fichier .md/.txt déposé, ou texte collé)
+// et renvoie ce qu'on a pu y repérer. Rien n'est écrit à cette étape.
+export async function lireDevisMarkdownAction(
+  fd: FormData
+): Promise<{ ok: true; devis: DevisLu } | { ok: false; error: string }> {
+  let texte = String(fd.get("texte") ?? "");
+  const file = fd.get("fichier");
+  if (file instanceof File && file.size > 0) {
+    if (file.size > 2 * 1024 * 1024) return { ok: false, error: "Fichier trop volumineux (2 Mo max)." };
+    if (!/\.(md|markdown|txt)$/i.test(file.name) && !file.type.startsWith("text/")) {
+      return { ok: false, error: "Choisis un fichier Markdown (.md) ou texte (.txt)." };
+    }
+    texte = await file.text();
+  }
+  if (!texte.trim()) return { ok: false, error: "Aucun devis à lire : dépose un fichier .md ou colle son texte." };
+  try {
+    const devis = lireDevisMarkdown(texte);
+    if (!devis.ouvrages.length && !devis.client.nom && !devis.numero) {
+      return {
+        ok: false,
+        error:
+          "Rien de reconnu dans ce texte : il faut au moins un tableau (Désignation | Qté | P.U. | Montant) ou des lignes « Client : … », « Devis n° : … ».",
+      };
+    }
+    return { ok: true, devis };
+  } catch (e) {
+    console.error("Lecture devis Markdown échouée:", (e as Error).message);
+    return { ok: false, error: "Texte illisible." };
+  }
+}
+
+// Crée le dossier (client) puis y applique le devis validé : infos client,
+// une fiche atelier par ouvrage retenu. Le type d'intervention du dossier
+// suit le métier majoritaire des ouvrages. Renvoie l'id du nouveau dossier.
+export async function creerDossierDepuisDevis(
+  nomDossier: string,
+  v: DevisAApplique
+): Promise<{ ok: true; id: number; fiches: number } | { ok: false; error: string }> {
+  const nom = nomDossier.trim() || String(v.client.clientNom ?? "").trim();
+  if (!nom) return { ok: false, error: "Donne un nom au dossier." };
+  const comptes = new Map<string, number>();
+  for (const o of v.ouvrages ?? []) comptes.set(o.metier, (comptes.get(o.metier) ?? 0) + 1);
+  const typeIntervention =
+    [...comptes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "Autre";
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  try {
+    const [row] = await db
+      .insert(dossiers)
+      .values({
+        nomDossier: nom,
+        typeIntervention,
+        statut: "Nouveau",
+        dateOuverture: aujourdhui,
+        etapeDevis: true,
+        commentaires: v.numero ? `Créé depuis le devis ${v.numero} (import Markdown).` : "Créé depuis un devis (import Markdown).",
+      })
+      .returning({ id: dossiers.id });
+    const res = await appliquerDevis(row.id, v);
+    revalidatePath("/dossiers");
+    return { ok: true, id: row.id, fiches: res.fiches };
+  } catch (e) {
+    console.error("Création dossier depuis devis échouée:", (e as Error).message);
+    return { ok: false, error: "Création du dossier impossible." };
+  }
 }

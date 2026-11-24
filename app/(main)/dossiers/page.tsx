@@ -128,12 +128,21 @@ export default async function DossiersPage({
           filtre ? " (filtré)" : ""
         }`}
         actions={
-          <a
-            href="/dossiers/nouveau"
-            className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            + Nouveau dossier
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="/dossiers/nouveau#devis"
+              className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent"
+              title="Créer un dossier client depuis un devis Markdown"
+            >
+              Depuis un devis (.md)
+            </a>
+            <a
+              href="/dossiers/nouveau"
+              className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              + Nouveau dossier
+            </a>
+          </div>
         }
       />
 

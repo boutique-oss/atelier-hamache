@@ -478,6 +478,12 @@ function etapesDuDevis(b: Brut): string[] {
 
 export async function lireDevis(data: Uint8Array): Promise<DevisLu> {
   const { lignes, pages } = await lignesDuPdf(data);
+  return lireDevisLignes(lignes, pages);
+}
+
+// Même lecture à partir de lignes déjà découpées (cellules séparées par
+// « | ») : PDF EBP, ou devis Markdown converti par lib/devis-markdown.
+export function lireDevisLignes(lignes: string[], pages = 1): DevisLu {
   const texte = lignes.join("\n");
 
   // 1) En-tête | tableau.
@@ -577,7 +583,11 @@ export async function lireDevis(data: Uint8Array): Promise<DevisLu> {
         ? undefined
         : REGLES.find((r) => r.re.test(ligne)) ?? b.regleTitre;
     // Travail sans ouvrage nommé : l'ouvrage vient de l'objet du devis.
-    if (!regle && !estTissu && !estPose && !objetUtilise && regleObjet && (enHeures(b.unite) || TRAVAIL.test(ligne))) {
+    // (Sauf une ligne d'heures / de main-d'œuvre juste après un ouvrage
+    // reconnu : ce sont SES heures, pas un second ouvrage.)
+    const heuresDuParent =
+      !!parent?.probable && (enHeures(b.unite) || MAIN_OEUVRE.test(ligne)) && !TRAVAIL.test(ligne);
+    if (!regle && !estTissu && !estPose && !objetUtilise && regleObjet && !heuresDuParent && (enHeures(b.unite) || TRAVAIL.test(ligne))) {
       regle = regleObjet;
       objetUtilise = true;
     }

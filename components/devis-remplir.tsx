@@ -8,6 +8,7 @@ import {
   appliquerDevis,
   lireDevisFichier,
   lireDevisSigne,
+  type DevisAApplique,
 } from "@/app/devis-signes/actions";
 import { Button } from "@/components/ui/button";
 import type { DevisLu } from "@/lib/devis-pdf";
@@ -59,6 +60,7 @@ type Ouvrage = {
 
 type Valeurs = {
   numero: string;
+  nomDossier: string;
   client: Record<ChampClient, { appliquer: boolean; valeur: string }>;
   ouvrages: Ouvrage[];
 };
@@ -66,7 +68,7 @@ type Valeurs = {
 const cell =
   "w-full rounded border border-input bg-background px-1.5 py-1 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
-function versValeurs(d: DevisLu, actuel: ClientActuel): Valeurs {
+function versValeurs(d: DevisLu, actuel: ClientActuel, nomDossier = ""): Valeurs {
   const lu: ClientActuel = {
     clientNom: d.client.nom,
     adresse: d.client.adresse,
@@ -87,6 +89,7 @@ function versValeurs(d: DevisLu, actuel: ClientActuel): Valeurs {
   ) as Valeurs["client"];
   return {
     numero: d.numero,
+    nomDossier,
     client,
     ouvrages: d.ouvrages.map((o) => ({
       garder: o.probable,
@@ -270,267 +273,325 @@ export function DevisRemplir({
             )}
 
             {devis && !succes && (
-              <Formik
-                initialValues={versValeurs(devis, actuel)}
-                onSubmit={async (v) => {
-                  setErreur("");
-                  const client: Record<string, string> = {};
-                  for (const { k } of CHAMPS_CLIENT) {
-                    if (v.client[k].appliquer) client[k] = v.client[k].valeur;
-                  }
-                  const res = await appliquerDevis(dossierId, {
-                    numero: v.numero,
-                    client,
-                    ouvrages: v.ouvrages
-                      .filter((o) => o.garder)
-                      .map((o) => ({
-                        metier: o.metier,
-                        realisation: o.realisation,
-                        quantite: o.quantite,
-                        heuresPrevues: o.heuresPrevues,
-                        creerFiche: o.creerFiche,
-                        ficheType: o.ficheType,
-                        contenu: o.contenu,
-                        tissus: o.tissus,
-                        etapes: o.etapes
-                          .split("\n")
-                          .map((e) => e.trim())
-                          .filter(Boolean),
-                        texte: o.texte,
-                      })),
-                  });
-                  if (res.ok) {
-                    setSucces(
-                      `✓ Dossier mis à jour : ${res.fiches} fiche${
-                        res.fiches > 1 ? "s" : ""
-                      } de travail créée${res.fiches > 1 ? "s" : ""}. Affecte-les (opérateur, heures) dans « Fiches atelier ».`
-                    );
-                  } else setErreur("Enregistrement impossible.");
-                }}
-              >
-                {({ values, isSubmitting, setFieldValue }) => {
-                  const nb = values.ouvrages.filter((o) => o.garder).length;
-                  return (
-                    <Form className="space-y-4 px-4 py-4">
-                      {/* Infos client */}
-                      <fieldset className="rounded-lg border p-3">
-                        <legend className="px-1 text-xs font-semibold">
-                          Infos client — coche ce qui doit remplacer le dossier
-                        </legend>
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          {CHAMPS_CLIENT.map(({ k, label, type }) => (
-                            <div key={k} className="flex items-start gap-2 text-xs">
-                              <Field
-                                type="checkbox"
-                                name={`client.${k}.appliquer`}
-                                className="mt-5 h-4 w-4"
-                              />
-                              <label className="flex flex-1 flex-col gap-0.5">
-                                <span className="text-muted-foreground">{label}</span>
-                                <Field
-                                  name={`client.${k}.valeur`}
-                                  type={type ?? "text"}
-                                  list={
-                                    k === "telephone"
-                                      ? `tel-${devisId}`
-                                      : k === "email"
-                                        ? `mail-${devisId}`
-                                        : undefined
-                                  }
-                                  onInput={() =>
-                                    setFieldValue(`client.${k}.appliquer`, true)
-                                  }
-                                  className={cell}
-                                />
-                                <span className="text-[10px] text-muted-foreground">
-                                  Dans le dossier : {actuel[k] || "—"}
-                                </span>
-                              </label>
-                            </div>
-                          ))}
-                          <datalist id={`tel-${devisId}`}>
-                            {devis.telephones.map((t) => (
-                              <option key={t} value={t} />
-                            ))}
-                          </datalist>
-                          <datalist id={`mail-${devisId}`}>
-                            {devis.emails.map((t) => (
-                              <option key={t} value={t} />
-                            ))}
-                          </datalist>
-                        </div>
-                      </fieldset>
-
-                      {/* Ouvrages → travaux + fiches */}
-                      <FieldArray name="ouvrages">
-                        {() => (
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold">
-                              Lignes du devis ({values.ouvrages.length}) — chaque ligne
-                              cochée devient une fiche de travail
-                            </p>
-                            {values.ouvrages.length === 0 && (
-                              <p className="text-xs text-muted-foreground">
-                                Aucune ligne de devis reconnue.
-                              </p>
-                            )}
-                            {values.ouvrages.map((o, i) => (
-                              <div
-                                key={i}
-                                className={`rounded-lg border p-3 ${
-                                  o.garder ? "" : "bg-muted/30 opacity-60"
-                                }`}
-                              >
-                                <div className="flex flex-wrap items-end gap-2">
-                                  <label className="flex items-center gap-1.5 pb-1 text-xs font-medium">
-                                    <Field
-                                      type="checkbox"
-                                      name={`ouvrages.${i}.garder`}
-                                      className="h-4 w-4"
-                                    />
-                                    Garder
-                                  </label>
-                                  <label className="flex w-28 flex-col gap-0.5 text-[11px]">
-                                    <span className="text-muted-foreground">Métier</span>
-                                    <Field as="select" name={`ouvrages.${i}.metier`} className={cell}>
-                                      {METIERS.map((m) => (
-                                        <option key={m}>{m}</option>
-                                      ))}
-                                    </Field>
-                                  </label>
-                                  <label className="flex min-w-36 flex-1 flex-col gap-0.5 text-[11px]">
-                                    <span className="text-muted-foreground">Réalisation</span>
-                                    <Field
-                                      name={`ouvrages.${i}.realisation`}
-                                      list={`real-${devisId}-${i}`}
-                                      className={cell}
-                                    />
-                                    <datalist id={`real-${devisId}-${i}`}>
-                                      {typesRealisationPour(o.metier).map((r) => (
-                                        <option key={r} value={r} />
-                                      ))}
-                                    </datalist>
-                                  </label>
-                                  <label className="flex w-14 flex-col gap-0.5 text-[11px]">
-                                    <span className="text-muted-foreground">Qté</span>
-                                    <Field name={`ouvrages.${i}.quantite`} className={cell} />
-                                  </label>
-                                  <label className="flex w-24 flex-col gap-0.5 text-[11px]">
-                                    <span className="text-muted-foreground">Heures prévues</span>
-                                    <Field
-                                      name={`ouvrages.${i}.heuresPrevues`}
-                                      inputMode="decimal"
-                                      placeholder="—"
-                                      className={cell}
-                                    />
-                                  </label>
-                                  {(
-                                    <label className="flex w-36 flex-col gap-0.5 text-[11px]">
-                                      <span className="text-muted-foreground">Type de fiche</span>
-                                      <Field
-                                        as="select"
-                                        name={`ouvrages.${i}.ficheType`}
-                                        className={cell}
-                                      >
-                                        {TYPES_FICHE.map((t) => (
-                                          <option key={t}>{t}</option>
-                                        ))}
-                                      </Field>
-                                    </label>
-                                  )}
-                                </div>
-                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-                                  {o.piece && (
-                                    <span className="rounded bg-sky-100 px-1.5 py-0.5 font-medium text-sky-800">
-                                      {o.piece}
-                                    </span>
-                                  )}
-                                  {o.tissuClient && (
-                                    <span className="rounded bg-orange-100 px-1.5 py-0.5 font-medium text-orange-800">
-                                      Tissu fourni par le client
-                                    </span>
-                                  )}
-                                  <span className="text-muted-foreground">Devis : {o.texte}</span>
-                                </div>
-                                {o.composants.length > 0 && (
-                                  <ul className="mt-1 list-inside list-disc text-[11px] text-muted-foreground">
-                                    {o.composants.map((c, j) => (
-                                      <li key={j}>{c}</li>
-                                    ))}
-                                  </ul>
-                                )}
-                                {o.garder && (
-                                  <div className="mt-2 space-y-2 rounded-md bg-muted/30 p-2">
-                                    <ChampsFiche i={i} type={o.ficheType} />
-                                    <label className="flex flex-col gap-0.5 text-[11px]">
-                                      <span className="text-muted-foreground">
-                                        Étapes de travail (une par ligne)
-                                      </span>
-                                      <Field
-                                        as="textarea"
-                                        name={`ouvrages.${i}.etapes`}
-                                        rows={Math.min(8, Math.max(3, o.etapes.split("\n").length))}
-                                        placeholder="Laisse vide pour les étapes par défaut"
-                                        className={cell}
-                                      />
-                                    </label>
-                                    {o.tissus.map((_, j) => (
-                                      <div key={j} className="grid grid-cols-4 gap-2">
-                                        <label className="flex flex-col gap-0.5 text-[11px]">
-                                          <span className="text-muted-foreground">Tissu / fourniture</span>
-                                          <Field name={`ouvrages.${i}.tissus.${j}.ref`} className={cell} />
-                                        </label>
-                                        <label className="flex flex-col gap-0.5 text-[11px]">
-                                          <span className="text-muted-foreground">Coloris</span>
-                                          <Field name={`ouvrages.${i}.tissus.${j}.coloris`} className={cell} />
-                                        </label>
-                                        <label className="flex flex-col gap-0.5 text-[11px]">
-                                          <span className="text-muted-foreground">Métrage</span>
-                                          <Field name={`ouvrages.${i}.tissus.${j}.metrage`} className={cell} />
-                                        </label>
-                                        <label className="flex flex-col gap-0.5 text-[11px]">
-                                          <span className="text-muted-foreground">Placement</span>
-                                          <Field name={`ouvrages.${i}.tissus.${j}.placement`} className={cell} />
-                                        </label>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </FieldArray>
-
-                      <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-                        <Button type="submit" size="sm" disabled={isSubmitting}>
-                          {isSubmitting ? "Enregistrement…" : "Appliquer au dossier"}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setOuvert(false)}
-                        >
-                          Annuler
-                        </Button>
-                        <span className="text-xs text-muted-foreground">
-                          {nb} ligne{nb > 1 ? "s" : ""} retenue{nb > 1 ? "s" : ""}
-                        </span>
-                        {erreur && (
-                          <span role="alert" className="text-xs text-destructive">
-                            {erreur}
-                          </span>
-                        )}
-                      </div>
-                    </Form>
+              <DevisFormulaire
+                devis={devis}
+                actuel={actuel}
+                idKey={`d${devisId}`}
+                mode="appliquer"
+                libelleBouton="Appliquer au dossier"
+                onAnnuler={() => setOuvert(false)}
+                onEnvoyer={async (v) => {
+                  const res = await appliquerDevis(dossierId, v);
+                  if (!res.ok) return { ok: false, error: "Enregistrement impossible." };
+                  setSucces(
+                    `✓ Dossier mis à jour : ${res.fiches} fiche${
+                      res.fiches > 1 ? "s" : ""
+                    } de travail créée${res.fiches > 1 ? "s" : ""}. Affecte-les (opérateur, heures) dans « Fiches atelier ».`
                   );
+                  return { ok: true };
                 }}
-              </Formik>
+              />
             )}
           </div>
         </div>
       )}
     </>
+  );
+}
+
+// Formulaire ajustable commun : « Remplir depuis ce devis » (mode appliquer,
+// sur un dossier existant) et « Créer un dossier depuis un devis Markdown »
+// (mode creer : un champ Nom du dossier en plus, toutes les infos client
+// proposées cochées). Le parent décide quoi faire des valeurs validées.
+export type DevisFormulaireProps = {
+  devis: DevisLu;
+  actuel: ClientActuel;
+  idKey: string; // préfixe unique des datalist
+  mode: "appliquer" | "creer";
+  libelleBouton: string;
+  nomDossierInitial?: string;
+  resume?: React.ReactNode;
+  onEnvoyer: (
+    v: DevisAApplique,
+    nomDossier: string
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
+  onAnnuler: () => void;
+};
+
+export function DevisFormulaire({
+  devis,
+  actuel,
+  idKey,
+  mode,
+  libelleBouton,
+  nomDossierInitial = "",
+  resume,
+  onEnvoyer,
+  onAnnuler,
+}: DevisFormulaireProps) {
+  const [erreur, setErreur] = useState("");
+  return (
+      <Formik
+        initialValues={versValeurs(devis, actuel, nomDossierInitial)}
+        onSubmit={async (v) => {
+          setErreur("");
+          const client: Record<string, string> = {};
+          for (const { k } of CHAMPS_CLIENT) {
+            if (v.client[k].appliquer) client[k] = v.client[k].valeur;
+          }
+          const res = await onEnvoyer({
+            numero: v.numero,
+            client,
+            ouvrages: v.ouvrages
+              .filter((o) => o.garder)
+              .map((o) => ({
+                metier: o.metier,
+                realisation: o.realisation,
+                quantite: o.quantite,
+                heuresPrevues: o.heuresPrevues,
+                creerFiche: o.creerFiche,
+                ficheType: o.ficheType,
+                contenu: o.contenu,
+                tissus: o.tissus,
+                etapes: o.etapes
+                  .split("\n")
+                  .map((e) => e.trim())
+                  .filter(Boolean),
+                texte: o.texte,
+              })),
+          }, v.nomDossier.trim());
+          if (!res.ok) setErreur(res.error);
+        }}
+      >
+        {({ values, isSubmitting, setFieldValue }) => {
+          const nb = values.ouvrages.filter((o) => o.garder).length;
+          return (
+            <Form className="space-y-4 px-4 py-4">
+              {/* Infos client */}
+              <fieldset className="rounded-lg border p-3">
+                <legend className="px-1 text-xs font-semibold">
+                  {mode === "appliquer"
+                    ? "Infos client — coche ce qui doit remplacer le dossier"
+                    : "Client du nouveau dossier — coche ce qui doit être enregistré"}
+                </legend>
+                {mode === "creer" && (
+                  <label className="mb-2 flex flex-col gap-0.5 text-xs">
+                    <span className="text-muted-foreground">Nom du dossier *</span>
+                    <Field name="nomDossier" required className={cell} />
+                  </label>
+                )}
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {CHAMPS_CLIENT.map(({ k, label, type }) => (
+                    <div key={k} className="flex items-start gap-2 text-xs">
+                      <Field
+                        type="checkbox"
+                        name={`client.${k}.appliquer`}
+                        className="mt-5 h-4 w-4"
+                      />
+                      <label className="flex flex-1 flex-col gap-0.5">
+                        <span className="text-muted-foreground">{label}</span>
+                        <Field
+                          name={`client.${k}.valeur`}
+                          type={type ?? "text"}
+                          list={
+                            k === "telephone"
+                              ? `tel-${idKey}`
+                              : k === "email"
+                                ? `mail-${idKey}`
+                                : undefined
+                          }
+                          onInput={() =>
+                            setFieldValue(`client.${k}.appliquer`, true)
+                          }
+                          className={cell}
+                        />
+                        {mode === "appliquer" && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Dans le dossier : {actuel[k] || "—"}
+                          </span>
+                        )}
+                      </label>
+                    </div>
+                  ))}
+                  <datalist id={`tel-${idKey}`}>
+                    {devis.telephones.map((t) => (
+                      <option key={t} value={t} />
+                    ))}
+                  </datalist>
+                  <datalist id={`mail-${idKey}`}>
+                    {devis.emails.map((t) => (
+                      <option key={t} value={t} />
+                    ))}
+                  </datalist>
+                </div>
+              </fieldset>
+
+              {/* Ouvrages → travaux + fiches */}
+              <FieldArray name="ouvrages">
+                {() => (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold">
+                      Lignes du devis ({values.ouvrages.length}) — chaque ligne
+                      cochée devient une fiche de travail
+                    </p>
+                    {values.ouvrages.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Aucune ligne de devis reconnue.
+                      </p>
+                    )}
+                    {values.ouvrages.map((o, i) => (
+                      <div
+                        key={i}
+                        className={`rounded-lg border p-3 ${
+                          o.garder ? "" : "bg-muted/30 opacity-60"
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-end gap-2">
+                          <label className="flex items-center gap-1.5 pb-1 text-xs font-medium">
+                            <Field
+                              type="checkbox"
+                              name={`ouvrages.${i}.garder`}
+                              className="h-4 w-4"
+                            />
+                            Garder
+                          </label>
+                          <label className="flex w-28 flex-col gap-0.5 text-[11px]">
+                            <span className="text-muted-foreground">Métier</span>
+                            <Field as="select" name={`ouvrages.${i}.metier`} className={cell}>
+                              {METIERS.map((m) => (
+                                <option key={m}>{m}</option>
+                              ))}
+                            </Field>
+                          </label>
+                          <label className="flex min-w-36 flex-1 flex-col gap-0.5 text-[11px]">
+                            <span className="text-muted-foreground">Réalisation</span>
+                            <Field
+                              name={`ouvrages.${i}.realisation`}
+                              list={`real-${idKey}-${i}`}
+                              className={cell}
+                            />
+                            <datalist id={`real-${idKey}-${i}`}>
+                              {typesRealisationPour(o.metier).map((r) => (
+                                <option key={r} value={r} />
+                              ))}
+                            </datalist>
+                          </label>
+                          <label className="flex w-14 flex-col gap-0.5 text-[11px]">
+                            <span className="text-muted-foreground">Qté</span>
+                            <Field name={`ouvrages.${i}.quantite`} className={cell} />
+                          </label>
+                          <label className="flex w-24 flex-col gap-0.5 text-[11px]">
+                            <span className="text-muted-foreground">Heures prévues</span>
+                            <Field
+                              name={`ouvrages.${i}.heuresPrevues`}
+                              inputMode="decimal"
+                              placeholder="—"
+                              className={cell}
+                            />
+                          </label>
+                          {(
+                            <label className="flex w-36 flex-col gap-0.5 text-[11px]">
+                              <span className="text-muted-foreground">Type de fiche</span>
+                              <Field
+                                as="select"
+                                name={`ouvrages.${i}.ficheType`}
+                                className={cell}
+                              >
+                                {TYPES_FICHE.map((t) => (
+                                  <option key={t}>{t}</option>
+                                ))}
+                              </Field>
+                            </label>
+                          )}
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                          {o.piece && (
+                            <span className="rounded bg-sky-100 px-1.5 py-0.5 font-medium text-sky-800">
+                              {o.piece}
+                            </span>
+                          )}
+                          {o.tissuClient && (
+                            <span className="rounded bg-orange-100 px-1.5 py-0.5 font-medium text-orange-800">
+                              Tissu fourni par le client
+                            </span>
+                          )}
+                          <span className="text-muted-foreground">Devis : {o.texte}</span>
+                        </div>
+                        {o.composants.length > 0 && (
+                          <ul className="mt-1 list-inside list-disc text-[11px] text-muted-foreground">
+                            {o.composants.map((c, j) => (
+                              <li key={j}>{c}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {o.garder && (
+                          <div className="mt-2 space-y-2 rounded-md bg-muted/30 p-2">
+                            <ChampsFiche i={i} type={o.ficheType} />
+                            <label className="flex flex-col gap-0.5 text-[11px]">
+                              <span className="text-muted-foreground">
+                                Étapes de travail (une par ligne)
+                              </span>
+                              <Field
+                                as="textarea"
+                                name={`ouvrages.${i}.etapes`}
+                                rows={Math.min(8, Math.max(3, o.etapes.split("\n").length))}
+                                placeholder="Laisse vide pour les étapes par défaut"
+                                className={cell}
+                              />
+                            </label>
+                            {o.tissus.map((_, j) => (
+                              <div key={j} className="grid grid-cols-4 gap-2">
+                                <label className="flex flex-col gap-0.5 text-[11px]">
+                                  <span className="text-muted-foreground">Tissu / fourniture</span>
+                                  <Field name={`ouvrages.${i}.tissus.${j}.ref`} className={cell} />
+                                </label>
+                                <label className="flex flex-col gap-0.5 text-[11px]">
+                                  <span className="text-muted-foreground">Coloris</span>
+                                  <Field name={`ouvrages.${i}.tissus.${j}.coloris`} className={cell} />
+                                </label>
+                                <label className="flex flex-col gap-0.5 text-[11px]">
+                                  <span className="text-muted-foreground">Métrage</span>
+                                  <Field name={`ouvrages.${i}.tissus.${j}.metrage`} className={cell} />
+                                </label>
+                                <label className="flex flex-col gap-0.5 text-[11px]">
+                                  <span className="text-muted-foreground">Placement</span>
+                                  <Field name={`ouvrages.${i}.tissus.${j}.placement`} className={cell} />
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </FieldArray>
+
+              <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+                {resume}
+                <Button type="submit" size="sm" disabled={isSubmitting}>
+                  {isSubmitting ? "Enregistrement…" : libelleBouton}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onAnnuler}
+                >
+                  Annuler
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {nb} ligne{nb > 1 ? "s" : ""} retenue{nb > 1 ? "s" : ""}
+                </span>
+                {erreur && (
+                  <span role="alert" className="text-xs text-destructive">
+                    {erreur}
+                  </span>
+                )}
+              </div>
+            </Form>
+          );
+        }}
+      </Formik>
   );
 }
