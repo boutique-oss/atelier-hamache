@@ -132,9 +132,9 @@ export default async function DossiersPage({
             <a
               href="/dossiers/nouveau#devis"
               className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent"
-              title="Créer un dossier client depuis un devis Markdown"
+              title="Créer un dossier client depuis le PDF du devis"
             >
-              Depuis un devis (.md)
+              Depuis un devis (PDF)
             </a>
             <a
               href="/dossiers/nouveau"

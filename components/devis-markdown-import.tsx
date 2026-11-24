@@ -6,16 +6,17 @@ import { useState, useTransition } from "react";
 
 import {
   creerDossierDepuisDevis,
+  lireDevisFichier,
   lireDevisMarkdownAction,
 } from "@/app/devis-signes/actions";
 import { DevisFormulaire } from "@/components/devis-remplir";
 import { Button } from "@/components/ui/button";
 import type { DevisLu } from "@/lib/devis-pdf";
 
-// « Créer un dossier depuis un devis Markdown » (page Nouveau dossier) :
-// dépose un .md (ou colle le texte du devis), vérifie ce qui a été lu —
-// client, lignes, fiches atelier — puis crée le dossier d'un coup. Rien
-// n'est écrit avant « Créer le dossier ».
+// « Créer un dossier depuis un devis » (page Nouveau dossier) : dépose le
+// PDF EBP du devis (ou un devis Markdown, ou colle son texte), vérifie ce
+// qui a été lu — client, lignes, fiches atelier — puis crée le dossier d'un
+// coup. Rien n'est écrit avant « Créer le dossier ».
 
 const VIDE = { clientNom: "", adresse: "", telephone: "", email: "", dateDevis: "" };
 
@@ -28,11 +29,11 @@ export function DevisMarkdownImport() {
   const [erreur, setErreur] = useState("");
   const [lecture, startLecture] = useTransition();
 
-  function lire(fd: FormData, nom: string) {
+  function lire(fd: FormData, nom: string, pdf = false) {
     setErreur("");
     setDevis(null);
     startLecture(async () => {
-      const res = await lireDevisMarkdownAction(fd);
+      const res = await (pdf ? lireDevisFichier(fd) : lireDevisMarkdownAction(fd));
       if (res.ok) {
         setDevis(res.devis);
         setNomFichier(nom);
@@ -43,7 +44,8 @@ export function DevisMarkdownImport() {
   function lireFichier(f: File) {
     const fd = new FormData();
     fd.set("fichier", f);
-    lire(fd, f.name);
+    // PDF (export EBP) ou Markdown : la même action serveur sait lire les deux.
+    lire(fd, f.name, true);
   }
 
   function lireTexte() {
@@ -56,7 +58,7 @@ export function DevisMarkdownImport() {
     const nomInitial =
       devis.client.nom ||
       (devis.ouvrages.find((o) => o.probable)?.realisation ?? "") ||
-      nomFichier.replace(/\.(md|markdown|txt)$/i, "");
+      nomFichier.replace(/\.(pdf|md|markdown|txt)$/i, "");
     return (
       <section id="devis" className="rounded-xl border">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/40 px-4 py-2.5">
@@ -95,7 +97,7 @@ export function DevisMarkdownImport() {
     <section id="devis" className="rounded-xl border">
       <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5">
         <FileText size={16} className="text-primary" />
-        <h2 className="text-sm font-semibold">Créer depuis un devis Markdown</h2>
+        <h2 className="text-sm font-semibold">Créer depuis un devis (PDF EBP)</h2>
         <span className="text-xs text-muted-foreground">
           Client, lignes du devis et fiches atelier pré-remplis, à vérifier avant création.
         </span>
@@ -104,10 +106,10 @@ export function DevisMarkdownImport() {
         <div className="flex flex-wrap items-center gap-3">
           <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground hover:bg-primary/90">
             <Upload size={15} />
-            Choisir le devis (.md)
+            Choisir le PDF du devis
             <input
               type="file"
-              accept=".md,.markdown,.txt,text/markdown,text/plain"
+              accept="application/pdf,.pdf,.md,.markdown,.txt,text/markdown,text/plain"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -145,9 +147,9 @@ export function DevisMarkdownImport() {
           </p>
         )}
         <p className="text-xs text-muted-foreground">
-          Compris : « Client : », « Adresse : », « Tél : », « Email : », « Devis n° : », « Date : »,
-          un tableau Désignation | Qté | Unité | P.U. HT | Montant HT, des titres de pièce (## Salon).
-          Le fichier est seulement lu, pas enregistré.
+          Le PDF exporté depuis EBP (avant signature, avec du texte, pas un scan). Un devis en
+          Markdown (.md) ou son texte collé sont lus aussi. Le fichier est seulement lu, pas
+          enregistré : importe-le ensuite dans « Devis signés » du dossier si besoin.
         </p>
       </div>
     </section>
