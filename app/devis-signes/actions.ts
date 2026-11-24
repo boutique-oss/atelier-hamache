@@ -440,11 +440,16 @@ export async function lireDevisMarkdownAction(
 
 // Crée le dossier (client) puis y applique le devis validé : infos client,
 // une fiche atelier par ouvrage retenu. Le type d'intervention du dossier
-// suit le métier majoritaire des ouvrages. Renvoie l'id du nouveau dossier.
+// suit le métier majoritaire des ouvrages. Si le fichier du devis est fourni
+// (`fd.fichier`, PDF ou .md), il est conservé dans le dossier comme devis
+// (Vercel Blob + ligne devis_signes). Renvoie l'id du nouveau dossier.
 export async function creerDossierDepuisDevis(
   nomDossier: string,
-  v: DevisAApplique
-): Promise<{ ok: true; id: number; fiches: number } | { ok: false; error: string }> {
+  v: DevisAApplique,
+  fd?: FormData
+): Promise<
+  { ok: true; id: number; fiches: number; fichier: string } | { ok: false; error: string }
+> {
   const nom = nomDossier.trim() || String(v.client.clientNom ?? "").trim();
   if (!nom) return { ok: false, error: "Donne un nom au dossier." };
   const comptes = new Map<string, number>();
@@ -465,8 +470,15 @@ export async function creerDossierDepuisDevis(
       })
       .returning({ id: dossiers.id });
     const res = await appliquerDevis(row.id, v);
+    // Le devis lui-même rejoint le dossier (au mieux : une erreur de stockage
+    // n'annule pas la création, elle est signalée).
+    let fichier = "";
+    if (fd && fd.get("fichier") instanceof File) {
+      const up = await uploadDevisSigne(row.id, fd);
+      fichier = up.ok ? "ok" : up.error ?? "non conservé";
+    }
     revalidatePath("/dossiers");
-    return { ok: true, id: row.id, fiches: res.fiches };
+    return { ok: true, id: row.id, fiches: res.fiches, fichier };
   } catch (e) {
     console.error("Création dossier depuis devis échouée:", (e as Error).message);
     return { ok: false, error: "Création du dossier impossible." };

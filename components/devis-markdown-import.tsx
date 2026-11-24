@@ -24,6 +24,7 @@ export function DevisMarkdownImport() {
   const router = useRouter();
   const [devis, setDevis] = useState<DevisLu | null>(null);
   const [nomFichier, setNomFichier] = useState("");
+  const [fichier, setFichier] = useState<File | null>(null);
   const [texte, setTexte] = useState("");
   const [coller, setColler] = useState(false);
   const [erreur, setErreur] = useState("");
@@ -44,6 +45,7 @@ export function DevisMarkdownImport() {
   function lireFichier(f: File) {
     const fd = new FormData();
     fd.set("fichier", f);
+    setFichier(f);
     // PDF (export EBP) ou Markdown : la même action serveur sait lire les deux.
     lire(fd, f.name, true);
   }
@@ -51,6 +53,7 @@ export function DevisMarkdownImport() {
   function lireTexte() {
     const fd = new FormData();
     fd.set("texte", texte);
+    setFichier(null);
     lire(fd, "texte collé");
   }
 
@@ -83,8 +86,20 @@ export function DevisMarkdownImport() {
           nomDossierInitial={nomInitial}
           onAnnuler={() => setDevis(null)}
           onEnvoyer={async (v, nomDossier) => {
-            const res = await creerDossierDepuisDevis(nomDossier, v);
+            // Le fichier du devis est envoyé avec : il est conservé dans le
+            // dossier (Devis signés), pas seulement lu.
+            let fd: FormData | undefined;
+            if (fichier) {
+              fd = new FormData();
+              fd.set("fichier", fichier);
+            }
+            const res = await creerDossierDepuisDevis(nomDossier, v, fd);
             if (!res.ok) return res;
+            if (fichier && res.fichier !== "ok") {
+              window.alert(
+                `Dossier créé, mais le fichier du devis n'a pas pu être conservé : ${res.fichier}. Importe-le dans « Devis signés ».`
+              );
+            }
             router.push(`/dossiers/${res.id}`);
             return { ok: true };
           }}
@@ -148,8 +163,8 @@ export function DevisMarkdownImport() {
         )}
         <p className="text-xs text-muted-foreground">
           Le PDF exporté depuis EBP (avant signature, avec du texte, pas un scan). Un devis en
-          Markdown (.md) ou son texte collé sont lus aussi. Le fichier est seulement lu, pas
-          enregistré : importe-le ensuite dans « Devis signés » du dossier si besoin.
+          Markdown (.md) ou son texte collé sont lus aussi. Le fichier choisi est conservé dans
+          le dossier créé (rubrique « Devis signés »).
         </p>
       </div>
     </section>
