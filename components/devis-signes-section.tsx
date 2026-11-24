@@ -68,7 +68,7 @@ export function DevisSignesSection({
           ref={inputRef}
           type="file"
           name="fichier"
-          accept="application/pdf,image/*"
+          accept="application/pdf,image/*,.md,.markdown,.txt,text/markdown,text/plain"
           required
           className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary hover:file:bg-primary/20"
         />
@@ -80,7 +80,7 @@ export function DevisSignesSection({
           <Upload className="h-4 w-4" />
           {pending ? "Envoi…" : "Importer le devis signé"}
         </button>
-        <span className="text-xs text-muted-foreground">PDF ou image · 14 Mo max</span>
+        <span className="text-xs text-muted-foreground">PDF, image ou devis Markdown (.md) · 14 Mo max</span>
       </form>
 
       {error ? (

@@ -222,16 +222,16 @@ export function FicheRecoupeeBouton({
               // Étape 1 : déposer les fichiers, puis recouper.
               <div className="space-y-3 px-4 py-5 text-sm">
                 <p>
-                  Dépose ensemble les PDF du dossier (devis EBP d&apos;origine…). Les devis signés lisibles du
+                  Dépose ensemble les devis du dossier (PDF EBP d&apos;origine, devis Markdown .md…). Les devis signés lisibles du
                   dossier et la <strong>prise de cotes saisie sur tablette</strong> sont ajoutés automatiquement.
                   Résultat : une fiche de travail par métier (rideaux, tapisserie…).
                 </p>
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 hover:bg-accent">
-                  <Upload size={15} /> Choisir des PDF
+                  <Upload size={15} /> Choisir des devis (PDF, .md)
                   <input
                     type="file"
                     multiple
-                    accept="application/pdf,.pdf"
+                    accept="application/pdf,.pdf,.md,.markdown,.txt,text/markdown,text/plain"
                     className="hidden"
                     onChange={(e) => {
                       const nouveaux = Array.from(e.target.files ?? []);

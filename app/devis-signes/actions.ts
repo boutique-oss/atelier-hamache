@@ -44,8 +44,9 @@ export async function uploadDevisSigne(
   const nom = (file.name || "devis-signe").trim();
   const estPdf = type === "application/pdf" || nom.toLowerCase().endsWith(".pdf");
   const estImage = type.startsWith("image/");
-  if (!estPdf && !estImage) {
-    return { ok: false, error: "Format non accepté : PDF ou image uniquement." };
+  const estMd = estMarkdown(nom, type);
+  if (!estPdf && !estImage && !estMd) {
+    return { ok: false, error: "Format non accepté : PDF, image ou devis Markdown (.md)." };
   }
   if (file.size > MAX_TAILLE) {
     return {
@@ -62,7 +63,7 @@ export async function uploadDevisSigne(
     // servi par la route protégée /api/devis/[id] (derrière le code d'accès).
     const blob = await put(`devis-signes/${dossierId}/${nom}`, file, {
       access: "private",
-      contentType: type,
+      contentType: estMd ? "text/markdown; charset=utf-8" : type,
       addRandomSuffix: true,
       token,
     });
@@ -73,7 +74,7 @@ export async function uploadDevisSigne(
       url: blob.url,
       pathname: blob.pathname,
       taille: file.size,
-      contentType: type,
+      contentType: estMd ? "text/markdown" : type,
     });
 
     revalidateDossierViews(dossierId);
@@ -120,10 +121,12 @@ export async function lireDevisSigne(
   if (!row) return { ok: false, error: "Devis introuvable." };
   const estPdf =
     (row.contentType ?? "").includes("pdf") || row.nom.toLowerCase().endsWith(".pdf");
-  if (!estPdf) {
+  const estMd = estMarkdown(row.nom, row.contentType ?? "");
+  if (!estPdf && !estMd) {
     return {
       ok: false,
-      error: "Ce devis signé est une image (scan) : choisis le PDF EBP d'origine ci-dessous.",
+      error:
+        "Ce devis signé est une image (scan) : choisis ci-dessous le PDF EBP d'origine ou le devis en Markdown (.md).",
     };
   }
   const token = blobToken();
@@ -133,11 +136,32 @@ export async function lireDevisSigne(
     if (!res || res.statusCode !== 200 || !res.stream) {
       return { ok: false, error: "Fichier du devis introuvable." };
     }
-    return lireDonneesDevis(new Uint8Array(await new Response(res.stream).arrayBuffer()));
+    const data = new Uint8Array(await new Response(res.stream).arrayBuffer());
+    if (estMd) return lireTexteMarkdown(new TextDecoder("utf-8").decode(data));
+    return lireDonneesDevis(data);
   } catch (e) {
     console.error("Lecture devis échouée:", (e as Error).message);
-    return { ok: false, error: "PDF illisible ou protégé." };
+    return { ok: false, error: "Devis illisible ou protégé." };
   }
+}
+
+// Fichier de devis au format Markdown / texte (par le nom ou le type MIME).
+function estMarkdown(nom: string, type: string) {
+  return /\.(md|markdown|txt)$/i.test(nom) || /^text\/(markdown|plain)/i.test(type);
+}
+
+function lireTexteMarkdown(
+  texte: string
+): { ok: true; devis: DevisLu } | { ok: false; error: string } {
+  const devis = lireDevisMarkdown(texte);
+  if (!devis.ouvrages.length && !devis.client.nom && !devis.numero) {
+    return {
+      ok: false,
+      error:
+        "Rien de reconnu dans ce devis Markdown : il faut au moins un tableau (Désignation | Qté | P.U. | Montant) ou des lignes « Client : … », « Devis n° : … ».",
+    };
+  }
+  return { ok: true, devis };
 }
 
 // Variante : le PDF EBP d'origine (avant signature) choisi sur l'ordinateur,
@@ -149,15 +173,17 @@ export async function lireDevisFichier(
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: "Aucun fichier sélectionné." };
   }
-  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-    return { ok: false, error: "Choisis un fichier PDF (export EBP)." };
+  const estMd = estMarkdown(file.name, file.type);
+  if (!estMd && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+    return { ok: false, error: "Choisis un PDF (export EBP) ou un devis Markdown (.md)." };
   }
-  if (file.size > MAX_TAILLE) return { ok: false, error: "PDF trop volumineux (14 Mo max)." };
+  if (file.size > MAX_TAILLE) return { ok: false, error: "Fichier trop volumineux (14 Mo max)." };
   try {
+    if (estMd) return lireTexteMarkdown(await file.text());
     return await lireDonneesDevis(new Uint8Array(await file.arrayBuffer()));
   } catch (e) {
     console.error("Lecture devis (fichier) échouée:", (e as Error).message);
-    return { ok: false, error: "PDF illisible ou protégé." };
+    return { ok: false, error: "Devis illisible ou protégé." };
   }
 }
 
@@ -266,9 +292,9 @@ export async function preparerFicheRecoupee(
 ): Promise<Recoupement> {
   const devis: { nom: string; lu: DevisLu }[] = [];
   const sources: SourceLue[] = [];
-  const lire = async (nom: string, data: Uint8Array) => {
+  const lire = async (nom: string, data: Uint8Array, md = false) => {
     try {
-      const lu = await lireDevis(data);
+      const lu = md ? lireDevisMarkdown(new TextDecoder("utf-8").decode(data)) : await lireDevis(data);
       if (!lu.ouvrages.length && !lu.numero) {
         sources.push({ nom, ok: false, detail: "scan sans texte — dépose le PDF EBP d'origine" });
         return;
@@ -280,18 +306,19 @@ export async function preparerFicheRecoupee(
         detail: `devis ${lu.numero || "?"} · ${lu.ouvrages.filter((o) => o.probable).length} ouvrage(s)`,
       });
     } catch {
-      sources.push({ nom, ok: false, detail: "PDF illisible" });
+      sources.push({ nom, ok: false, detail: md ? "Markdown illisible" : "PDF illisible" });
     }
   };
 
   // 1) PDF déposés dans la fenêtre (prioritaires : souvent l'original EBP).
   for (const f of fd.getAll("fichiers")) {
     if (!(f instanceof File) || f.size === 0 || f.size > MAX_TAILLE) continue;
-    if (f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")) {
-      sources.push({ nom: f.name, ok: false, detail: "pas un PDF" });
+    const md = estMarkdown(f.name, f.type);
+    if (!md && f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")) {
+      sources.push({ nom: f.name, ok: false, detail: "ni PDF ni Markdown" });
       continue;
     }
-    await lire(f.name, new Uint8Array(await f.arrayBuffer()));
+    await lire(f.name, new Uint8Array(await f.arrayBuffer()), md);
   }
   // 2) Devis signés déjà dans le dossier (PDF « texte » seulement).
   const token = blobToken();
@@ -301,7 +328,8 @@ export async function preparerFicheRecoupee(
       .from(devisSignes)
       .where(eq(devisSignes.dossierId, dossierId));
     for (const s of signes) {
-      if (!(s.type ?? "").includes("pdf") && !s.nom.toLowerCase().endsWith(".pdf")) {
+      const md = estMarkdown(s.nom, s.type ?? "");
+      if (!md && !(s.type ?? "").includes("pdf") && !s.nom.toLowerCase().endsWith(".pdf")) {
         sources.push({ nom: s.nom, ok: false, detail: "devis signé en image (scan)" });
         continue;
       }
@@ -311,7 +339,7 @@ export async function preparerFicheRecoupee(
         const data = new Uint8Array(await new Response(res.stream).arrayBuffer());
         // Même devis déjà déposé dans la fenêtre : on ne le compte pas deux fois.
         const avant = devis.length;
-        await lire(`${s.nom} (devis signé)`, data);
+        await lire(`${s.nom} (devis signé)`, data, md);
         const dernier = devis[devis.length - 1];
         if (
           devis.length > avant &&
@@ -403,15 +431,7 @@ export async function lireDevisMarkdownAction(
   }
   if (!texte.trim()) return { ok: false, error: "Aucun devis à lire : dépose un fichier .md ou colle son texte." };
   try {
-    const devis = lireDevisMarkdown(texte);
-    if (!devis.ouvrages.length && !devis.client.nom && !devis.numero) {
-      return {
-        ok: false,
-        error:
-          "Rien de reconnu dans ce texte : il faut au moins un tableau (Désignation | Qté | P.U. | Montant) ou des lignes « Client : … », « Devis n° : … ».",
-      };
-    }
-    return { ok: true, devis };
+    return lireTexteMarkdown(texte);
   } catch (e) {
     console.error("Lecture devis Markdown échouée:", (e as Error).message);
     return { ok: false, error: "Texte illisible." };

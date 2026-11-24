@@ -245,10 +245,10 @@ export function DevisRemplir({
               <div className="flex flex-wrap items-center gap-3 px-4 py-6 text-sm">
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground hover:bg-primary/90">
                   <Upload size={15} />
-                  Choisir le PDF EBP d&apos;origine
+                  Choisir le devis (.md) ou le PDF EBP d&apos;origine
                   <input
                     type="file"
-                    accept="application/pdf,.pdf"
+                    accept="application/pdf,.pdf,.md,.markdown,.txt,text/markdown,text/plain"
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
@@ -258,8 +258,8 @@ export function DevisRemplir({
                   />
                 </label>
                 <span className="text-xs text-muted-foreground">
-                  Le devis exporté depuis EBP avant signature (PDF « texte »). Il est seulement
-                  lu, pas enregistré.
+                  Un devis en Markdown (.md), ou le PDF exporté depuis EBP avant signature
+                  (PDF « texte »). Il est seulement lu, pas enregistré.
                 </span>
               </div>
             )}
