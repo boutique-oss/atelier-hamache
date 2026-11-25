@@ -29,7 +29,7 @@ import { logout } from "@/app/login/actions";
 const NAV = [
   { href: "/dossiers", label: "Dossiers", icon: List, tint: "var(--brand-blue)" },
   { href: "/rapports-commandes", label: "Commandes", icon: Package, tint: "var(--brand-orange)" },
-  { href: "/planning", label: "Planning", icon: CalendarRange, tint: "var(--brand-green)" },
+  { href: "/planning", label: "Rétroplanning", icon: CalendarRange, tint: "var(--brand-green)" },
   { href: "/rapports", label: "Rapport heures", icon: BarChart3, tint: "var(--brand-pink)" },
   { href: "/pointage", label: "Pointage", icon: Clock, tint: "var(--brand-violet)" },
   { href: "/documents", label: "Documents", icon: FolderOpen, tint: "var(--brand-navy)" },

@@ -1,220 +1,197 @@
-import { asc, desc, eq, isNotNull, or } from "drizzle-orm";
+import { and, asc, eq, gt, notInArray, sql as dsql } from "drizzle-orm";
 import Link from "next/link";
 import { CalendarRange } from "lucide-react";
 
 import { db } from "@/db";
-import { dossiers, operateurs } from "@/db/schema";
-import {
-  PlanningBoard,
-  type ChantierPlanning,
-  type CongePlanning,
-  type ItemPlanning,
-} from "@/components/planning-board";
-import {
-  LegendeTypesPerso,
-  NouvelleEntreeButton,
-  PlanningDossiersProvider,
-} from "@/components/planning-entree";
-import { ActiverNotifications } from "@/components/rappels-notifier";
+import { commandes, dossiers, heures, operateurs } from "@/db/schema";
 import { PageHeader } from "@/components/page-header";
-import { chargerConges } from "@/lib/pointage";
+import { PeriodeNav } from "@/components/retroplanning/periode-nav";
+import { RetroplanningVue } from "@/components/retroplanning/retroplanning-vue";
 import { estFermeture } from "@/lib/conges-const";
-import { listerEntrees, listerTypesIntervention } from "@/lib/planning-entrees-db";
-import { clePerso } from "@/lib/types-intervention";
-
-// Teinte de congé par opérateur (même logique que le calendrier du Pointage).
-const CONGE_PALETTE = [
-  "bg-violet-500", "bg-sky-500", "bg-emerald-500", "bg-amber-500",
-  "bg-rose-500", "bg-teal-500", "bg-fuchsia-500",
-];
-
-// Fenêtre chargée autour du jour central (comme useKanbanDates d'Open
-// Sunsama : 7 jours visibles + 14 de marge de chaque côté) ; le tableau
-// recharge une fenêtre recentrée quand on défile près d'un bord.
-const BUFFER_DAYS = 14;
-const TOTAL_DAYS = 7 + BUFFER_DAYS * 2;
+import { chargerConges } from "@/lib/pointage";
+import {
+  Calendrier,
+  estIso,
+  proposerEtapes,
+  type Absence,
+  type DossierRetro,
+  type OperateurRetro,
+  type Vue,
+} from "@/lib/retroplanning";
+import { listerEtapes } from "@/lib/retroplanning-db";
 
 export const dynamic = "force-dynamic";
 
-const addDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-};
-// Aujourd'hui à Paris, quel que soit le fuseau du serveur.
+// Statuts sortis du rétroplanning (terminés ou abandonnés).
+const EXCLUS = ["Clos", "Perdu"];
+// Statuts « engagés » : un dossier sans échéance y est signalé « à dater ».
+const ENGAGES = new Set(["Devis signé / Validé", "En atelier", "Prêt à poser", "SAV"]);
+
 const aujourdhuiParis = () =>
   new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Paris" });
+
+const plusTot = (...dates: (string | null | undefined)[]) =>
+  dates.filter(estIso).sort()[0] ?? null;
 
 export default async function PlanningPage({
   searchParams,
 }: {
-  searchParams: { centre?: string };
+  searchParams: { vue?: string; date?: string };
 }) {
   const today = aujourdhuiParis();
-  const centre = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.centre ?? "")
-    ? searchParams.centre!
-    : today;
-  const debut = addDays(centre, -BUFFER_DAYS);
-  const fin = addDays(debut, TOTAL_DAYS - 1);
-  const jours = Array.from({ length: TOTAL_DAYS }, (_, i) => addDays(debut, i));
+  const vue: Vue =
+    searchParams.vue === "jour" || searchParams.vue === "semaine" ? searchParams.vue : "mois";
+  const ref = estIso(searchParams.date) ? searchParams.date : today;
 
-  // Chantiers (semaine saisie sur la fiche).
-  const chantiersDb = await db
-    .select({
-      id: dossiers.id,
-      nom: dossiers.nomDossier,
-      client: dossiers.clientNom,
-      debut: dossiers.dateDebutChantier,
-      fin: dossiers.dateFinChantier,
-      comment: dossiers.commentaireChantier,
-    })
-    .from(dossiers)
-    .where(isNotNull(dossiers.dateDebutChantier));
-  const chantiers: ChantierPlanning[] = chantiersDb
-    .filter((c) => c.debut && c.debut <= fin && (c.fin || c.debut) >= debut)
-    .map((c) => ({
-      id: c.id,
-      nom: c.nom,
-      client: c.client,
-      debut: c.debut!,
-      fin: c.fin || c.debut!,
-      comment: c.comment ?? "",
-    }));
+  const [opsDb, dossiersDb, heuresDb, commandesDb, conges] = await Promise.all([
+    db
+      .select({ id: operateurs.id, nom: operateurs.nom, heuresSemaine: operateurs.heuresSemaine })
+      .from(operateurs)
+      .where(and(eq(operateurs.actif, true), gt(operateurs.heuresSemaine, 0)))
+      .orderBy(asc(operateurs.nom)),
+    db
+      .select({
+        id: dossiers.id,
+        nom: dossiers.nomDossier,
+        client: dossiers.clientNom,
+        type: dossiers.typeIntervention,
+        statut: dossiers.statut,
+        operateurId: dossiers.operateurId,
+        dateLivraison: dossiers.dateLivraison,
+        debutChantier: dossiers.dateDebutChantier,
+        finChantier: dossiers.dateFinChantier,
+        datePlanifiee: dossiers.datePlanifiee,
+        priseDeCote: dossiers.datePriseDeCote,
+        heuresARealiser: dossiers.heuresARealiser,
+        etapeDevis: dossiers.etapeDevis,
+        etapeCmde: dossiers.etapeCmde,
+        etapeAtelier: dossiers.etapeAtelier,
+        etapeRealise: dossiers.etapeRealise,
+      })
+      .from(dossiers)
+      .where(notInArray(dossiers.statut, EXCLUS)),
+    // Heures d'atelier déjà passées par dossier (déduites du reste à faire).
+    db
+      .select({
+        dossierId: heures.dossierId,
+        total: dsql<number>`coalesce(sum(${heures.heuresPassees}), 0)`,
+      })
+      .from(heures)
+      .where(dsql`coalesce(${heures.typeTravail}, 'Atelier') = 'Atelier'`)
+      .groupBy(heures.dossierId),
+    db
+      .select({
+        dossierId: commandes.dossierId,
+        total: dsql<number>`count(*)`,
+        commandees: dsql<number>`count(*) filter (where ${commandes.estCommande} or ${commandes.estRecu})`,
+        recues: dsql<number>`count(*) filter (where ${commandes.estRecu})`,
+      })
+      .from(commandes)
+      .groupBy(commandes.dossierId),
+    chargerConges(),
+  ]);
 
-  // Dates ponctuelles (enlèvement/dépôt, livraison, prise de cote).
-  const evenements = await db
-    .select({
-      id: dossiers.id,
-      nom: dossiers.nomDossier,
-      client: dossiers.clientNom,
-      dateEnlevementDepot: dossiers.dateEnlevementDepot,
-      dateLivraison: dossiers.dateLivraison,
-      datePriseDeCote: dossiers.datePriseDeCote,
-      commentaireEnlevement: dossiers.commentaireEnlevement,
-      commentaireLivraison: dossiers.commentaireLivraison,
-      commentairePriseCote: dossiers.commentairePriseCote,
-      heureEnlevement: dossiers.heureEnlevement,
-      heureLivraison: dossiers.heureLivraison,
-      heurePriseCote: dossiers.heurePriseCote,
-      rappelsEnlevement: dossiers.rappelsEnlevement,
-      rappelsLivraison: dossiers.rappelsLivraison,
-      rappelsPriseCote: dossiers.rappelsPriseCote,
-    })
-    .from(dossiers)
-    .where(
-      or(
-        isNotNull(dossiers.dateEnlevementDepot),
-        isNotNull(dossiers.dateLivraison),
-        isNotNull(dossiers.datePriseDeCote)
-      )
-    );
-
-  const items: ItemPlanning[] = [];
-  for (const e of evenements) {
-    const base = { id: e.id, nom: e.nom, client: e.client };
-    const ajouter = (
-      field: ItemPlanning["field"],
-      date: string | null,
-      heure: string | null,
-      rappels: string | null,
-      comment: string | null
-    ) => {
-      if (date && date >= debut && date <= fin)
-        items.push({ ...base, field, date, heure: heure ?? "", rappels: rappels ?? "", comment: comment ?? "" });
-    };
-    ajouter("dateEnlevementDepot", e.dateEnlevementDepot, e.heureEnlevement, e.rappelsEnlevement, e.commentaireEnlevement);
-    ajouter("dateLivraison", e.dateLivraison, e.heureLivraison, e.rappelsLivraison, e.commentaireLivraison);
-    ajouter("datePriseDeCote", e.datePriseDeCote, e.heurePriseCote, e.rappelsPriseCote, e.commentairePriseCote);
-  }
-
-  // Types d'intervention ajoutés + leurs entrées.
-  const typesPerso = await listerTypesIntervention();
-  for (const e of await listerEntrees(debut, fin)) {
-    items.push({
-      id: e.dossierId, nom: e.nom, client: null, field: clePerso(e.typeId),
-      entreeId: e.id, date: e.date, heure: e.heure, rappels: e.rappels, comment: e.comment,
-    });
-  }
-
-  // Congés validés ou demandés (les refusés sont ignorés) + couleur par opérateur.
-  const opsActifs = await db
-    .select({ nom: operateurs.nom })
-    .from(operateurs)
-    .where(eq(operateurs.actif, true))
-    .orderBy(asc(operateurs.nom));
-  const couleurConge = new Map<string, string>();
-  opsActifs.forEach((o, i) => couleurConge.set(o.nom, CONGE_PALETTE[i % CONGE_PALETTE.length]));
-  const conges: CongePlanning[] = (await chargerConges())
-    .filter((c) => c.statut !== "Refusé" && c.dateDebut <= fin && c.dateFin >= debut)
-    .map((c) => ({
-      id: c.id,
-      operateur: c.operateur,
-      type: c.type,
-      valide: c.statut === "Validé",
-      fermeture: estFermeture(c),
-      debut: c.dateDebut,
-      fin: c.dateFin,
-      couleur: couleurConge.get(c.operateur) ?? "bg-violet-500",
-    }));
-
-  // Tous les dossiers proposés dans le widget d'entrée, récents d'abord.
-  const choixDossiers = await db
-    .select({
-      id: dossiers.id,
-      nom: dossiers.nomDossier,
-      client: dossiers.clientNom,
-      statut: dossiers.statut,
-    })
-    .from(dossiers)
-    .orderBy(desc(dossiers.updatedAt));
-
-  return (
-    <PlanningDossiersProvider dossiers={choixDossiers} types={typesPerso}>
-      <main className="mx-auto max-w-[1800px] px-4 py-5 sm:px-6">
-        <PageHeader
-          className="mb-3"
-          icon={CalendarRange}
-          tint="var(--brand-green)"
-          title="Planning atelier"
-          subtitle={
-            <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-              <Legende cls="rounded-full bg-red-500" label="Enlèvement / dépôt" />
-              <Legende cls="rounded-full bg-emerald-500" label="Livraison" />
-              <Legende cls="rounded-[2px] bg-yellow-400" label="Prise de cote" />
-              <Legende cls="rounded bg-sky-500" label="Chantier" />
-              <Legende cls="rounded bg-rose-600" label="Fermé / congés" />
-              <LegendeTypesPerso />
-            </span>
-          }
-          actions={
-            <div className="flex flex-wrap items-center gap-3">
-              <ActiverNotifications />
-              <Link href="/pointage" className="text-sm text-primary hover:underline">
-                Gérer les congés →
-              </Link>
-              <NouvelleEntreeButton date={today} />
-            </div>
-          }
-        />
-
-        <PlanningBoard
-          jours={jours}
-          centre={centre}
-          today={today}
-          items={items}
-          chantiers={chantiers}
-          conges={conges}
-        />
-      </main>
-    </PlanningDossiersProvider>
+  const passees = new Map(heuresDb.map((h) => [Number(h.dossierId), Number(h.total) || 0]));
+  const cdes = new Map(
+    commandesDb.map((c) => [
+      Number(c.dossierId),
+      { total: Number(c.total), commandees: Number(c.commandees), recues: Number(c.recues) },
+    ])
   );
-}
 
-function Legende({ cls, label }: { cls: string; label: string }) {
+  const ops: OperateurRetro[] = opsDb.map((o) => ({
+    id: Number(o.id),
+    nom: o.nom,
+    heuresSemaine: Number(o.heuresSemaine) || 0,
+  }));
+
+  const dossiersRetro: DossierRetro[] = dossiersDb.map((d) => ({
+    id: Number(d.id),
+    nom: d.nom,
+    client: d.client ?? "",
+    type: d.type ?? "Autre",
+    statut: d.statut,
+    operateurId: d.operateurId == null ? null : Number(d.operateurId),
+    // Échéance = la première date où le travail doit être prêt.
+    echeance: plusTot(d.dateLivraison, d.debutChantier) ?? (estIso(d.datePlanifiee) ? d.datePlanifiee : null),
+    finChantier: d.finChantier,
+    priseDeCote: d.priseDeCote,
+    heuresReste: Math.max(0, (Number(d.heuresARealiser) || 0) - (passees.get(Number(d.id)) ?? 0)),
+    etapeDevis: !!d.etapeDevis,
+    etapeCmde: !!d.etapeCmde,
+    etapeAtelier: !!d.etapeAtelier,
+    etapeRealise: !!d.etapeRealise,
+    commandes: cdes.get(Number(d.id)) ?? { total: 0, commandees: 0, recues: 0 },
+  }));
+
+  const absences: Absence[] = conges
+    .filter((c) => c.statut === "Validé")
+    .map((c) => ({ operateur: estFermeture(c) ? null : c.operateur, debut: c.dateDebut, fin: c.dateFin }));
+
+  let enregistrees: Awaited<ReturnType<typeof listerEtapes>> = [];
+  let erreurTable = false;
+  try {
+    enregistrees = await listerEtapes(dossiersRetro.map((d) => d.id));
+  } catch (e) {
+    console.error("listerEtapes", e);
+    erreurTable = true;
+  }
+  const cal = new Calendrier(ops, absences);
+  const { etapes: proposees, nonTenus } = proposerEtapes(dossiersRetro, enregistrees, cal, today);
+  const etapes = [...enregistrees, ...proposees];
+
+  const planifies = new Set(etapes.map((e) => e.dossierId));
+  const aDater = dossiersRetro.filter((d) => !planifies.has(d.id) && ENGAGES.has(d.statut));
+  const dossiersAffiches = dossiersRetro.filter((d) => planifies.has(d.id));
+
+  // Navigation : période précédente / suivante.
   return (
-    <span className="flex items-center gap-1.5">
-      <span className={`inline-block h-3 w-3 ${cls}`} />
-      {label}
-    </span>
+    <main className="mx-auto max-w-[1800px] px-4 py-5 sm:px-6">
+      <PageHeader
+        className="mb-4"
+        icon={CalendarRange}
+        tint="var(--brand-green)"
+        title="Rétroplanning atelier"
+        subtitle="Calculé à rebours depuis la pose ou la livraison. Glissez, étirez ou double-cliquez une étape pour l'ajuster."
+      />
+
+      <PeriodeNav vue={vue} refDate={ref} today={today} />
+
+      {erreurTable && (
+        <p className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
+          Les ajustements enregistrés n&apos;ont pas pu être lus : seul le calcul automatique est affiché.
+        </p>
+      )}
+
+      <RetroplanningVue
+        key={`${vue}|${ref}`}
+        vue={vue}
+        refDate={ref}
+        today={today}
+        ops={ops}
+        absences={absences}
+        dossiers={dossiersAffiches}
+        etapesInitiales={etapes}
+        nonTenus={Object.fromEntries(nonTenus)}
+      />
+
+      {aDater.length > 0 && (
+        <section className="mt-6">
+          <h3 className="mb-2 text-sm font-semibold">
+            À dater ({aDater.length}) — dossiers engagés sans date de livraison ni de chantier
+          </h3>
+          <ul className="flex flex-wrap gap-2">
+            {aDater.map((d) => (
+              <li key={d.id}>
+                <Link href={`/dossiers/${d.id}`} className="inline-block rounded-md border px-2.5 py-1 text-sm hover:bg-muted">
+                  {d.nom}
+                  <span className="ml-1.5 text-muted-foreground">{d.statut}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </main>
   );
 }

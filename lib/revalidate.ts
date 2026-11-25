@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 //
 // Les pages concernées et pourquoi :
 //   /dossiers  — liste (statut, flags, impression, compteur commandes…)
-//   /planning  — calendrier des dates + Gantt (dépend statut/heures/opérateur)
+//   /planning  — rétroplanning (dépend dates, statut, heures, opérateur)
 //   /rapports  — liste des dossiers Clos + estimations d'heures
 export function revalidateDossierViews(id?: number) {
   revalidatePath("/dossiers");

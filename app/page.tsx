@@ -22,7 +22,7 @@ const LIENS = [
   { href: "/rideaux", label: "Rideaux", desc: "Calcul et chiffrage par fenêtre", icon: Scissors, tint: "var(--brand-purple)" },
   { href: "/rapports-commandes", label: "Commandes", desc: "Suivi des commandes", icon: Package, tint: "var(--brand-orange)" },
   { href: "/catalogue", label: "Catalogue", desc: "Fournisseurs et références", icon: Library, tint: "var(--brand-blue)" },
-  { href: "/planning", label: "Planning", desc: "Dates de chantier", icon: CalendarRange, tint: "var(--brand-green)" },
+  { href: "/planning", label: "Rétroplanning", desc: "À rebours depuis la pose, charge par opérateur", icon: CalendarRange, tint: "var(--brand-green)" },
   { href: "/rapports", label: "Rapport heures", desc: "Heures par dossier", icon: BarChart3, tint: "var(--brand-pink)" },
   { href: "/pointage", label: "Pointage", desc: "Heures, congés & absences", icon: Clock, tint: "var(--brand-violet)" },
   { href: "/documents/feuille-heures-mois-vierge", label: "Feuille d'heures", desc: "Relevé mensuel à imprimer", icon: CalendarDays, tint: "var(--brand-green)" },

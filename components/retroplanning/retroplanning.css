@@ -1,0 +1,76 @@
+/* Rétroplanning : habillage du Gantt SVAR (thème Willow) aux couleurs de l'app. */
+
+.retro-gantt {
+  height: min(70vh, 760px);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: hsl(var(--card));
+}
+.retro-gantt .wx-willow-theme {
+  --wx-font-family: inherit;
+  --wx-gantt-bar-border-radius: 3px;
+  height: 100%;
+}
+
+/* Barres : le fond est dessiné par notre gabarit (couleur d'intervention). */
+.retro-gantt .wx-bar.wx-task {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible;
+}
+.retro-gantt .wx-bar.wx-summary {
+  background: hsl(var(--foreground) / 0.75) !important;
+  border: none !important;
+  height: 8px !important;
+  margin-top: 8px;
+}
+.retro-gantt .wx-bar.wx-summary .wx-content {
+  display: none;
+}
+/* Pas de poignée d'avancement : l'état « fait » se coche dans la fiche. */
+.retro-gantt .wx-progress-marker,
+.retro-gantt .wx-progress-wrapper {
+  display: none !important;
+}
+
+.retro-barre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.retro-barre.fait {
+  opacity: 0.45;
+}
+.retro-barre.retard {
+  outline: 2px solid #ff0000;
+  outline-offset: 0;
+}
+.retro-barre.propose,
+.retro-legende-propose {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgb(255 255 255 / 0.14) 0 4px,
+    transparent 4px 8px
+  );
+}
+
+/* Jours non travaillés et aujourd'hui. */
+.retro-gantt .wx-weekend,
+.retro-gantt .ri-ferie {
+  background: hsl(var(--muted) / 0.7);
+}
+.retro-gantt .ri-today {
+  background: hsl(var(--brand-green) / 0.14);
+}

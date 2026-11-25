@@ -114,7 +114,7 @@ export function CongesCalendrier({
           Planning des congés
         </span>
         <a href="/planning" className="font-normal text-primary hover:underline">
-          Voir dans le Planning atelier →
+          Voir l&apos;effet sur la charge (Rétroplanning) →
         </a>
       </h2>
 
