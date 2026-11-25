@@ -13,6 +13,7 @@ import {
   setOperateurExclu,
 } from "@/lib/retroplanning-db";
 import { chargerDonneesRetro } from "@/lib/retroplanning-donnees";
+import { statutsEnBase } from "@/lib/dossiers";
 import { parseNum } from "@/lib/utils";
 
 // Enregistre toutes les étapes d'un dossier telles qu'affichées sur le Gantt
@@ -225,4 +226,19 @@ export async function basculerOperateurRetro(
   }
   revalidatePath("/planning");
   return { ok: true };
+}
+
+// Listes déroulantes du modèle Excel, relues au moment du téléchargement :
+// dossiers En atelier / Devis signé (selon leur statut actuel) et opérateurs
+// présents dans le rétroplanning.
+export async function listesModeleRetro(): Promise<{ dossier: string[]; operateur: string[] }> {
+  const { ops, dossiersRetro } = await chargerDonneesRetro();
+  const statuts = [...statutsEnBase("En atelier"), ...statutsEnBase("Devis signé / Validé")];
+  return {
+    dossier: dossiersRetro
+      .filter((d) => statuts.includes(d.statut))
+      .map((d) => d.nom)
+      .sort((a, b) => a.localeCompare(b, "fr")),
+    operateur: ops.map((o) => o.nom),
+  };
 }

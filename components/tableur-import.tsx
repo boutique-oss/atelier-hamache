@@ -62,8 +62,12 @@ export function TableurImport({
   nomModele,
   libelle,
   aide,
+  listesAJour,
 }: {
   champs: ChampImport[];
+  // Relit en base les listes déroulantes juste avant de générer le modèle
+  // (clé de champ → valeurs), pour qu'il suive l'état réel au moment du clic.
+  listesAJour?: () => Promise<Partial<Record<string, string[]>>>;
   // Une ligne est-elle importable ? (sert au compteur du bouton)
   estValide: (l: LigneTableur) => boolean;
   onImport: (lignes: LigneTableur[]) => Promise<{ ok: boolean; msg: string }>;
@@ -90,6 +94,15 @@ export function TableurImport({
   // Modèle Excel : une feuille « Import » (en-têtes + listes déroulantes sur
   // 500 lignes) et une feuille « Listes » masquée qui porte les valeurs.
   async function telechargerModele() {
+    let fraiches: Partial<Record<string, string[]>> = {};
+    if (listesAJour) {
+      try {
+        fraiches = await listesAJour();
+      } catch (e) {
+        console.error("listesAJour", e);
+      }
+    }
+    const champsModele = champs.map((c) => (fraiches[c.key] ? { ...c, liste: fraiches[c.key] } : c));
     const ExcelJS = (await import("exceljs")).default;
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Import", { views: [{ state: "frozen", ySplit: 1 }] });
@@ -108,7 +121,7 @@ export function TableurImport({
       return out;
     };
 
-    ws.columns = champs.map((c) => ({
+    ws.columns = champsModele.map((c) => ({
       header: c.label.replace(/ \(.*\)$/, ""),
       key: c.key,
       width: Math.max(14, c.label.length + 4),
@@ -118,7 +131,7 @@ export function TableurImport({
     head.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4B3F72" } };
 
     let iListe = 0;
-    champs.forEach((c, i) => {
+    champsModele.forEach((c, i) => {
       const col = lettre(i);
       const plage = `${col}2:${col}${NB + 1}`;
       const valeurs = c.kind === "bool" ? ["oui", "non"] : c.liste?.filter(Boolean);

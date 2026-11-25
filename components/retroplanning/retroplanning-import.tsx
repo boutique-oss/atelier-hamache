@@ -1,6 +1,10 @@
 "use client";
 
-import { importRetroplanning, type LigneRetroImport } from "@/app/(main)/planning/actions";
+import {
+  importRetroplanning,
+  listesModeleRetro,
+  type LigneRetroImport,
+} from "@/app/(main)/planning/actions";
 import { TableurImport, type ChampImport } from "@/components/tableur-import";
 import { ETAPES } from "@/lib/retroplanning";
 
@@ -33,6 +37,7 @@ export function RetroplanningImport({
       champs={champs}
       libelle="étape"
       nomModele="modele-import-retroplanning.xlsx"
+      listesAJour={listesModeleRetro}
       aide="Une étape du même type est mise à jour, sinon ajoutée ; les autres étapes du dossier sont gardées, sauf « Repartir de zéro » = oui. Fin vide = même durée qu'avant."
       estValide={(l) => !!(l.dossier && l.etape && l.debut)}
       onImport={async (lignes) => {
