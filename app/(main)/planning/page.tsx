@@ -1,37 +1,27 @@
-import { and, asc, eq, gt, notInArray, sql as dsql } from "drizzle-orm";
 import Link from "next/link";
 import { CalendarRange } from "lucide-react";
 
-import { db } from "@/db";
-import { commandes, dossiers, heures, operateurs } from "@/db/schema";
 import { PageHeader } from "@/components/page-header";
 import { PeriodeNav } from "@/components/retroplanning/periode-nav";
+import { RetroplanningImport } from "@/components/retroplanning/retroplanning-import";
 import { RetroplanningVue } from "@/components/retroplanning/retroplanning-vue";
-import { estFermeture } from "@/lib/conges-const";
-import { chargerConges } from "@/lib/pointage";
+import { statutsEnBase } from "@/lib/dossiers";
 import {
   Calendrier,
   estIso,
   proposerEtapes,
-  type Absence,
-  type DossierRetro,
-  type OperateurRetro,
   type Vue,
 } from "@/lib/retroplanning";
 import { listerEtapes } from "@/lib/retroplanning-db";
+import { chargerDonneesRetro } from "@/lib/retroplanning-donnees";
 
 export const dynamic = "force-dynamic";
 
-// Statuts sortis du rétroplanning (terminés ou abandonnés).
-const EXCLUS = ["Clos", "Perdu"];
 // Statuts « engagés » : un dossier sans échéance y est signalé « à dater ».
 const ENGAGES = new Set(["Devis signé / Validé", "En atelier", "Prêt à poser", "SAV"]);
 
 const aujourdhuiParis = () =>
   new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Paris" });
-
-const plusTot = (...dates: (string | null | undefined)[]) =>
-  dates.filter(estIso).sort()[0] ?? null;
 
 export default async function PlanningPage({
   searchParams,
@@ -43,90 +33,7 @@ export default async function PlanningPage({
     searchParams.vue === "jour" || searchParams.vue === "semaine" ? searchParams.vue : "mois";
   const ref = estIso(searchParams.date) ? searchParams.date : today;
 
-  const [opsDb, dossiersDb, heuresDb, commandesDb, conges] = await Promise.all([
-    db
-      .select({ id: operateurs.id, nom: operateurs.nom, heuresSemaine: operateurs.heuresSemaine })
-      .from(operateurs)
-      .where(and(eq(operateurs.actif, true), gt(operateurs.heuresSemaine, 0)))
-      .orderBy(asc(operateurs.nom)),
-    db
-      .select({
-        id: dossiers.id,
-        nom: dossiers.nomDossier,
-        client: dossiers.clientNom,
-        type: dossiers.typeIntervention,
-        statut: dossiers.statut,
-        operateurId: dossiers.operateurId,
-        dateLivraison: dossiers.dateLivraison,
-        debutChantier: dossiers.dateDebutChantier,
-        finChantier: dossiers.dateFinChantier,
-        datePlanifiee: dossiers.datePlanifiee,
-        priseDeCote: dossiers.datePriseDeCote,
-        heuresARealiser: dossiers.heuresARealiser,
-        etapeDevis: dossiers.etapeDevis,
-        etapeCmde: dossiers.etapeCmde,
-        etapeAtelier: dossiers.etapeAtelier,
-        etapeRealise: dossiers.etapeRealise,
-      })
-      .from(dossiers)
-      .where(notInArray(dossiers.statut, EXCLUS)),
-    // Heures d'atelier déjà passées par dossier (déduites du reste à faire).
-    db
-      .select({
-        dossierId: heures.dossierId,
-        total: dsql<number>`coalesce(sum(${heures.heuresPassees}), 0)`,
-      })
-      .from(heures)
-      .where(dsql`coalesce(${heures.typeTravail}, 'Atelier') = 'Atelier'`)
-      .groupBy(heures.dossierId),
-    db
-      .select({
-        dossierId: commandes.dossierId,
-        total: dsql<number>`count(*)`,
-        commandees: dsql<number>`count(*) filter (where ${commandes.estCommande} or ${commandes.estRecu})`,
-        recues: dsql<number>`count(*) filter (where ${commandes.estRecu})`,
-      })
-      .from(commandes)
-      .groupBy(commandes.dossierId),
-    chargerConges(),
-  ]);
-
-  const passees = new Map(heuresDb.map((h) => [Number(h.dossierId), Number(h.total) || 0]));
-  const cdes = new Map(
-    commandesDb.map((c) => [
-      Number(c.dossierId),
-      { total: Number(c.total), commandees: Number(c.commandees), recues: Number(c.recues) },
-    ])
-  );
-
-  const ops: OperateurRetro[] = opsDb.map((o) => ({
-    id: Number(o.id),
-    nom: o.nom,
-    heuresSemaine: Number(o.heuresSemaine) || 0,
-  }));
-
-  const dossiersRetro: DossierRetro[] = dossiersDb.map((d) => ({
-    id: Number(d.id),
-    nom: d.nom,
-    client: d.client ?? "",
-    type: d.type ?? "Autre",
-    statut: d.statut,
-    operateurId: d.operateurId == null ? null : Number(d.operateurId),
-    // Échéance = la première date où le travail doit être prêt.
-    echeance: plusTot(d.dateLivraison, d.debutChantier) ?? (estIso(d.datePlanifiee) ? d.datePlanifiee : null),
-    finChantier: d.finChantier,
-    priseDeCote: d.priseDeCote,
-    heuresReste: Math.max(0, (Number(d.heuresARealiser) || 0) - (passees.get(Number(d.id)) ?? 0)),
-    etapeDevis: !!d.etapeDevis,
-    etapeCmde: !!d.etapeCmde,
-    etapeAtelier: !!d.etapeAtelier,
-    etapeRealise: !!d.etapeRealise,
-    commandes: cdes.get(Number(d.id)) ?? { total: 0, commandees: 0, recues: 0 },
-  }));
-
-  const absences: Absence[] = conges
-    .filter((c) => c.statut === "Validé")
-    .map((c) => ({ operateur: estFermeture(c) ? null : c.operateur, debut: c.dateDebut, fin: c.dateFin }));
+  const { ops, dossiersRetro, absences } = await chargerDonneesRetro();
 
   let enregistrees: Awaited<ReturnType<typeof listerEtapes>> = [];
   let erreurTable = false;
@@ -143,6 +50,21 @@ export default async function PlanningPage({
   const planifies = new Set(etapes.map((e) => e.dossierId));
   const aDater = dossiersRetro.filter((d) => !planifies.has(d.id) && ENGAGES.has(d.statut));
   const dossiersAffiches = dossiersRetro.filter((d) => planifies.has(d.id));
+
+  // Liste « Dossier » du modèle Excel : dossiers en atelier ou devis signé.
+  const statutsModele = [...statutsEnBase("En atelier"), ...statutsEnBase("Devis signé / Validé")];
+  const dossiersModele = dossiersRetro
+    .filter((d) => statutsModele.includes(d.statut))
+    .map((d) => d.nom)
+    .sort((a, b) => a.localeCompare(b, "fr"));
+  // Empreinte des étapes enregistrées : après un import, le Gantt est
+  // remonté avec les nouvelles données (ses propres modifications, elles,
+  // ne rechargent pas la page).
+  let h = 0;
+  for (const e of enregistrees) {
+    for (const c of `${e.id}${e.debut}${e.fin}${e.heures}${e.fait}`) h = (h * 31 + c.charCodeAt(0)) | 0;
+  }
+  const empreinte = `${enregistrees.length}-${h}`;
 
   // Navigation : période précédente / suivante.
   return (
@@ -164,7 +86,7 @@ export default async function PlanningPage({
       )}
 
       <RetroplanningVue
-        key={`${vue}|${ref}`}
+        key={`${vue}|${ref}|${empreinte}`}
         vue={vue}
         refDate={ref}
         today={today}
@@ -174,6 +96,17 @@ export default async function PlanningPage({
         etapesInitiales={etapes}
         nonTenus={Object.fromEntries(nonTenus)}
       />
+
+      {/* Import en masse depuis un fichier Excel / CSV (replié par défaut) */}
+      <details className="mt-6 rounded-xl border">
+        <summary className="cursor-pointer select-none bg-muted/40 px-4 py-2.5 text-sm font-semibold">
+          Importer le rétroplanning
+          <span className="ml-2 font-normal text-muted-foreground">
+            Fichier Excel ou CSV — une ligne par étape
+          </span>
+        </summary>
+        <RetroplanningImport dossiers={dossiersModele} operateurs={ops.map((o) => o.nom)} />
+      </details>
 
       {aDater.length > 0 && (
         <section className="mt-6">
