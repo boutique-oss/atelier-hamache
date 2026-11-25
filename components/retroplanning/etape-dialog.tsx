@@ -107,7 +107,7 @@ export function EtapeDialog({
           onSubmit={(ev) => {
             ev.preventDefault();
             if (e.fin < e.debut) return;
-            onSave({ ...e, libelle: e.libelle.trim() || ETAPES[e.code] });
+            onSave({ ...e, libelle: e.libelle.trim() || ETAPES[e.code], commentaire: (e.commentaire ?? "").trim() });
           }}
         >
           {e.propose && (
@@ -190,6 +190,17 @@ export function EtapeDialog({
               />
             </label>
           </div>
+          <label className="block text-sm">
+            <span className="mb-1 block text-xs text-muted-foreground">Commentaire</span>
+            <textarea
+              className={champ + " min-h-[72px] resize-y"}
+              value={e.commentaire ?? ""}
+              maxLength={2000}
+              rows={3}
+              placeholder="Note pour cette étape (tissu en attente, rendez-vous client…)"
+              onChange={(ev) => maj({ commentaire: ev.target.value })}
+            />
+          </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={e.fait} onChange={(ev) => maj({ fait: ev.target.checked })} className="h-4 w-4" />
             Étape faite

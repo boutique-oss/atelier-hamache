@@ -27,6 +27,7 @@ export function ensureRetroEtapes(): Promise<void> {
         updated_at timestamptz DEFAULT now()
       )`;
       await sql`CREATE INDEX IF NOT EXISTS retro_etapes_dossier_idx ON retro_etapes (dossier_id)`;
+      await sql`ALTER TABLE retro_etapes ADD COLUMN IF NOT EXISTS commentaire text NOT NULL DEFAULT ''`;
     })().catch((e) => {
       pret = null;
       throw e;
@@ -40,6 +41,7 @@ const versEtape = (r: Record<string, unknown>): Etape => ({
   dossierId: Number(r.dossier_id),
   code: (CODES_ETAPE as readonly string[]).includes(String(r.code)) ? (r.code as CodeEtape) : "AU",
   libelle: String(r.libelle ?? ""),
+  commentaire: String(r.commentaire ?? ""),
   operateurId: r.operateur_id == null ? null : Number(r.operateur_id),
   debut: String(r.debut),
   fin: String(r.fin),
@@ -53,7 +55,7 @@ export async function listerEtapes(dossierIds: number[]): Promise<Etape[]> {
   if (dossierIds.length === 0) return [];
   await ensureRetroEtapes();
   const rows = await sql`
-    SELECT id, dossier_id, code, libelle, operateur_id, heures, fait, ordre,
+    SELECT id, dossier_id, code, libelle, commentaire, operateur_id, heures, fait, ordre,
            to_char(date_debut, 'YYYY-MM-DD') AS debut,
            to_char(date_fin, 'YYYY-MM-DD') AS fin
     FROM retro_etapes
@@ -74,6 +76,7 @@ export function etapeValide(e: Partial<Etape>, dossierId: number): Etape | null 
     dossierId,
     code,
     libelle: String(e.libelle ?? "").trim().slice(0, 120),
+    commentaire: String(e.commentaire ?? "").trim().slice(0, 2000),
     operateurId: op != null && Number.isFinite(op) && op > 0 ? op : null,
     debut: e.debut,
     fin: e.fin < e.debut ? e.debut : e.fin,
@@ -91,11 +94,11 @@ export async function remplacerEtapesDossier(dossierId: number, etapes: Etape[])
     sql`DELETE FROM retro_etapes WHERE dossier_id = ${dossierId}`,
     ...etapes.map(
       (e) => sql`INSERT INTO retro_etapes
-        (id, dossier_id, code, libelle, operateur_id, date_debut, date_fin, heures, fait, ordre, updated_at)
-        VALUES (${e.id}, ${dossierId}, ${e.code}, ${e.libelle}, ${e.operateurId},
+        (id, dossier_id, code, libelle, commentaire, operateur_id, date_debut, date_fin, heures, fait, ordre, updated_at)
+        VALUES (${e.id}, ${dossierId}, ${e.code}, ${e.libelle}, ${e.commentaire}, ${e.operateurId},
                 ${e.debut}, ${e.fin}, ${e.heures}, ${e.fait}, ${e.ordre}, now())
         ON CONFLICT (id) DO UPDATE SET
-          dossier_id = EXCLUDED.dossier_id, code = EXCLUDED.code, libelle = EXCLUDED.libelle,
+          dossier_id = EXCLUDED.dossier_id, code = EXCLUDED.code, libelle = EXCLUDED.libelle, commentaire = EXCLUDED.commentaire,
           operateur_id = EXCLUDED.operateur_id, date_debut = EXCLUDED.date_debut,
           date_fin = EXCLUDED.date_fin, heures = EXCLUDED.heures, fait = EXCLUDED.fait,
           ordre = EXCLUDED.ordre, updated_at = now()`

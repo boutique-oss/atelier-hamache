@@ -111,6 +111,7 @@ export default function GanttPanel({
       parent: idDossier(e.dossierId),
       type: "task",
       text: `${e.code} · ${e.libelle}`,
+      commentaire: e.commentaire ?? "",
       start: versDate(e.debut),
       end: versDate(plusJours(e.fin, 1)), // fin exclusive côté Gantt
       code: e.code,
@@ -216,6 +217,7 @@ export default function GanttPanel({
             versIso(actuel.end!) !== plusJours(e.fin, 1) ||
             actuel.heures !== voulu.heures ||
             actuel.fait !== voulu.fait ||
+            actuel.commentaire !== voulu.commentaire ||
             actuel.propose !== voulu.propose ||
             actuel.operateur !== voulu.operateur ||
             actuel.retard !== voulu.retard;
@@ -314,12 +316,13 @@ function BarreEtape({ data }: { data: ITask }) {
     data.propose ? "calcul automatique" : "ajusté",
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(" · ") + (data.commentaire ? `\n💬 ${data.commentaire}` : "");
   return (
     <div className={classes} style={{ background: c.fond, color: c.texte }} title={titre}>
       {data.fait ? "✓ " : ""}
       {data.code}
       {heures}
+      {data.commentaire ? <span aria-label="Commentaire"> 💬</span> : null}
     </div>
   );
 }

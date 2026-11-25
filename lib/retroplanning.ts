@@ -63,6 +63,7 @@ export type Etape = {
   dossierId: number;
   code: CodeEtape;
   libelle: string;
+  commentaire: string; // note libre (widget d'étape)
   operateurId: number | null;
   debut: string; // AAAA-MM-JJ
   fin: string; // AAAA-MM-JJ (inclus)
@@ -252,6 +253,7 @@ export function proposerEtapes(
       dossierId: d.id,
       code,
       libelle: ETAPES[code],
+      commentaire: "",
       operateurId: code === "AT" ? op : null,
       debut,
       fin: fin < debut ? debut : fin,

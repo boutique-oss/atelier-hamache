@@ -60,6 +60,7 @@ export type LigneRetroImport = {
   dossier?: string;
   etape?: string;
   libelle?: string;
+  commentaire?: string;
   debut?: string;
   fin?: string;
   operateur?: string;
@@ -153,6 +154,7 @@ export async function importRetroplanning(lignes: LigneRetroImport[]) {
       const operateurId = opNom ? opParNom.get(opNom) ?? null : undefined;
       const fait = sansAccent(l.fait ?? "");
       const libelle = (l.libelle ?? "").trim();
+      const commentaire = (l.commentaire ?? "").trim();
 
       const existante =
         code === "AU" ? undefined : base.find((e) => e.code === code && !touchees.has(e.id));
@@ -166,6 +168,7 @@ export async function importRetroplanning(lignes: LigneRetroImport[]) {
                 debut,
                 fin,
                 libelle: libelle || e.libelle,
+                commentaire: commentaire || e.commentaire,
                 operateurId: operateurId === undefined ? e.operateurId : operateurId,
                 heures: heures ?? e.heures,
                 fait: fait === "oui" ? true : fait === "non" ? false : e.fait,
@@ -179,6 +182,7 @@ export async function importRetroplanning(lignes: LigneRetroImport[]) {
           dossierId,
           code,
           libelle: libelle || (code === "AU" ? "Autre" : ETAPES[code]),
+          commentaire,
           operateurId: operateurId ?? null,
           debut,
           fin: estIso(l.fin) ? l.fin : debut,

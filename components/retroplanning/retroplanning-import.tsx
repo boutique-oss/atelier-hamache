@@ -24,6 +24,7 @@ export function RetroplanningImport({
     { key: "fin", label: "Fin", alias: ["fin", "datefin", "au", "jusquau", "echeance"], kind: "date" },
     { key: "operateur", label: "Opérateur", alias: ["operateur", "qui", "personne", "tapissier", "responsable"], liste: operateurs, stricte: true },
     { key: "heures", label: "Heures", alias: ["heures", "h", "temps", "duree", "heuresprevues"] },
+    { key: "commentaire", label: "Commentaire", alias: ["commentaire", "commentaires", "remarque", "remarques", "note", "notes"] },
     { key: "fait", label: "Fait", alias: ["fait", "termine", "fini", "realise", "ok"], liste: ["oui", "non"], stricte: true },
     { key: "repartir", label: "Repartir de zéro", alias: ["repartirdezero", "repartir", "effacer", "remplacertout"], kind: "bool" },
   ];
