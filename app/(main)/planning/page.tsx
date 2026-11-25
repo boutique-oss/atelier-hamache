@@ -33,7 +33,7 @@ export default async function PlanningPage({
     searchParams.vue === "jour" || searchParams.vue === "semaine" ? searchParams.vue : "mois";
   const ref = estIso(searchParams.date) ? searchParams.date : today;
 
-  const { ops, dossiersRetro, absences } = await chargerDonneesRetro();
+  const { ops, dossiersRetro, absences, retires } = await chargerDonneesRetro();
 
   let enregistrees: Awaited<ReturnType<typeof listerEtapes>> = [];
   let erreurTable = false;
@@ -91,6 +91,7 @@ export default async function PlanningPage({
         refDate={ref}
         today={today}
         ops={ops}
+        retires={retires}
         absences={absences}
         dossiers={dossiersAffiches}
         etapesInitiales={etapes}

@@ -108,3 +108,38 @@ export async function effacerEtapesDossier(dossierId: number): Promise<void> {
   await ensureRetroEtapes();
   await sql`DELETE FROM retro_etapes WHERE dossier_id = ${dossierId}`;
 }
+
+// ── Opérateurs retirés du rétroplanning ──────────────────────────────────
+// Un opérateur listé ici reste actif ailleurs (heures, pointage) mais n'a ni
+// ligne de charge ni affectation proposée sur le Gantt.
+let pretExclus: Promise<void> | null = null;
+function ensureOperateursExclus(): Promise<void> {
+  if (!pretExclus) {
+    pretExclus = (async () => {
+      await sql`CREATE TABLE IF NOT EXISTS retro_operateurs_exclus (
+        operateur_id bigint PRIMARY KEY,
+        created_at timestamptz DEFAULT now()
+      )`;
+    })().catch((e) => {
+      pretExclus = null;
+      throw e;
+    });
+  }
+  return pretExclus;
+}
+
+export async function listerOperateursExclus(): Promise<Set<number>> {
+  await ensureOperateursExclus();
+  const rows = await sql`SELECT operateur_id FROM retro_operateurs_exclus`;
+  return new Set(rows.map((r) => Number(r.operateur_id)));
+}
+
+export async function setOperateurExclu(operateurId: number, exclu: boolean): Promise<void> {
+  await ensureOperateursExclus();
+  if (exclu) {
+    await sql`INSERT INTO retro_operateurs_exclus (operateur_id) VALUES (${operateurId})
+      ON CONFLICT DO NOTHING`;
+  } else {
+    await sql`DELETE FROM retro_operateurs_exclus WHERE operateur_id = ${operateurId}`;
+  }
+}

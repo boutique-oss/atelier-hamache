@@ -36,6 +36,8 @@ type Props = {
   refDate: string;
   today: string;
   ops: OperateurRetro[];
+  // Opérateurs actifs retirés du rétroplanning.
+  retires: OperateurRetro[];
   absences: Absence[];
   dossiers: DossierRetro[];
   etapesInitiales: Etape[];
@@ -47,7 +49,7 @@ const nouvelId = () =>
     ? crypto.randomUUID()
     : `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
-export function RetroplanningVue({ vue, refDate, today, ops, absences, dossiers, etapesInitiales, nonTenus }: Props) {
+export function RetroplanningVue({ vue, refDate, today, ops, retires, absences, dossiers, etapesInitiales, nonTenus }: Props) {
   const router = useRouter();
   const [etapes, setEtapes] = useState<Etape[]>(etapesInitiales);
   const etapesRef = useRef(etapes);
@@ -192,7 +194,7 @@ export function RetroplanningVue({ vue, refDate, today, ops, absences, dossiers,
 
   return (
     <div className="space-y-4">
-      <ChargeOperateurs etapes={etapes} ops={ops} cal={cal} vue={vue} refDate={refDate} />
+      <ChargeOperateurs etapes={etapes} ops={ops} retires={retires} cal={cal} vue={vue} refDate={refDate} />
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
         <button

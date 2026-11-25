@@ -3,7 +3,10 @@
 // Charge atelier par opérateur : heures planifiées / capacité, sur la période
 // affichée (jour, semaine ou mois) et cumulées depuis le 1er du mois.
 // Recalculée en direct à chaque déplacement d'étape sur le Gantt.
-import { useMemo } from "react";
+import { useMemo, useTransition } from "react";
+import { UserMinus, UserPlus } from "lucide-react";
+
+import { basculerOperateurRetro } from "@/app/(main)/planning/actions";
 
 import {
   syntheseCharge,
@@ -41,12 +44,14 @@ function Jauge({ heures, capacite }: { heures: number; capacite: number }) {
 export function ChargeOperateurs({
   etapes,
   ops,
+  retires,
   cal,
   vue,
   refDate,
 }: {
   etapes: Etape[];
   ops: OperateurRetro[];
+  retires: OperateurRetro[];
   cal: Calendrier;
   vue: Vue;
   refDate: string;
@@ -57,7 +62,31 @@ export function ChargeOperateurs({
     () => etapes.filter((e) => e.operateurId == null && e.heures > 0 && !e.fait).reduce((s, e) => s + e.heures, 0),
     [etapes]
   );
-  if (ops.length === 0) return null;
+  const [enCours, startTransition] = useTransition();
+  const basculer = (id: number, exclu: boolean) =>
+    startTransition(async () => {
+      await basculerOperateurRetro(id, exclu);
+    });
+  const blocRetires = retires.length > 0 && (
+    <div className="flex flex-wrap items-center gap-2 border-t px-3 py-2 text-xs text-muted-foreground first:border-t-0">
+      <span>Hors rétroplanning :</span>
+      {retires.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          disabled={enCours}
+          onClick={() => basculer(o.id, false)}
+          className="inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-foreground hover:bg-muted disabled:opacity-50"
+          title={`Remettre ${o.nom} dans le rétroplanning`}
+        >
+          <UserPlus size={12} />
+          {o.nom}
+        </button>
+      ))}
+    </div>
+  );
+  if (ops.length === 0)
+    return retires.length > 0 ? <section className="rounded-md border bg-card">{blocRetires}</section> : null;
   // Vue jour : la colonne du jour ferait doublon avec « Jour ».
   const colonnes = vue === "jour" ? [] : lignes[0]?.colonnes ?? [];
   const nomMois = new Date(`${refDate.slice(0, 7)}-15T12:00:00Z`).toLocaleDateString("fr-FR", { month: "long" });
@@ -85,7 +114,19 @@ export function ChargeOperateurs({
             return (
               <tr key={l.op.id} className="border-b last:border-0">
                 <td className="px-3 py-2 font-medium">
-                  {l.op.nom}
+                  <span className="flex items-center gap-1.5">
+                    {l.op.nom}
+                    <button
+                      type="button"
+                      disabled={enCours}
+                      onClick={() => basculer(l.op.id, true)}
+                      className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                      title={`Retirer ${l.op.nom} du rétroplanning`}
+                      aria-label={`Retirer ${l.op.nom} du rétroplanning`}
+                    >
+                      <UserMinus size={13} />
+                    </button>
+                  </span>
                   <div className="text-xs font-normal text-muted-foreground">{h(l.op.heuresSemaine)}/sem.</div>
                 </td>
                 {(vue === "jour" ? [] : l.colonnes).map((c) => (
@@ -114,6 +155,7 @@ export function ChargeOperateurs({
           })}
         </tbody>
       </table>
+      {blocRetires}
       {sansOperateur > 0 && (
         <p className="border-t px-3 py-2 text-xs text-muted-foreground">
           {h(sansOperateur)} d&apos;atelier restent sans opérateur affecté (non comptées ci-dessus) : double-cliquez

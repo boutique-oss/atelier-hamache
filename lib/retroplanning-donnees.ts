@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { commandes, dossiers, heures, operateurs } from "@/db/schema";
 import { estFermeture } from "@/lib/conges-const";
 import { chargerConges } from "@/lib/pointage";
+import { listerOperateursExclus } from "@/lib/retroplanning-db";
 import { estIso, type Absence, type DossierRetro, type OperateurRetro } from "@/lib/retroplanning";
 
 // Statuts sortis du rétroplanning (terminés ou abandonnés).
@@ -18,8 +19,10 @@ export async function chargerDonneesRetro(): Promise<{
   ops: OperateurRetro[];
   dossiersRetro: DossierRetro[];
   absences: Absence[];
+  // Opérateurs actifs retirés du rétroplanning (pour pouvoir les remettre).
+  retires: OperateurRetro[];
 }> {
-  const [opsDb, dossiersDb, heuresDb, commandesDb, conges] = await Promise.all([
+  const [opsTous, dossiersDb, heuresDb, commandesDb, conges, exclus] = await Promise.all([
     db
       .select({ id: operateurs.id, nom: operateurs.nom, heuresSemaine: operateurs.heuresSemaine })
       .from(operateurs)
@@ -65,7 +68,12 @@ export async function chargerDonneesRetro(): Promise<{
       .from(commandes)
       .groupBy(commandes.dossierId),
     chargerConges(),
+    listerOperateursExclus().catch((e) => {
+      console.error("listerOperateursExclus", e);
+      return new Set<number>();
+    }),
   ]);
+  const opsDb = opsTous.filter((o) => !exclus.has(Number(o.id)));
 
   const passees = new Map(heuresDb.map((h) => [Number(h.dossierId), Number(h.total) || 0]));
   const cdes = new Map(
@@ -87,7 +95,8 @@ export async function chargerDonneesRetro(): Promise<{
     client: d.client ?? "",
     type: d.type ?? "Autre",
     statut: d.statut,
-    operateurId: d.operateurId == null ? null : Number(d.operateurId),
+    // Opérateur retiré du rétroplanning : confection proposée sans opérateur.
+    operateurId: d.operateurId == null || exclus.has(Number(d.operateurId)) ? null : Number(d.operateurId),
     // Échéance = la première date où le travail doit être prêt.
     echeance: plusTot(d.dateLivraison, d.debutChantier) ?? (estIso(d.datePlanifiee) ? d.datePlanifiee : null),
     finChantier: d.finChantier,
@@ -104,5 +113,9 @@ export async function chargerDonneesRetro(): Promise<{
     .filter((c) => c.statut === "Validé")
     .map((c) => ({ operateur: estFermeture(c) ? null : c.operateur, debut: c.dateDebut, fin: c.dateFin }));
 
-  return { ops, dossiersRetro, absences };
+  const retires: OperateurRetro[] = opsTous
+    .filter((o) => exclus.has(Number(o.id)))
+    .map((o) => ({ id: Number(o.id), nom: o.nom, heuresSemaine: Number(o.heuresSemaine) || 0 }));
+
+  return { ops, dossiersRetro, absences, retires };
 }

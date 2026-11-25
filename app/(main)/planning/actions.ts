@@ -10,6 +10,7 @@ import {
   etapeValide,
   listerEtapes,
   remplacerEtapesDossier,
+  setOperateurExclu,
 } from "@/lib/retroplanning-db";
 import { chargerDonneesRetro } from "@/lib/retroplanning-donnees";
 import { parseNum } from "@/lib/utils";
@@ -203,4 +204,21 @@ export async function importRetroplanning(lignes: LigneRetroImport[]) {
   }
   revalidatePath("/planning");
   return { ok: nbDossiers > 0, etapes: nbEtapes, dossiers: nbDossiers, introuvables, ignores, erreurs };
+}
+
+// Retire un opérateur du rétroplanning (exclu = true) ou l'y remet.
+export async function basculerOperateurRetro(
+  operateurId: number,
+  exclu: boolean
+): Promise<{ ok: boolean }> {
+  const id = Number(operateurId);
+  if (!Number.isInteger(id) || id <= 0) return { ok: false };
+  try {
+    await setOperateurExclu(id, !!exclu);
+  } catch (e) {
+    console.error("basculerOperateurRetro", e);
+    return { ok: false };
+  }
+  revalidatePath("/planning");
+  return { ok: true };
 }
